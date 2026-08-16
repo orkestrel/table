@@ -21,20 +21,24 @@ import type {
 	ChoiceColumn,
 	FlagColumn,
 	NumberColumn,
+	TableKey,
 	TableSchema,
 	TextColumn,
 } from '@src/core'
 import {
+	admitsFilter,
 	auditTable,
 	cloneRow,
 	cloneSchema,
 	compareCells,
+	computeKeys,
 	createTable,
 	extractColumn,
 	extractKey,
 	filterRows,
 	isColumnCell,
 	isColumnChoice,
+	isStructuralTableSchema,
 	isTableCell,
 	isTableColumn,
 	isTableRow,
@@ -685,6 +689,36 @@ describe('table.md fences', () => {
 			{ rows: [{ id: '1' }] },
 		)
 		expect(table.count).toBe(1)
+	})
+
+	it('admits a filter only when the operator and operand fit the column', () => {
+		const age: NumberColumn = { cell: 'number', key: 'age', label: 'Age' }
+
+		expect(
+			admitsFilter(age, { column: 'age', operator: 'between', minimum: 30, maximum: 40 }),
+		).toBe(true)
+		expect(admitsFilter(age, { column: 'age', operator: 'contains', text: '3' })).toBe(false)
+		expect(admitsFilter(age, { column: 'age', operator: 'equals', value: '36' })).toBe(false)
+		expect(admitsFilter(age, { column: 'name', operator: 'equals', value: 36 })).toBe(false)
+	})
+
+	it('computes one atomic membership change over a key set', () => {
+		const known: readonly TableKey[] = ['1', '2', '3']
+		const picked: ReadonlySet<TableKey> = new Set(['1'])
+
+		expect(computeKeys(known, picked, '2', () => true)?.size).toBe(2)
+		expect(computeKeys(known, picked, '9', () => true)).toBeUndefined()
+		expect(computeKeys(known, picked, '1', () => true) === picked).toBe(true)
+		expect(computeKeys(known, picked, undefined, (included) => !included)?.size).toBe(2)
+	})
+
+	it('draws the shape and audit boundary between the schema guards', () => {
+		const unsound = { key: 'missing', columns: [{ cell: 'text', key: 'id' }] }
+
+		expect(isStructuralTableSchema(unsound)).toBe(true)
+		expect(isTableSchema(unsound)).toBe(false)
+		expect(parseTable(unsound)).toBeUndefined()
+		expect(isStructuralTableSchema({ columns: [] })).toBe(false)
 	})
 })
 
