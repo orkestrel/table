@@ -14,7 +14,7 @@ import {
 	symbolKey,
 } from '@orkestrel/guide'
 import { readFileSync } from 'node:fs'
-import { requireValue } from '@orkestrel/test'
+import { requireValue, resolveRoot } from '@orkestrel/test'
 import { readInventory } from '@orkestrel/test/server'
 import type {
 	BetweenFilter,
@@ -68,7 +68,7 @@ const INTERNAL: readonly string[] = Object.freeze([])
 /** Root-level files this package's guides link to. */
 const ROOT_FILES = Object.freeze(['AGENTS.md', 'README.md'])
 
-const root = new URL('../', import.meta.url)
+const root = resolveRoot(import.meta)
 const files: Record<string, string> = {
 	...readInventory(root, ['src', 'guides', 'tests'], { extensions: ['.ts', '.md'] }),
 }

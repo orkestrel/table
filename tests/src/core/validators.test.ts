@@ -19,6 +19,7 @@ import {
 	createTableRows,
 	createTableSchema,
 } from '../../setup.js'
+import { createHostileValues } from '@orkestrel/test'
 import { describe, expect, it } from 'vitest'
 
 describe('table structural guards', () => {
@@ -134,49 +135,29 @@ describe('table structural guards', () => {
 		}
 	})
 
-	it('never throws for cyclic input against any guard', () => {
-		const cyclic: Record<string, unknown> = {}
-		cyclic.self = cyclic
-		const guards = [
-			isTableCell,
-			isTableRow,
-			isColumnCell,
-			isColumnChoice,
-			isTableColumn,
-			isTableSchema,
-		]
+	it('refuses every hostile corpus member through each strict guard without throwing', () => {
+		const strictGuards = [isTableCell, isColumnCell, isColumnChoice, isTableColumn, isTableSchema]
 
-		for (const guard of guards) {
-			expect(() => guard(cyclic)).not.toThrow()
-			expect(guard(cyclic)).toBe(false)
+		for (const [index, value] of createHostileValues().entries()) {
+			for (const guard of strictGuards) {
+				let accepted: boolean | undefined
+				expect(() => {
+					accepted = guard(value)
+				}, `strict guard against hostile value ${index}`).not.toThrow()
+				expect(accepted, `strict guard against hostile value ${index}`).toBe(false)
+			}
 		}
 	})
 
-	it('never throws for hostile and revoked proxies against any guard', () => {
-		const hostile = new Proxy(
-			{},
-			{
-				getPrototypeOf: () => {
-					throw new Error('hostile prototype')
-				},
-			},
-		)
-		const revoked = Proxy.revocable({}, {})
-		revoked.revoke()
-		const guards = [
-			isTableCell,
-			isTableRow,
-			isColumnCell,
-			isColumnChoice,
-			isTableColumn,
-			isTableSchema,
-		]
+	it('answers every hostile corpus member by the row guard contract without throwing', () => {
+		const expectations = [false, false, true, false, false, true]
 
-		for (const guard of guards) {
-			expect(() => guard(hostile)).not.toThrow()
-			expect(guard(hostile)).toBe(false)
-			expect(() => guard(revoked.proxy)).not.toThrow()
-			expect(guard(revoked.proxy)).toBe(false)
+		for (const [index, value] of createHostileValues().entries()) {
+			let rowAccepted: boolean | undefined
+			expect(() => {
+				rowAccepted = isTableRow(value)
+			}, `row guard against hostile value ${index}`).not.toThrow()
+			expect(rowAccepted, `row guard against hostile value ${index}`).toBe(expectations[index])
 		}
 	})
 

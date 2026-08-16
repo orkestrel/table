@@ -14,6 +14,7 @@ import {
 	createTableSchema,
 	createTextBudgetSchema,
 } from '../../setup.js'
+import { createHostileValues } from '@orkestrel/test'
 import { describe, expect, it } from 'vitest'
 
 describe('parseTable', () => {
@@ -73,16 +74,6 @@ describe('parseTable', () => {
 	})
 
 	it('never throws for cyclic, hostile, or accessor-bearing wire data', () => {
-		const cyclic: Record<string, unknown> = { key: 'id', columns: [] }
-		cyclic.columns = [cyclic]
-		const hostile = new Proxy(
-			{},
-			{
-				ownKeys: () => {
-					throw new Error('hostile keys')
-				},
-			},
-		)
 		const accessor = {
 			key: 'id',
 			columns: [
@@ -98,10 +89,12 @@ describe('parseTable', () => {
 			],
 		}
 
-		for (const input of [cyclic, hostile, accessor]) {
-			expect(() => parseTable(input)).not.toThrow()
-			expect(parseTable(input)).toBeUndefined()
+		for (const [index, value] of createHostileValues().entries()) {
+			expect(() => parseTable(value), `hostile value ${index}`).not.toThrow()
+			expect(parseTable(value), `hostile value ${index}`).toBeUndefined()
 		}
+		expect(() => parseTable(accessor)).not.toThrow()
+		expect(parseTable(accessor)).toBeUndefined()
 	})
 
 	it('accepts exact retained budgets and refuses their one-step breaches', () => {
