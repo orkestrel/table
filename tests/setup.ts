@@ -1,6 +1,14 @@
 import type { JSONValue } from '@orkestrel/contract'
-import type { TableColumn, TableRow, TableSchema } from '@src/core'
-import { STRING_LIMIT, TEXT_LIMIT } from '@src/core'
+import type {
+	TableColumn,
+	TableErrorCode,
+	TableInterface,
+	TableOptions,
+	TableRow,
+	TableSchema,
+} from '@src/core'
+import { attempt } from '@orkestrel/contract'
+import { createTable, isTableError, STRING_LIMIT, TEXT_LIMIT } from '@src/core'
 
 /** Build a fresh schema spanning every column cell. */
 export function createTableSchema(): TableSchema {
@@ -35,6 +43,43 @@ export function createTableRows(): readonly TableRow[] {
 		{ id: '2', name: 'Grace', age: 45, active: false, status: 'draft' },
 		{ id: '3', name: 'Alan', age: 41, active: true, status: 'live' },
 		{ id: '4', name: 'Lin', active: false, status: 'archived' },
+	]
+}
+
+/** Open a table over the shared schema and row population. */
+export function createTableFixture(options?: TableOptions): TableInterface {
+	const rows = options?.rows ?? createTableRows()
+	return createTable(createTableSchema(), options === undefined ? { rows } : { ...options, rows })
+}
+
+/** Read the table-domain error code raised by one operation. */
+export function readTableError(operation: () => unknown): TableErrorCode | undefined {
+	const outcome = attempt(operation)
+	return outcome.success || !isTableError(outcome.error) ? undefined : outcome.error.code
+}
+
+/** Exercise every public table write after teardown. */
+export function readDestroyedWrites(
+	table: TableInterface,
+): ReadonlyArray<TableErrorCode | undefined> {
+	return [
+		readTableError(() => table.rows.add({ id: 'late' })),
+		readTableError(() => table.rows.update({ id: '1', name: 'late' })),
+		readTableError(() => table.rows.move('1', 0)),
+		readTableError(() => table.rows.remove('1')),
+		readTableError(() => table.sort.set({ column: 'name', direction: 'ascending' })),
+		readTableError(() => table.sort.remove('name')),
+		readTableError(() => table.filter.set({ column: 'name', operator: 'contains', text: 'a' })),
+		readTableError(() => table.filter.remove('name')),
+		readTableError(() => table.selection.select('1')),
+		readTableError(() => table.selection.clear('1')),
+		readTableError(() => table.selection.toggle('1')),
+		readTableError(() => table.expansion.expand('1')),
+		readTableError(() => table.expansion.clear('1')),
+		readTableError(() => table.expansion.toggle('1')),
+		readTableError(() => table.pagination.move(1)),
+		readTableError(() => table.pagination.resize(2)),
+		readTableError(() => table.clear()),
 	]
 }
 

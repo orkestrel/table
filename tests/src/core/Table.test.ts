@@ -1,0 +1,202 @@
+import type { TableEventMap, TableSchema } from '@src/core'
+import {
+	ExpansionManager,
+	FilterManager,
+	PaginationManager,
+	RowManager,
+	SelectionManager,
+	SortManager,
+	Table,
+} from '@src/core'
+import { createRecorder } from '@orkestrel/test'
+import { describe, expect, it } from 'vitest'
+import {
+	createTableFixture,
+	createTableRows,
+	createTableSchema,
+	readDestroyedWrites,
+	readTableError,
+} from '../../setup.js'
+
+describe('Table construction and derived state', () => {
+	it('exposes exactly the seven interface member sets', () => {
+		expect(Object.getOwnPropertyNames(Table.prototype).sort()).toStrictEqual(
+			[
+				'clear',
+				'constructor',
+				'count',
+				'destroy',
+				'destroyed',
+				'emitter',
+				'expansion',
+				'filter',
+				'pagination',
+				'rows',
+				'schema',
+				'selection',
+				'sort',
+				'view',
+			].sort(),
+		)
+		expect(Object.getOwnPropertyNames(RowManager.prototype).sort()).toStrictEqual(
+			['add', 'constructor', 'move', 'remove', 'row', 'rows', 'update'].sort(),
+		)
+		expect(Object.getOwnPropertyNames(SortManager.prototype).sort()).toStrictEqual(
+			['constructor', 'order', 'orders', 'remove', 'set'].sort(),
+		)
+		expect(Object.getOwnPropertyNames(FilterManager.prototype).sort()).toStrictEqual(
+			['constructor', 'filter', 'filters', 'remove', 'set'].sort(),
+		)
+		expect(Object.getOwnPropertyNames(SelectionManager.prototype).sort()).toStrictEqual(
+			['clear', 'constructor', 'keys', 'select', 'toggle'].sort(),
+		)
+		expect(Object.getOwnPropertyNames(ExpansionManager.prototype).sort()).toStrictEqual(
+			['clear', 'constructor', 'expand', 'keys', 'toggle'].sort(),
+		)
+		expect(Object.getOwnPropertyNames(PaginationManager.prototype).sort()).toStrictEqual(
+			['constructor', 'count', 'limit', 'move', 'offset', 'page', 'resize'].sort(),
+		)
+	})
+
+	it('owns the schema and seeded rows while opening without events', () => {
+		const schema = createTableSchema()
+		const rows = [...createTableRows()]
+		const writes = createRecorder<TableEventMap['write']>()
+		const table = new Table(schema, { rows, on: { write: writes.handler } })
+
+		rows[0] = { id: 'changed' }
+		const first = table.rows.row('1')
+		const changed = first === undefined ? false : Reflect.set(first, 'name', 'Changed')
+
+		expect(table.schema).not.toBe(schema)
+		expect(Object.isFrozen(table.schema)).toBe(true)
+		expect(changed).toBe(false)
+		expect(table.rows.row('1')?.name).toBe('Ada')
+		expect(writes.count).toBe(0)
+	})
+
+	it('derives view as filter then sort then page and count before paging', () => {
+		const table = createTableFixture({ rows: createTableRows(), limit: 2 })
+
+		table.filter.set({ column: 'active', operator: 'equals', value: true })
+		table.sort.set({ column: 'age', direction: 'descending' })
+
+		expect(table.count).toBe(2)
+		expect(table.view.map((row) => row.id)).toStrictEqual(['3', '1'])
+		expect(table.pagination.count).toBe(1)
+	})
+
+	it('hands out a fresh frozen row snapshot on every view read', () => {
+		const table = createTableFixture({ limit: 2 })
+		const first = table.view
+		const second = table.view
+
+		expect(first).not.toBe(second)
+		expect(first[0]).not.toBe(second[0])
+		expect(Object.isFrozen(first)).toBe(true)
+		expect(first.every((row) => Object.isFrozen(row))).toBe(true)
+	})
+})
+
+describe('Table events and lifecycle', () => {
+	it('announces removed rows before selection, expansion, and pagination pruning', () => {
+		const table = createTableFixture({
+			rows: [{ id: '1' }, { id: '2' }, { id: '3' }, { id: '4' }, { id: '5' }],
+			limit: 2,
+		})
+		const events: string[] = []
+		table.selection.select(['4', '5'])
+		table.expansion.expand(['4', '5'])
+		table.pagination.move(3)
+		table.emitter.on('remove', (key) =>
+			events.push(`remove:${key}:${table.rows.row(key) === undefined}`),
+		)
+		table.emitter.on('select', (keys) =>
+			events.push(`select:${keys.size}:${table.selection.keys.size}`),
+		)
+		table.emitter.on('expand', (keys) =>
+			events.push(`expand:${keys.size}:${table.expansion.keys.size}`),
+		)
+		table.emitter.on('paginate', (page) => events.push(`paginate:${page}:${table.pagination.page}`))
+
+		table.rows.remove(['4', '5'])
+
+		expect(events).toStrictEqual([
+			'remove:4:true',
+			'remove:5:true',
+			'select:0:0',
+			'expand:0:0',
+			'paginate:2:2',
+		])
+	})
+
+	it('clears every moving axis with one announcement', () => {
+		const table = createTableFixture({ limit: 2 })
+		const events: string[] = []
+		table.sort.set({ column: 'name', direction: 'ascending' })
+		table.filter.set({ column: 'name', operator: 'contains', text: 'a' })
+		table.selection.select('1')
+		table.expansion.expand('1')
+		table.pagination.resize(1)
+		table.emitter.on('remove', () => events.push('remove'))
+		table.emitter.on('sort', () => events.push('sort'))
+		table.emitter.on('filter', () => events.push('filter'))
+		table.emitter.on('select', () => events.push('select'))
+		table.emitter.on('expand', () => events.push('expand'))
+		table.emitter.on('paginate', () => events.push('paginate'))
+		table.emitter.on('clear', () => events.push('clear'))
+
+		table.clear()
+
+		expect(table.rows.rows()).toStrictEqual([])
+		expect(table.sort.orders()).toStrictEqual([])
+		expect(table.filter.filters()).toStrictEqual([])
+		expect(table.selection.keys.size).toBe(0)
+		expect(table.expansion.keys.size).toBe(0)
+		expect(table.pagination.page).toBe(1)
+		expect(table.pagination.limit).toBe(2)
+		expect(events).toStrictEqual(['clear'])
+	})
+
+	it('destroys idempotently, keeps getters readable, and refuses every write', () => {
+		const table = createTableFixture({ limit: 2 })
+		const before = table.view
+
+		table.destroy()
+		table.destroy()
+
+		expect(table.destroyed).toBe(true)
+		expect(table.view).toStrictEqual(before)
+		expect(table.emitter.destroyed).toBe(true)
+		expect(readDestroyedWrites(table)).toStrictEqual(Array.from({ length: 17 }, () => 'DESTROYED'))
+	})
+
+	it('isolates a throwing listener and reports it without stopping siblings', () => {
+		const failures: Array<readonly [unknown, string]> = []
+		const heard: string[] = []
+		const table = createTableFixture({
+			error: (error, event) => failures.push([error, event]),
+			on: {
+				write: () => {
+					throw new Error('listener exploded')
+				},
+			},
+		})
+		table.emitter.on('write', (key) => heard.push(key))
+
+		table.rows.add({ id: '5', name: 'Katherine', age: 37, active: true, status: 'draft' })
+
+		expect(failures.map((entry) => entry[1])).toStrictEqual(['write'])
+		expect(heard).toStrictEqual(['5'])
+		expect(table.rows.row('5')?.name).toBe('Katherine')
+	})
+
+	it('refuses malformed and unsound schemas with SCHEMA', () => {
+		const malformed: TableSchema = {
+			key: 'missing',
+			columns: [{ cell: 'text', key: 'id' }],
+		}
+
+		expect(readTableError(() => new Table(malformed))).toBe('SCHEMA')
+	})
+})
