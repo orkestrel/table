@@ -337,6 +337,37 @@ a pixel width, an icon name.
 column changes nothing about the data. A hidden column is still sorted, still filtered, and still
 serialized; whether it is drawn is the host's read of that flag.
 
+### Reading a column
+
+Two reads turn a column key into a decision, and both are exported because a host asking the same
+question before it writes needs the same answer. `extractColumn` finds the column a key names, and
+`matchesCell` is the gate every write, every seed, and every filter operand passes through.
+
+```ts
+import { extractColumn, matchesCell } from '@orkestrel/table'
+import type { TableSchema } from '@orkestrel/table'
+
+const schema: TableSchema = {
+	key: 'id',
+	columns: [
+		{ cell: 'text', key: 'id' },
+		{ cell: 'number', key: 'age' },
+	],
+}
+
+extractColumn(schema, 'age')?.cell // 'number'
+extractColumn(schema, 'colour') // undefined — the schema declares no such column
+
+matchesCell({ cell: 'number', key: 'age' }, 36) // true
+matchesCell({ cell: 'number', key: 'age' }, '36') // false — a numeric string is not a number
+matchesCell({ cell: 'number', key: 'age' }, Number.NaN) // false — a cell must be finite
+matchesCell({ cell: 'choice', key: 'status', choices: [{ value: 'live', label: 'Live' }] }, 'draft')
+// false — the list does not offer it
+```
+
+`extractColumn` returning `undefined` is how every `COLUMN` refusal starts: a term or a filter
+naming a column the schema does not declare has nothing to be measured against.
+
 ### Overriding a column
 
 `TableOptions.comparators` and `TableOptions.matchers` are keyed by column key, and each entry
@@ -440,6 +471,30 @@ Four rules follow from it, and each one is a refusal rather than a repair:
 - **Selection and expansion hold keys.** Never rows, never positions. A pick survives a sort, a
   filter, and a page turn, and a row that leaves the table takes its key out of both sets with it.
 
+`update` is where that second rule is felt. It merges, so a call carries only the cells it means to
+change, and the row it writes is the one carrying the key it names — never a rename.
+
+```ts
+import { createTable } from '@orkestrel/table'
+
+const table = createTable(
+	{
+		key: 'id',
+		columns: [
+			{ cell: 'text', key: 'id' },
+			{ cell: 'text', key: 'name' },
+			{ cell: 'number', key: 'age' },
+		],
+	},
+	{ rows: [{ id: '1', name: 'Ada', age: 36 }] },
+)
+
+table.rows.update({ id: '1', age: 37 }) // true
+table.rows.row('1') // { id: '1', name: 'Ada', age: 37 } — `name` was left out and stayed
+table.rows.update({ id: '9', name: 'Nobody' }) // false — no row carries that key
+table.rows.rows().length // 1 — a different key is a different row, so nothing was added
+```
+
 `extractKey` is the read those rules are built on, and it is exported because a host doing the same
 check before it calls needs the same answer.
 
@@ -503,7 +558,27 @@ reads the column's term, decides, and then calls `set` or `remove`. Setting a te
 already sorted replaces that column's direction **in place**, keeping its position in the list; every
 other term joins the end.
 
-`sortRows` is the same pass without a table, for a caller that has rows and terms and no entity.
+`sortRows` is the same pass without a table, for a caller that has rows and terms and no entity. It
+sorts a copy, so the list handed to it never moves.
+
+```ts
+import { sortRows } from '@orkestrel/table'
+import type { TableSchema } from '@orkestrel/table'
+
+const schema: TableSchema = {
+	key: 'id',
+	columns: [
+		{ cell: 'text', key: 'id' },
+		{ cell: 'number', key: 'age' },
+	],
+}
+const rows = [{ id: '1', age: 40 }, { id: '2' }, { id: '3', age: 30 }]
+
+sortRows(schema, rows, [{ column: 'age', direction: 'ascending' }]).map((row) => row.id)
+// ['2', '3', '1'] — an absent cell sorts before every present one
+sortRows(schema, rows, []).map((row) => row.id) // ['1', '2', '3'] — no term, no movement
+rows.map((row) => row.id) // ['1', '2', '3'] — the input is untouched
+```
 
 ### Filtering
 
@@ -550,7 +625,32 @@ try {
 }
 ```
 
-`filterRows` is the same pass without a table.
+`filterRows` is the same pass without a table, and it keeps the order it was given.
+
+```ts
+import { filterRows } from '@orkestrel/table'
+import type { TableSchema } from '@orkestrel/table'
+
+const schema: TableSchema = {
+	key: 'id',
+	columns: [
+		{ cell: 'text', key: 'id' },
+		{ cell: 'text', key: 'name' },
+	],
+}
+const rows = [
+	{ id: '1', name: 'Ada' },
+	{ id: '2', name: 'Grace' },
+	{ id: '3', name: 'Bob' },
+]
+
+const lower = filterRows(schema, rows, [{ column: 'name', operator: 'contains', text: 'a' }])
+const upper = filterRows(schema, rows, [{ column: 'name', operator: 'contains', text: 'A' }])
+
+lower.map((row) => row.name) // ['Ada', 'Grace']
+upper.map((row) => row.name) // ['Ada'] — `contains` is case-sensitive
+filterRows(schema, rows, []).length // 3 — no filter refuses nothing
+```
 
 ### Pagination
 
@@ -622,6 +722,25 @@ table.selection.keys.has('1') // false — a row that leaves takes its key with 
 
 What an opened row shows beside it is the host's to draw. Expansion says which rows are open and
 stops there.
+
+```ts
+import { createTable } from '@orkestrel/table'
+
+const table = createTable(
+	{ key: 'id', columns: [{ cell: 'text', key: 'id' }] },
+	{ rows: [{ id: '1' }, { id: '2' }, { id: '3' }] },
+)
+
+table.expansion.expand() // no argument — every row the table holds
+table.expansion.keys.size // 3
+
+table.expansion.clear('2')
+table.expansion.expand(['2', '9']) // false — '9' names no row, so neither one opened
+table.expansion.keys.has('2') // false
+
+table.expansion.toggle('2')
+table.expansion.keys.size // 3
+```
 
 ## Lifecycle and state
 
@@ -1190,9 +1309,9 @@ this package answers today through a mechanism it already exposes.
 
 ## Tests
 
-- [`tests/src/core/guides.test.ts`](../tests/src/core/guides.test.ts) — the `## Surface` ↔ barrel
-  bijection, the seven interface ↔ class method bijections, and the flagship fences above executed
-  against the real source so a documented value that the code contradicts fails.
+- [`tests/guides.test.ts`](../tests/guides.test.ts) — the `## Surface` ↔ barrel bijection, the seven
+  interface ↔ class method bijections, and the flagship fences above executed against the real
+  source so a documented value that the code contradicts fails.
 - [`tests/src/core/Table.test.ts`](../tests/src/core/Table.test.ts) — construction, seeding, the
   derived `view` and `count`, emission order, `clear`, `destroy`, and writes after teardown.
 - [`tests/src/core/tables/RowManager.test.ts`](../tests/src/core/tables/RowManager.test.ts) —
