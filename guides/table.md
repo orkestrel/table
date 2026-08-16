@@ -1036,9 +1036,9 @@ use `parseTable` and read `undefined`.
 import { auditTable } from '@orkestrel/table'
 
 auditTable({ key: 'ref', columns: [{ cell: 'text', key: 'id' }] })
-// ['Schema key "ref" names no declared column']
+// ['schema key "ref" names no declared column']
 auditTable({ key: 'age', columns: [{ cell: 'number', key: 'age' }] })
-// ['Schema key "age" names a number column, which holds no identity']
+// ['schema key "age" names a number column, which holds no identity']
 auditTable({
 	key: 'id',
 	columns: [

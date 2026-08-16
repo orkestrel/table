@@ -16,6 +16,41 @@ import {
 import { readFileSync } from 'node:fs'
 import { requireValue } from '@orkestrel/test'
 import { readInventory } from '@orkestrel/test/server'
+import type {
+	BetweenFilter,
+	CellComparator,
+	CellMatcher,
+	ChoiceColumn,
+	FlagColumn,
+	NumberColumn,
+	TableSchema,
+	TextColumn,
+} from '@src/core'
+import {
+	auditTable,
+	cloneRow,
+	cloneSchema,
+	compareCells,
+	createTable,
+	extractColumn,
+	extractKey,
+	filterRows,
+	isColumnCell,
+	isColumnChoice,
+	isTableCell,
+	isTableColumn,
+	isTableRow,
+	isTableSchema,
+	matchesCell,
+	matchesFilter,
+	parseRows,
+	parseTable,
+	serializeRows,
+	serializeTable,
+	sortRows,
+	Table,
+} from '@src/core'
+import { readTableError } from './setup.js'
 
 /** Every fence language this package's guides may use. */
 const FENCE_LANGUAGES = Object.freeze(['ts'])
@@ -180,3 +215,537 @@ for (const entry of manifest) {
 		})
 	})
 }
+
+// Each test below transcribes one runnable fence and asserts every value its comments claim.
+describe('table.md fences', () => {
+	it('opens the Surface example', () => {
+		const table = createTable(
+			{
+				label: 'People',
+				key: 'id',
+				columns: [
+					{ cell: 'text', key: 'id', label: 'Reference' },
+					{ cell: 'text', key: 'name', label: 'Name' },
+					{ cell: 'number', key: 'age', label: 'Age' },
+				],
+			},
+			{
+				rows: [
+					{ id: '1', name: 'Ada', age: 36 },
+					{ id: '2', name: 'Grace', age: 45 },
+					{ id: '3', name: 'Alan', age: 41 },
+				],
+				limit: 2,
+			},
+		)
+
+		table.filter.set({ column: 'name', operator: 'contains', text: 'a' })
+		table.sort.set({ column: 'age', direction: 'descending' })
+
+		expect(table.count).toBe(3)
+		expect(table.pagination.count).toBe(2)
+		expect(table.view.map((row) => row.name)).toStrictEqual(['Grace', 'Alan'])
+	})
+
+	it('declares a text column', () => {
+		const name: TextColumn = { cell: 'text', key: 'name', label: 'Name' }
+		expect(name).toStrictEqual({ cell: 'text', key: 'name', label: 'Name' })
+	})
+
+	it('declares a number column', () => {
+		const age: NumberColumn = { cell: 'number', key: 'age', label: 'Age' }
+		expect(age).toStrictEqual({ cell: 'number', key: 'age', label: 'Age' })
+	})
+
+	it('declares a flag column', () => {
+		const active: FlagColumn = { cell: 'flag', key: 'active', label: 'Active' }
+		expect(active).toStrictEqual({ cell: 'flag', key: 'active', label: 'Active' })
+	})
+
+	it('declares an ordered choice column', () => {
+		const status: ChoiceColumn = {
+			cell: 'choice',
+			key: 'status',
+			label: 'Status',
+			choices: [
+				{ value: 'draft', label: 'Draft' },
+				{ value: 'live', label: 'Live' },
+				{ value: 'archived', label: 'Archived', help: 'Kept, not shown' },
+			],
+		}
+		expect(status.choices.map((choice) => choice.value)).toStrictEqual([
+			'draft',
+			'live',
+			'archived',
+		])
+	})
+
+	it('compares choice, text, and flag cells', () => {
+		const status: ChoiceColumn = {
+			cell: 'choice',
+			key: 'status',
+			choices: [
+				{ value: 'draft', label: 'Draft' },
+				{ value: 'live', label: 'Live' },
+			],
+		}
+
+		expect(compareCells(status, 'draft', 'live')).toBeLessThan(0)
+		expect(compareCells({ cell: 'text', key: 'name' }, 'draft', 'live')).toBeLessThan(0)
+		expect(compareCells({ cell: 'flag', key: 'ok' }, false, true)).toBeLessThan(0)
+	})
+
+	it('matches an ISO text range lexically', () => {
+		const when: TextColumn = { cell: 'text', key: 'when', label: 'Signed up' }
+		const range: BetweenFilter = {
+			column: 'when',
+			operator: 'between',
+			minimum: '2026-01-01',
+			maximum: '2026-06-30',
+		}
+
+		expect(matchesFilter(when, '2026-03-14', range)).toBe(true)
+		expect(matchesFilter(when, '2025-12-31', range)).toBe(false)
+	})
+
+	it('reads a column and gates its cells', () => {
+		const schema: TableSchema = {
+			key: 'id',
+			columns: [
+				{ cell: 'text', key: 'id' },
+				{ cell: 'number', key: 'age' },
+			],
+		}
+
+		expect(extractColumn(schema, 'age')?.cell).toBe('number')
+		expect(extractColumn(schema, 'colour')).toBeUndefined()
+		expect(matchesCell({ cell: 'number', key: 'age' }, 36)).toBe(true)
+		expect(matchesCell({ cell: 'number', key: 'age' }, '36')).toBe(false)
+		expect(matchesCell({ cell: 'number', key: 'age' }, Number.NaN)).toBe(false)
+		expect(
+			matchesCell(
+				{
+					cell: 'choice',
+					key: 'status',
+					choices: [{ value: 'live', label: 'Live' }],
+				},
+				'draft',
+			),
+		).toBe(false)
+	})
+
+	it('overrides one column matcher', () => {
+		const natural: CellComparator = (left, right) =>
+			String(left ?? '').localeCompare(String(right ?? ''), undefined, { numeric: true })
+		const loose: CellMatcher = (cell, filter) =>
+			filter.operator === 'contains' &&
+			String(cell ?? '')
+				.toLowerCase()
+				.includes(filter.text.toLowerCase())
+		const table = createTable(
+			{
+				key: 'id',
+				columns: [
+					{ cell: 'text', key: 'id' },
+					{ cell: 'text', key: 'name' },
+				],
+			},
+			{
+				rows: [{ id: '1', name: 'ada' }],
+				comparators: { name: natural },
+				matchers: { name: loose },
+			},
+		)
+
+		table.filter.set({ column: 'name', operator: 'contains', text: 'ADA' })
+		expect(table.count).toBe(1)
+	})
+
+	it('refuses duplicate and absent identities atomically', () => {
+		const table = createTable({
+			key: 'id',
+			columns: [
+				{ cell: 'text', key: 'id' },
+				{ cell: 'text', key: 'name' },
+			],
+		})
+		table.rows.add({ id: '7', name: 'Ada' })
+
+		expect(readTableError(() => table.rows.add({ id: '7', name: 'Grace' }))).toBe('KEY')
+		expect(readTableError(() => table.rows.add({ name: 'Alan' }))).toBe('KEY')
+		expect(table.rows.rows().length).toBe(1)
+	})
+
+	it('merges an update without moving identity', () => {
+		const table = createTable(
+			{
+				key: 'id',
+				columns: [
+					{ cell: 'text', key: 'id' },
+					{ cell: 'text', key: 'name' },
+					{ cell: 'number', key: 'age' },
+				],
+			},
+			{ rows: [{ id: '1', name: 'Ada', age: 36 }] },
+		)
+
+		expect(table.rows.update({ id: '1', age: 37 })).toBe(true)
+		expect(table.rows.row('1')).toStrictEqual({ id: '1', name: 'Ada', age: 37 })
+		expect(table.rows.update({ id: '9', name: 'Nobody' })).toBe(false)
+		expect(table.rows.rows().length).toBe(1)
+	})
+
+	it('extracts only usable identities', () => {
+		const schema: TableSchema = { key: 'id', columns: [{ cell: 'text', key: 'id' }] }
+		expect(extractKey(schema, { id: '7' })).toBe('7')
+		expect(extractKey(schema, { id: '' })).toBeUndefined()
+		expect(extractKey(schema, { name: 'Ada' })).toBeUndefined()
+	})
+
+	it('sorts by ordered terms', () => {
+		const table = createTable(
+			{
+				key: 'id',
+				columns: [
+					{ cell: 'text', key: 'id' },
+					{ cell: 'text', key: 'team' },
+					{ cell: 'number', key: 'age' },
+				],
+			},
+			{
+				rows: [
+					{ id: '1', team: 'blue', age: 40 },
+					{ id: '2', team: 'red', age: 30 },
+					{ id: '3', team: 'blue', age: 30 },
+				],
+			},
+		)
+
+		table.sort.set([
+			{ column: 'team', direction: 'ascending' },
+			{ column: 'age', direction: 'descending' },
+		])
+		expect(table.view.map((row) => row.id)).toStrictEqual(['1', '3', '2'])
+		expect(table.sort.order('age')).toStrictEqual({
+			column: 'age',
+			direction: 'descending',
+		})
+	})
+
+	it('sorts rows without moving the input', () => {
+		const schema: TableSchema = {
+			key: 'id',
+			columns: [
+				{ cell: 'text', key: 'id' },
+				{ cell: 'number', key: 'age' },
+			],
+		}
+		const rows = [{ id: '1', age: 40 }, { id: '2' }, { id: '3', age: 30 }]
+
+		expect(
+			sortRows(schema, rows, [{ column: 'age', direction: 'ascending' }]).map(
+				(row) => row.id,
+			),
+		).toStrictEqual(['2', '3', '1'])
+		expect(sortRows(schema, rows, []).map((row) => row.id)).toStrictEqual(['1', '2', '3'])
+		expect(rows.map((row) => row.id)).toStrictEqual(['1', '2', '3'])
+	})
+
+	it('filters with and-only composition', () => {
+		const table = createTable(
+			{
+				key: 'id',
+				columns: [
+					{ cell: 'text', key: 'id' },
+					{ cell: 'text', key: 'name' },
+					{ cell: 'number', key: 'age' },
+				],
+			},
+			{
+				rows: [
+					{ id: '1', name: 'Ada', age: 36 },
+					{ id: '2', name: 'Grace', age: 45 },
+				],
+			},
+		)
+
+		table.filter.set([
+			{ column: 'name', operator: 'contains', text: 'a' },
+			{ column: 'age', operator: 'between', minimum: 40, maximum: 50 },
+		])
+		expect(table.count).toBe(1)
+		expect(table.view.map((row) => row.name)).toStrictEqual(['Grace'])
+		expect(
+			readTableError(() =>
+				table.filter.set({ column: 'age', operator: 'contains', text: '4' }),
+			),
+		).toBe('CELL')
+	})
+
+	it('filters rows case-sensitively in input order', () => {
+		const schema: TableSchema = {
+			key: 'id',
+			columns: [
+				{ cell: 'text', key: 'id' },
+				{ cell: 'text', key: 'name' },
+			],
+		}
+		const rows = [
+			{ id: '1', name: 'Ada' },
+			{ id: '2', name: 'Grace' },
+			{ id: '3', name: 'Bob' },
+		]
+		const lower = filterRows(schema, rows, [
+			{ column: 'name', operator: 'contains', text: 'a' },
+		])
+		const upper = filterRows(schema, rows, [
+			{ column: 'name', operator: 'contains', text: 'A' },
+		])
+
+		expect(lower.map((row) => row.name)).toStrictEqual(['Ada', 'Grace'])
+		expect(upper.map((row) => row.name)).toStrictEqual(['Ada'])
+		expect(filterRows(schema, rows, []).length).toBe(3)
+	})
+
+	it('clamps and removes pagination', () => {
+		const table = createTable(
+			{ key: 'id', columns: [{ cell: 'text', key: 'id' }] },
+			{ rows: [{ id: '1' }, { id: '2' }, { id: '3' }, { id: '4' }, { id: '5' }], limit: 2 },
+		)
+
+		expect(table.pagination.count).toBe(3)
+		table.pagination.move(9)
+		expect(table.pagination.page).toBe(3)
+		expect(table.pagination.offset).toBe(4)
+		expect(table.view.map((row) => row.id)).toStrictEqual(['5'])
+		table.pagination.resize()
+		expect(table.pagination.limit).toBeUndefined()
+		expect(table.view.length).toBe(5)
+	})
+
+	it('selects visible keys and prunes removed rows', () => {
+		const table = createTable(
+			{ key: 'id', columns: [{ cell: 'text', key: 'id' }] },
+			{ rows: [{ id: '1' }, { id: '2' }, { id: '3' }] },
+		)
+
+		table.selection.select(table.view.map((row) => String(row.id)))
+		expect(table.selection.keys.size).toBe(3)
+		table.selection.toggle('2')
+		expect(table.selection.keys.has('2')).toBe(false)
+		table.rows.remove('1')
+		expect(table.selection.keys.has('1')).toBe(false)
+	})
+
+	it('expands every row and refuses an invalid batch atomically', () => {
+		const table = createTable(
+			{ key: 'id', columns: [{ cell: 'text', key: 'id' }] },
+			{ rows: [{ id: '1' }, { id: '2' }, { id: '3' }] },
+		)
+
+		table.expansion.expand()
+		expect(table.expansion.keys.size).toBe(3)
+		table.expansion.clear('2')
+		expect(table.expansion.expand(['2', '9'])).toBe(false)
+		expect(table.expansion.keys.has('2')).toBe(false)
+		table.expansion.toggle('2')
+		expect(table.expansion.keys.size).toBe(3)
+	})
+
+	it('clears for reuse and destroys idempotently', () => {
+		const table = createTable(
+			{ key: 'id', columns: [{ cell: 'text', key: 'id' }] },
+			{ rows: [{ id: '1' }, { id: '2' }] },
+		)
+
+		table.clear()
+		expect(table.count).toBe(0)
+		table.rows.add({ id: '3' })
+		table.destroy()
+		table.destroy()
+		expect(table.destroyed).toBe(true)
+		expect(table.count).toBe(1)
+		expect(readTableError(() => table.rows.add({ id: '4' }))).toBe('DESTROYED')
+	})
+
+	it('announces only committed moves', () => {
+		const seen: string[] = []
+		const table = createTable(
+			{
+				key: 'id',
+				columns: [
+					{ cell: 'text', key: 'id' },
+					{ cell: 'number', key: 'age' },
+				],
+			},
+			{
+				rows: [{ id: '1', age: 36 }],
+				on: {
+					write: (key) => seen.push(`write ${key}`),
+					sort: (orders) => seen.push(`sort ${orders.length}`),
+				},
+			},
+		)
+		table.emitter.on('clear', () => seen.push('clear'))
+
+		table.rows.add({ id: '2', age: 45 })
+		table.sort.set({ column: 'age', direction: 'ascending' })
+		table.sort.set({ column: 'age', direction: 'ascending' })
+		table.clear()
+
+		expect(seen).toStrictEqual(['write 2', 'sort 1', 'clear'])
+	})
+
+	it('round-trips a schema through JSON exactly', () => {
+		const schema: TableSchema = {
+			name: 'people',
+			label: 'People',
+			key: 'id',
+			columns: [
+				{ cell: 'text', key: 'id', label: 'Reference' },
+				{ cell: 'number', key: 'age', label: 'Age', meta: { align: 'right' } },
+			],
+		}
+		const wire = JSON.stringify(serializeTable(schema))
+		const received = parseTable(JSON.parse(wire))
+
+		expect(JSON.stringify(serializeTable(received ?? schema))).toBe(wire)
+		expect(parseTable({ key: 'id', columns: 'not a list' })).toBeUndefined()
+		expect(parseTable({ columns: [{ cell: 'text', key: 'id' }] })).toBeUndefined()
+	})
+
+	it('coerces and serializes rows at the wire boundary', () => {
+		const schema: TableSchema = {
+			key: 'id',
+			columns: [
+				{ cell: 'text', key: 'id' },
+				{ cell: 'number', key: 'age' },
+				{ cell: 'flag', key: 'active' },
+			],
+		}
+
+		expect(parseRows(schema, [{ id: '1', age: '36', active: 'true' }])).toStrictEqual([
+			{ id: '1', age: 36, active: true },
+		])
+		expect(parseRows(schema, [{ id: '1', age: 'old' }])).toBeUndefined()
+		expect(parseRows(schema, [{ id: '1' }, { id: '1' }])).toBeUndefined()
+		expect(parseRows(schema, [{ id: '1', colour: 'red' }])).toBeUndefined()
+		expect(serializeRows(schema, [{ age: 36, id: '1' }])).toEqual([{ id: '1', age: 36 }])
+	})
+
+	it('answers every guard example', () => {
+		expect(isColumnCell('choice')).toBe(true)
+		expect(isColumnCell('date')).toBe(false)
+		expect(isTableCell(36)).toBe(true)
+		expect(isTableCell(null)).toBe(false)
+		expect(isTableRow({ id: '1', age: 36 })).toBe(true)
+		expect(isTableRow({ id: ['1'] })).toBe(false)
+		expect(isColumnChoice({ value: 'a', label: 'A' })).toBe(true)
+		expect(isColumnChoice({ value: 'a', label: 'A', colour: 'red' })).toBe(false)
+		expect(isTableColumn({ cell: 'choice', key: 'status', choices: [] })).toBe(true)
+		expect(isTableSchema({ key: 'id', columns: [{ cell: 'text', key: 'id' }] })).toBe(true)
+		expect(isTableSchema({ columns: [] })).toBe(false)
+	})
+
+	it('owns every clone the guide shows', () => {
+		const row = { id: '1', age: 36 }
+		const owned = cloneRow(row)
+
+		expect(owned === row).toBe(false)
+		expect(Object.isFrozen(owned)).toBe(true)
+		expect(
+			Object.isFrozen(cloneSchema({ key: 'id', columns: [{ cell: 'text', key: 'id' }] })),
+		).toBe(true)
+	})
+
+	it('reports the audit diagnostics the guide quotes', () => {
+		expect(auditTable({ key: 'ref', columns: [{ cell: 'text', key: 'id' }] })).toStrictEqual([
+			'Schema key "ref" names no declared column',
+		])
+		expect(auditTable({ key: 'age', columns: [{ cell: 'number', key: 'age' }] })).toStrictEqual([
+			'Schema key "age" names a number column, which holds no identity',
+		])
+		expect(
+			auditTable({
+				key: 'id',
+				columns: [
+					{ cell: 'text', key: 'id' },
+					{ cell: 'text', key: 'id' },
+				],
+			}),
+		).toStrictEqual(['Column "id" is declared more than once'])
+		expect(auditTable({ key: 'id', columns: [{ cell: 'text', key: 'id' }] })).toStrictEqual([])
+	})
+
+	it('codes each refusal named by the errors table', () => {
+		expect(
+			readTableError(() =>
+				createTable({ key: 'missing', columns: [{ cell: 'text', key: 'id' }] }),
+			),
+		).toBe('SCHEMA')
+		const table = createTable({
+			key: 'id',
+			columns: [
+				{ cell: 'text', key: 'id' },
+				{ cell: 'number', key: 'age' },
+			],
+		})
+
+		expect(
+			readTableError(() => table.sort.set({ column: 'nope', direction: 'ascending' })),
+		).toBe('COLUMN')
+		expect(readTableError(() => table.rows.add({ id: '1', age: 'twelve' }))).toBe('CELL')
+		expect(table.rows.rows().length).toBe(0)
+	})
+
+	it('constructs the class like the factory', () => {
+		const table = new Table(
+			{ key: 'id', columns: [{ cell: 'text', key: 'id' }] },
+			{ rows: [{ id: '1' }] },
+		)
+		expect(table.count).toBe(1)
+	})
+})
+
+describe('README.md Usage fence', () => {
+	it('executes its three value claims', () => {
+		const picked: number[] = []
+		const table = createTable(
+			{
+				label: 'People',
+				key: 'id',
+				columns: [
+					{ cell: 'text', key: 'id', label: 'Reference' },
+					{ cell: 'text', key: 'name', label: 'Name' },
+					{ cell: 'number', key: 'age', label: 'Age' },
+					{
+						cell: 'choice',
+						key: 'status',
+						label: 'Status',
+						choices: [
+							{ value: 'draft', label: 'Draft' },
+							{ value: 'live', label: 'Live' },
+						],
+					},
+				],
+			},
+			{
+				rows: [
+					{ id: '1', name: 'Ada', age: 36, status: 'live' },
+					{ id: '2', name: 'Grace', age: 45, status: 'draft' },
+					{ id: '3', name: 'Alan', age: 41, status: 'live' },
+				],
+				limit: 2,
+				on: { select: (keys) => picked.push(keys.size) },
+			},
+		)
+
+		table.filter.set({ column: 'status', operator: 'equals', value: 'live' })
+		table.sort.set({ column: 'age', direction: 'descending' })
+		expect(table.count).toBe(2)
+		expect(table.view.map((row) => row.name)).toStrictEqual(['Alan', 'Ada'])
+		table.selection.toggle('1')
+		expect(table.selection.keys.has('1')).toBe(true)
+		expect(picked).toStrictEqual([1])
+	})
+})
