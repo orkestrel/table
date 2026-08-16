@@ -1,0 +1,90 @@
+import type { UserConfig } from 'vite'
+import { defineConfig, mergeConfig } from 'vitest/config'
+import tsconfig from './tsconfig.json' with { type: 'json' }
+import { fileURLToPath, URL } from 'node:url'
+
+export function resolveWorkspacePath(relativePath: string): string {
+	return fileURLToPath(new URL(relativePath, import.meta.url))
+}
+
+const resolve = {
+	alias: Object.entries(tsconfig.compilerOptions.paths).reduce((aliases, [key, values]) => {
+		const [path] = values
+		if (path === undefined) throw new Error('tsconfig path alias ' + key + ' has no target')
+		return Object.assign(aliases, { [key]: resolveWorkspacePath(path) })
+	}, {}),
+}
+
+export const srcCore = (options?: UserConfig): UserConfig =>
+	mergeConfig(
+		{
+			resolve,
+			publicDir: false,
+			build: {
+				emptyOutDir: true,
+				sourcemap: true,
+				minify: false,
+			},
+			test: {
+				name: { label: 'src:core', color: 'magenta' },
+				include: ['tests/src/core/**/*.test.ts'],
+				setupFiles: ['./tests/setup.ts'],
+				environment: 'node',
+				browser: { enabled: false },
+			},
+		},
+		options ?? {},
+	)
+
+export const policy = (options?: UserConfig): UserConfig =>
+	mergeConfig(
+		{
+			resolve,
+			test: {
+				name: { label: 'policy', color: 'white' },
+				include: ['tests/policy.test.ts'],
+				setupFiles: ['./tests/setup.ts'],
+				environment: 'node',
+				browser: { enabled: false },
+			},
+		},
+		options ?? {},
+	)
+
+export const config = (options?: UserConfig): UserConfig =>
+	mergeConfig(
+		{
+			resolve,
+			test: {
+				name: { label: 'config', color: 'yellow' },
+				include: ['tests/config.test.ts'],
+				setupFiles: ['./tests/setup.ts'],
+				environment: 'node',
+				browser: { enabled: false },
+			},
+		},
+		options ?? {},
+	)
+
+// A workbench, not a proof. No gate selects this project.
+export const probe = (options?: UserConfig): UserConfig =>
+	mergeConfig(
+		{
+			resolve,
+			test: {
+				name: { label: 'probe', color: 'gray' },
+				include: ['tmp/probe/**/*.test.ts'],
+				setupFiles: ['./tests/setup.ts'],
+				environment: 'node',
+				browser: { enabled: false },
+			},
+		},
+		options ?? {},
+	)
+
+export default defineConfig({
+	resolve,
+	test: {
+		projects: [srcCore, policy, config, probe],
+	},
+})
