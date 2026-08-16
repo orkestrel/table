@@ -1127,8 +1127,9 @@ that delivers it, which is the only layer holding the bytes.
 
 ### Auditing a schema
 
-`auditTable` is the semantic pass that structural validation cannot do. It reports seven schema
-faults and every budget breach above:
+`auditTable` is the semantic pass beyond structural validation. It reports seven domain faults
+and every budget breach above — six the shape alone cannot see, and one, an unownable `meta`,
+that the structural guard also refuses so the three doors stay in agreement:
 
 - `key` names no declared column.
 - `key` names a `number` or `flag` column, whose cells can never hold a string identity.
@@ -1255,7 +1256,7 @@ value with `isTableError` and branch on `code`; never match on message text.
 
 | Code        | Raised when                                                                                                                                                                                                                                                |
 | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `SCHEMA`    | The schema is not a table schema, or `auditTable` found a domain fault or a budget breach — `createTable` and the `Table` constructor raise those. `serializeTable` and `cloneSchema` raise it for a third reason: a column's `meta` that cannot be owned. |
+| `SCHEMA`    | The schema is not a table schema, or `auditTable` found a domain fault or a budget breach — `createTable` and the `Table` constructor raise those. `serializeTable` and `cloneSchema` raise it at their own door for a `meta` no clone can own, which the guard and the audit refuse first. |
 | `COLUMN`    | A term or a filter names a column the schema does not declare.                                                                                                                                                                                             |
 | `KEY`       | A row's identity is missing, unusable, already taken, or repeated inside one batch.                                                                                                                                                                        |
 | `CELL`      | A cell is one its column cannot hold, or a filter's operator or operand is one its column cannot take.                                                                                                                                                     |
