@@ -3,12 +3,17 @@ import {
 	ExpansionManager,
 	FilterManager,
 	PaginationManager,
+	createTable,
+	parseRows,
+	parseTable,
 	RowManager,
 	SelectionManager,
+	serializeRows,
+	serializeTable,
 	SortManager,
 	Table,
 } from '@src/core'
-import { createRecorder } from '@orkestrel/test'
+import { createRecorder, requireValue } from '@orkestrel/test'
 import { describe, expect, it } from 'vitest'
 import {
 	createTableFixture,
@@ -99,6 +104,70 @@ describe('Table construction and derived state', () => {
 })
 
 describe('Table events and lifecycle', () => {
+	it('drives the assembled table workflow through every manager and wire boundary', () => {
+		const schemaWire = JSON.stringify(serializeTable(createTableSchema()))
+		const schema = requireValue(parseTable(JSON.parse(schemaWire)))
+		const table = createTable(schema, { limit: 2 })
+		const events: string[] = []
+		table.emitter.on('write', (key) => events.push(`write:${key}`))
+		table.emitter.on('remove', (key) => events.push(`remove:${key}`))
+		table.emitter.on('sort', (orders) => events.push(`sort:${orders.length}`))
+		table.emitter.on('filter', (filters) => events.push(`filter:${filters.length}`))
+		table.emitter.on('select', (keys) => events.push(`select:${keys.size}`))
+		table.emitter.on('expand', (keys) => events.push(`expand:${keys.size}`))
+		table.emitter.on('paginate', (page) => events.push(`paginate:${page}`))
+		table.emitter.on('clear', () => events.push('clear'))
+
+		table.rows.add([
+			...createTableRows(),
+			{ id: '5', name: 'Bea', age: 31, active: true, status: 'draft' },
+			{ id: '6', name: 'Zoe', age: 28, active: true, status: 'live' },
+		])
+		table.sort.set({ column: 'age', direction: 'descending' })
+		table.filter.set({ column: 'active', operator: 'equals', value: true })
+		table.pagination.move(2)
+		expect(table.view.map((row) => row.id)).toStrictEqual(['5', '6'])
+
+		table.selection.select(['5', '6'])
+		table.expansion.expand(['5', '6'])
+		expect(table.rows.update({ id: '5', age: 32 })).toBe(true)
+		expect(table.rows.move('6', 0)).toBe(true)
+		expect(table.sort.remove('age')).toBe(true)
+		table.sort.set({ column: 'age', direction: 'descending' })
+		expect(table.filter.remove('active')).toBe(true)
+		table.filter.set({ column: 'active', operator: 'equals', value: true })
+
+		expect(table.selection.toggle('5')).toBe(true)
+		expect(table.selection.toggle('5')).toBe(true)
+		expect(table.selection.clear('5')).toBe(true)
+		expect(table.selection.select('5')).toBe(true)
+		expect(table.expansion.toggle('5')).toBe(true)
+		expect(table.expansion.toggle('5')).toBe(true)
+		expect(table.expansion.clear('5')).toBe(true)
+		expect(table.expansion.expand('5')).toBe(true)
+		table.pagination.resize(1)
+		table.pagination.resize(2)
+		table.pagination.move(2)
+
+		events.length = 0
+		expect(table.rows.remove(['6', '5'])).toBe(true)
+		expect(events).toStrictEqual(['remove:6', 'remove:5', 'select:0', 'expand:0', 'paginate:1'])
+
+		const rowWire = JSON.stringify(serializeRows(schema, table.view))
+		const received = requireValue(parseRows(schema, JSON.parse(rowWire)))
+		expect(JSON.stringify(serializeRows(schema, received))).toBe(rowWire)
+
+		events.length = 0
+		table.clear()
+		expect(events).toStrictEqual(['clear'])
+		expect(table.rows.rows()).toStrictEqual([])
+
+		table.destroy()
+		table.destroy()
+		expect(table.destroyed).toBe(true)
+		expect(readDestroyedWrites(table)).toStrictEqual(Array.from({ length: 17 }, () => 'DESTROYED'))
+	})
+
 	it('announces removed rows before selection, expansion, and pagination pruning', () => {
 		const table = createTableFixture({
 			rows: [{ id: '1' }, { id: '2' }, { id: '3' }, { id: '4' }, { id: '5' }],

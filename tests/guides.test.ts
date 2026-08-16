@@ -443,9 +443,7 @@ describe('table.md fences', () => {
 		const rows = [{ id: '1', age: 40 }, { id: '2' }, { id: '3', age: 30 }]
 
 		expect(
-			sortRows(schema, rows, [{ column: 'age', direction: 'ascending' }]).map(
-				(row) => row.id,
-			),
+			sortRows(schema, rows, [{ column: 'age', direction: 'ascending' }]).map((row) => row.id),
 		).toStrictEqual(['2', '3', '1'])
 		expect(sortRows(schema, rows, []).map((row) => row.id)).toStrictEqual(['1', '2', '3'])
 		expect(rows.map((row) => row.id)).toStrictEqual(['1', '2', '3'])
@@ -476,9 +474,7 @@ describe('table.md fences', () => {
 		expect(table.count).toBe(1)
 		expect(table.view.map((row) => row.name)).toStrictEqual(['Grace'])
 		expect(
-			readTableError(() =>
-				table.filter.set({ column: 'age', operator: 'contains', text: '4' }),
-			),
+			readTableError(() => table.filter.set({ column: 'age', operator: 'contains', text: '4' })),
 		).toBe('CELL')
 	})
 
@@ -495,12 +491,8 @@ describe('table.md fences', () => {
 			{ id: '2', name: 'Grace' },
 			{ id: '3', name: 'Bob' },
 		]
-		const lower = filterRows(schema, rows, [
-			{ column: 'name', operator: 'contains', text: 'a' },
-		])
-		const upper = filterRows(schema, rows, [
-			{ column: 'name', operator: 'contains', text: 'A' },
-		])
+		const lower = filterRows(schema, rows, [{ column: 'name', operator: 'contains', text: 'a' }])
+		const upper = filterRows(schema, rows, [{ column: 'name', operator: 'contains', text: 'A' }])
 
 		expect(lower.map((row) => row.name)).toStrictEqual(['Ada', 'Grace'])
 		expect(upper.map((row) => row.name)).toStrictEqual(['Ada'])
@@ -660,10 +652,10 @@ describe('table.md fences', () => {
 
 	it('reports the audit diagnostics the guide quotes', () => {
 		expect(auditTable({ key: 'ref', columns: [{ cell: 'text', key: 'id' }] })).toStrictEqual([
-			'Schema key "ref" names no declared column',
+			'schema key "ref" names no declared column',
 		])
 		expect(auditTable({ key: 'age', columns: [{ cell: 'number', key: 'age' }] })).toStrictEqual([
-			'Schema key "age" names a number column, which holds no identity',
+			'schema key "age" names a number column, which holds no identity',
 		])
 		expect(
 			auditTable({
@@ -673,15 +665,13 @@ describe('table.md fences', () => {
 					{ cell: 'text', key: 'id' },
 				],
 			}),
-		).toStrictEqual(['Column "id" is declared more than once'])
+		).toStrictEqual(['column "id" is declared more than once'])
 		expect(auditTable({ key: 'id', columns: [{ cell: 'text', key: 'id' }] })).toStrictEqual([])
 	})
 
 	it('codes each refusal named by the errors table', () => {
 		expect(
-			readTableError(() =>
-				createTable({ key: 'missing', columns: [{ cell: 'text', key: 'id' }] }),
-			),
+			readTableError(() => createTable({ key: 'missing', columns: [{ cell: 'text', key: 'id' }] })),
 		).toBe('SCHEMA')
 		const table = createTable({
 			key: 'id',
@@ -691,9 +681,9 @@ describe('table.md fences', () => {
 			],
 		})
 
-		expect(
-			readTableError(() => table.sort.set({ column: 'nope', direction: 'ascending' })),
-		).toBe('COLUMN')
+		expect(readTableError(() => table.sort.set({ column: 'nope', direction: 'ascending' }))).toBe(
+			'COLUMN',
+		)
 		expect(readTableError(() => table.rows.add({ id: '1', age: 'twelve' }))).toBe('CELL')
 		expect(table.rows.rows().length).toBe(0)
 	})
