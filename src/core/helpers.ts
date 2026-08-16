@@ -368,6 +368,12 @@ export function auditTable(schema: TableSchema): readonly string[] {
 	for (let index = 0; index < columnCount; index += 1) {
 		const column = schema.columns[index]
 		if (column === undefined) continue
+		if (!nodeExceeded && column.meta !== undefined) {
+			const owned = attempt(() => cloneJSONRecord(column.meta))
+			if (!owned.success) {
+				faults.push(`column "${column.key}" has metadata that cannot be owned`)
+			}
+		}
 		if (column.key.length === 0) faults.push('column "" has an empty key')
 		if (columns.has(column.key)) {
 			faults.push(`column "${column.key}" is declared more than once`)

@@ -66,7 +66,14 @@ describe('table structural guards', () => {
 	})
 
 	it('accepts only semantically sound schemas that their parser accepts', () => {
+		const inexact = Object.assign([1, 2], { extra: 'x' })
+		const unownable = {
+			key: 'id',
+			columns: [{ cell: 'text', key: 'id', meta: { list: inexact } }],
+		}
+
 		expect(isTableColumn({ cell: 'choice', key: 'status', choices: [] })).toBe(true)
+		expect(isTableColumn(unownable.columns[0])).toBe(false)
 		expect(
 			isStructuralTableSchema({ key: 'missing', columns: [{ cell: 'text', key: 'id' }] }),
 		).toBe(true)
@@ -89,10 +96,12 @@ describe('table structural guards', () => {
 				],
 			}),
 		).toBe(false)
+		expect(isTableSchema(unownable)).toBe(false)
 		expect(isTableSchema({ columns: [{ cell: 'text', key: 'id' }] })).toBe(false)
 	})
 
 	it('keeps schema guard, parser, and audit evaluation in exact agreement', () => {
+		const inexact = Object.assign([1, 2], { extra: 'x' })
 		const schemas: readonly TableSchema[] = [
 			createTableSchema(),
 			{ key: 'missing', columns: [{ cell: 'text', key: 'id' }] },
@@ -112,6 +121,10 @@ describe('table structural guards', () => {
 			},
 			createColumnBudgetSchema(COLUMN_LIMIT + 1),
 			createChoiceBudgetSchema(CHOICE_LIMIT + 1),
+			{
+				key: 'id',
+				columns: [{ cell: 'text', key: 'id', meta: { list: inexact } }],
+			},
 		]
 
 		for (const schema of schemas) {

@@ -14,7 +14,7 @@
 > second copy of an answer can go stale. A write validates all of itself before any of it lands, and
 > announces itself once it has.
 >
-> The core is host-independent. Every guard returns `false` off-shape rather than throwing, every
+> The core refuses rather than throws. Every guard returns `false` off-shape rather than throwing, every
 > parser returns `undefined` on refusal, and every row the table hands back is a frozen owned copy.
 > Table-owned refusals raise `TableError`, and each one names a caller mistake.
 
@@ -185,7 +185,7 @@ The pure leaves the table composes: the column lookup, the identity read, the ke
 cell gate, the comparison, the two filter tests, the two row passes, the audit, and the wire
 projections. `computeKeys`, `filterRows`, and `sortRows` propagate exceptions from supplied
 callbacks; `serializeTable` raises `SCHEMA` for a `meta` no clone can own. The other helpers are
-total over their declared inputs.
+total over ordinary declared inputs, subject to the core's hostile-reflection boundary below.
 
 | API              | Kind     | Summary                                                                                                                    |
 | ---------------- | -------- | -------------------------------------------------------------------------------------------------------------------------- |
@@ -213,13 +213,13 @@ row the table hands back is a live internal reference.
 | `cloneRow`    | function | Own one row as a frozen copy of its cells.                                                                                     |
 | `cloneSchema` | function | Own a whole schema, freezing every nested column, choice list, choice, and `meta`; raises `SCHEMA` for a `meta` it cannot own. |
 
-`cloneRow` cannot fail for an ordinary row record, because a cell is a primitive. A proxy can make
-reflection fail, and `cloneRow` propagates that failure. `cloneSchema` can also fail when a column's
-`meta` holds something no clone can own, such as a record that refers back to itself. `meta` is typed
-as JSON and a cycle satisfies that type, so the refusal is a `TableError` coded `SCHEMA` rather than
-a silent partial copy. `createTable` never reaches it, because `isTableColumn` admits only a bounded
-JSON record there and refuses such a schema first. This is the door a caller cloning or serializing
-a schema on its own meets, and `serializeTable` refuses the same value the same way.
+`cloneRow` cannot fail for an ordinary row record, subject to the core's hostile-reflection boundary
+below. `cloneSchema` can also fail when a column's `meta` holds something no clone can own, such as a
+record that refers back to itself. `meta` is typed as JSON and a cycle satisfies that type, so the
+refusal is a `TableError` coded `SCHEMA` rather than a silent partial copy. `createTable` never reaches
+it, because `isTableColumn` admits only bounded, exactly ownable JSON there and refuses such a schema
+first. This is the door a caller cloning or serializing a schema on its own meets, and
+`serializeTable` refuses the same value the same way.
 
 ### Parsers
 
@@ -230,6 +230,10 @@ owned value rather than the caller's.
 | ------------ | -------- | ------------------------------------------------------------------------------------------------------------- |
 | `parseTable` | function | Parse unknown wire data into an owned, structurally valid, semantically sound schema.                         |
 | `parseRows`  | function | Parse unknown wire data into owned rows against a schema, coercing a numeric string and `'true'` / `'false'`. |
+
+**Hostile reflection.** A TypeScript shape does not guarantee that reflection succeeds. An ordinary
+helper or cloner may propagate a throw from a proxy trap or accessor. Guards and parsers contain that
+throw and refuse instead. This is the hostile-reflection boundary for the whole core.
 
 ## Cells
 
@@ -875,8 +879,9 @@ them raises `DESTROYED` after teardown. `destroy` itself does not.
 
 ## Events
 
-Eight events, and each carries the fact that moved. Every one fires **after** the state it reports is
-committed, and only when something actually moved: a write that changes nothing announces nothing.
+Eight events, and each carries the fact that moved. No listener sees a state the table has not
+finished writing. An event fires only when something actually moved: a write that changes nothing
+announces nothing.
 
 | Event      | Payload                     | Fires                                                                                                                                                                      |
 | ---------- | --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -1122,8 +1127,8 @@ that delivers it, which is the only layer holding the bytes.
 
 ### Auditing a schema
 
-`auditTable` is the semantic pass that structural validation cannot do. It reports six domain faults
-and every budget breach above:
+`auditTable` is the semantic pass that structural validation cannot do. It reports seven schema
+faults and every budget breach above:
 
 - `key` names no declared column.
 - `key` names a `number` or `flag` column, whose cells can never hold a string identity.
@@ -1131,6 +1136,7 @@ and every budget breach above:
 - A column key is empty.
 - A `choice` column offers the same value more than once.
 - A `choice` column offers no choice at all, so it is a column no cell could ever fill.
+- A column's `meta` cannot be owned as exact JSON.
 
 The audit runs inside `createTable` and inside `parseTable`, so a consumer rarely calls it directly —
 but it is exported, because a schema editor wants the diagnostics before it constructs anything.
@@ -1431,7 +1437,7 @@ this package answers today through a mechanism it already exposes.
 | Row count budget             | out           | A table legitimately holds a million rows. The budgets bound one schema's declarations, which arrive from a wire; how many rows a host holds is the host's memory to spend.                                                                                                                                                                                                                                                   |
 | Parsing a lens off the wire  | out           | Sort terms, filters, and the picked keys are what a session is looking through, not the document. A host persisting them owns the format, so a parser here would parse the host's decision.                                                                                                                                                                                                                                   |
 | Case folding and collation   | seam          | `contains` compares case-sensitively and `text` compares with the language's own string order. Locale is a decision this package cannot make for a host, so a `CellMatcher` or `CellComparator` makes it.                                                                                                                                                                                                                     |
-| A temporal cell              | out           | ISO text written with one offset, one precision, and normalized midnight spelling sorts chronologically already, so a temporal cell would add a variant that behaves exactly like `text` and a calendar to go with it. Normalizing to that one canonical representation is the host's, and a `CellComparator` covers a column that arrives mixed.                                                                             |
+| A temporal cell              | out           | ISO text written to one canonical spelling per instant — one offset, one precision, and no alternate spelling of a given date or time — sorts chronologically already, so a temporal cell would add a variant that behaves exactly like `text` and a calendar to go with it. Normalizing to that one canonical representation is the host's, and a `CellComparator` covers a column that arrives mixed.                       |
 | Calendar validity            | host          | `'2026-02-31'` is lexically fine and not a real day. A date control refuses it before it arrives, and a domain that needs the check adds it at its own door.                                                                                                                                                                                                                                                                  |
 | Number and date formatting   | host          | A `number` cell is a number and a date is its ISO string. Turning either into what a person reads is locale work at the point of drawing, and `meta` carries the hint when a schema must ship one.                                                                                                                                                                                                                            |
 | CSV and spreadsheet export   | host          | `view` or `rows()` plus `schema.columns` is the whole input an exporter needs, and the file format, encoding, and download belong to the host that has a filesystem or a browser.                                                                                                                                                                                                                                             |

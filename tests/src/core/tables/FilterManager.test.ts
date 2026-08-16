@@ -53,7 +53,7 @@ describe('FilterManager', () => {
 		])
 	})
 
-	it('keeps filter admission identical at the helper, matcher, and manager doors', () => {
+	it('keeps filter admission aligned without conflating it with the match outcome', () => {
 		const table = createTableFixture()
 
 		for (const vector of createFilterAdmissibilityVectors()) {
@@ -63,6 +63,13 @@ describe('FilterManager', () => {
 				vector.admitted ? undefined : 'CELL',
 			)
 		}
+
+		const column = table.schema.columns.find((candidate) => candidate.key === 'name')
+		if (column === undefined) throw new Error('Expected name column')
+		const filter: TableFilter = { column: 'name', operator: 'contains', text: 'z' }
+		expect(admitsFilter(column, filter)).toBe(true)
+		expect(matchesFilter(column, 'Ada', filter)).toBe(false)
+		expect(readTableError(() => table.filter.set(filter))).toBeUndefined()
 	})
 
 	it('removes zero, one, or many filters and validates every column first', () => {

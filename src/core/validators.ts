@@ -9,6 +9,7 @@ import type {
 import {
 	arrayOf,
 	attempt,
+	cloneJSONRecord,
 	isBoolean,
 	isBoundedJSONRecord,
 	isFiniteNumber,
@@ -103,13 +104,17 @@ export function isTableColumn(input: unknown): input is TableColumn {
 		const hidden = hasHidden ? input.hidden : undefined
 		const hasMeta = Object.hasOwn(input, 'meta')
 		const meta = hasMeta ? input.meta : undefined
+		if (hasMeta) {
+			if (!isBoundedJSONRecord(meta)) return false
+			const owned = attempt(() => cloneJSONRecord(meta))
+			if (!owned.success) return false
+		}
 
 		if (
 			!isString(key) ||
 			(hasLabel && !isString(label)) ||
 			(hasHelp && !isString(help)) ||
-			(hasHidden && !isBoolean(hidden)) ||
-			(hasMeta && !isBoundedJSONRecord(meta))
+			(hasHidden && !isBoolean(hidden))
 		) {
 			return false
 		}
