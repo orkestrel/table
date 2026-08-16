@@ -18,8 +18,6 @@ import { requireValue } from '@orkestrel/test'
 import { readInventory } from '@orkestrel/test/server'
 import type {
 	BetweenFilter,
-	CellComparator,
-	CellMatcher,
 	ChoiceColumn,
 	FlagColumn,
 	NumberColumn,
@@ -50,7 +48,7 @@ import {
 	sortRows,
 	Table,
 } from '@src/core'
-import { readTableError } from './setup.js'
+import { compareTextNaturally, matchTextLoosely, readTableError } from './setup.js'
 
 /** Every fence language this package's guides may use. */
 const FENCE_LANGUAGES = Object.freeze(['ts'])
@@ -335,13 +333,6 @@ describe('table.md fences', () => {
 	})
 
 	it('overrides one column matcher', () => {
-		const natural: CellComparator = (left, right) =>
-			String(left ?? '').localeCompare(String(right ?? ''), undefined, { numeric: true })
-		const loose: CellMatcher = (cell, filter) =>
-			filter.operator === 'contains' &&
-			String(cell ?? '')
-				.toLowerCase()
-				.includes(filter.text.toLowerCase())
 		const table = createTable(
 			{
 				key: 'id',
@@ -352,8 +343,8 @@ describe('table.md fences', () => {
 			},
 			{
 				rows: [{ id: '1', name: 'ada' }],
-				comparators: { name: natural },
-				matchers: { name: loose },
+				comparators: { name: compareTextNaturally },
+				matchers: { name: matchTextLoosely },
 			},
 		)
 

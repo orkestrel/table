@@ -211,6 +211,7 @@ export class RowManager implements RowManagerInterface {
 	}
 
 	#validate(row: TableRow): void {
+		if (extractKey(this.#schema, row) === undefined) this.#failKey('A row has no usable identity')
 		if (!isTableRow(row)) {
 			throw new TableError('CELL', 'A row contains a value no table cell can hold')
 		}
@@ -220,7 +221,6 @@ export class RowManager implements RowManagerInterface {
 				throw new TableError('CELL', `Column "${key}" cannot hold that cell`, { column: key })
 			}
 		}
-		if (extractKey(this.#schema, row) === undefined) this.#failKey('A row has no usable identity')
 	}
 
 	#failKey(message: string, key?: TableKey): never {

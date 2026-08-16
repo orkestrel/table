@@ -1,14 +1,24 @@
+import type { TableSchema } from '@src/core'
 import {
+	CHOICE_LIMIT,
+	COLUMN_LIMIT,
+	auditTable,
 	isColumnCell,
 	isColumnChoice,
 	isTableCell,
 	isTableColumn,
 	isTableRow,
 	isTableSchema,
+	isStructuralTableSchema,
 	parseRows,
 	parseTable,
 } from '@src/core'
-import { createTableRows, createTableSchema } from '../../setup.js'
+import {
+	createChoiceBudgetSchema,
+	createColumnBudgetSchema,
+	createTableRows,
+	createTableSchema,
+} from '../../setup.js'
 import { describe, expect, it } from 'vitest'
 
 describe('table structural guards', () => {
@@ -55,10 +65,60 @@ describe('table structural guards', () => {
 		expect(isTableRow(symbolRow)).toBe(false)
 	})
 
-	it('treats schema guards as structural rather than semantic audits', () => {
+	it('accepts only semantically sound schemas that their parser accepts', () => {
 		expect(isTableColumn({ cell: 'choice', key: 'status', choices: [] })).toBe(true)
-		expect(isTableSchema({ key: 'missing', columns: [{ cell: 'text', key: 'id' }] })).toBe(true)
+		expect(
+			isStructuralTableSchema({ key: 'missing', columns: [{ cell: 'text', key: 'id' }] }),
+		).toBe(true)
+		expect(isTableSchema({ key: 'missing', columns: [{ cell: 'text', key: 'id' }] })).toBe(false)
+		expect(
+			isTableSchema({
+				key: 'id',
+				columns: [
+					{ cell: 'text', key: 'id' },
+					{ cell: 'text', key: 'id' },
+				],
+			}),
+		).toBe(false)
+		expect(
+			isTableSchema({
+				key: 'id',
+				columns: [
+					{ cell: 'text', key: 'id' },
+					{ cell: 'choice', key: 'status', choices: [] },
+				],
+			}),
+		).toBe(false)
 		expect(isTableSchema({ columns: [{ cell: 'text', key: 'id' }] })).toBe(false)
+	})
+
+	it('keeps schema guard, parser, and audit evaluation in exact agreement', () => {
+		const schemas: readonly TableSchema[] = [
+			createTableSchema(),
+			{ key: 'missing', columns: [{ cell: 'text', key: 'id' }] },
+			{
+				key: 'id',
+				columns: [
+					{ cell: 'text', key: 'id' },
+					{
+						cell: 'choice',
+						key: 'status',
+						choices: [
+							{ value: 'live', label: 'Live' },
+							{ value: 'live', label: 'Published' },
+						],
+					},
+				],
+			},
+			createColumnBudgetSchema(COLUMN_LIMIT + 1),
+			createChoiceBudgetSchema(CHOICE_LIMIT + 1),
+		]
+
+		for (const schema of schemas) {
+			const valid = auditTable(schema).length === 0
+			expect(isTableSchema(schema)).toBe(valid)
+			expect(parseTable(schema) !== undefined).toBe(valid)
+		}
 	})
 
 	it('never throws for cyclic input against any guard', () => {

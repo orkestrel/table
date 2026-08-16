@@ -1,5 +1,6 @@
 import type { Emitter } from '@orkestrel/emitter'
 import type { ExpansionManagerInterface, TableEventMap, TableKey } from '../types.js'
+import { computeKeys } from '../helpers.js'
 
 /** The keys of the rows somebody has opened. */
 export class ExpansionManager implements ExpansionManagerInterface {
@@ -46,7 +47,7 @@ export class ExpansionManager implements ExpansionManagerInterface {
 	/** Open one or more rows. */
 	expand(input?: TableKey | readonly TableKey[]): void | boolean {
 		this.#gate()
-		return this.#change(input, 'expand')
+		return this.#change(input, () => true)
 	}
 
 	/** Close every row. */
@@ -58,7 +59,7 @@ export class ExpansionManager implements ExpansionManagerInterface {
 	/** Close one or more rows. */
 	clear(input?: TableKey | readonly TableKey[]): void | boolean {
 		this.#gate()
-		return this.#change(input, 'clear')
+		return this.#change(input, () => false)
 	}
 
 	/** Open one row or close it when already open. */
@@ -68,30 +69,17 @@ export class ExpansionManager implements ExpansionManagerInterface {
 	/** Turn one or more rows around independently. */
 	toggle(input: TableKey | readonly TableKey[]): boolean {
 		this.#gate()
-		return this.#change(input, 'toggle') === true
+		return this.#change(input, (included) => !included) === true
 	}
 
 	#change(
 		input: TableKey | readonly TableKey[] | undefined,
-		operation: 'expand' | 'clear' | 'toggle',
+		include: (included: boolean) => boolean,
 	): void | boolean {
-		const rows = this.#rows()
-		const requested = input === undefined ? rows : Array.isArray(input) ? input : [input]
-		const known = new Set(rows)
-
-		if (requested.some((key) => !known.has(key))) return false
-
-		const next = new Set(this.#read())
-		for (const key of requested) {
-			if (operation === 'expand') next.add(key)
-			else if (operation === 'clear') next.delete(key)
-			else if (next.has(key)) next.delete(key)
-			else next.add(key)
-		}
-
 		const previous = this.#read()
-		const changed = next.size !== previous.size || [...next].some((key) => !previous.has(key))
-		if (changed) {
+		const next = computeKeys(this.#rows(), previous, input, include)
+		if (next === undefined) return false
+		if (next !== previous) {
 			this.#write(next)
 			this.#emitter.emit('expand', new Set(next))
 		}

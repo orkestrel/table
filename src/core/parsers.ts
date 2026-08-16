@@ -9,7 +9,7 @@ import {
 } from '@orkestrel/contract'
 import { cloneRow } from './cloners.js'
 import { STRING_LIMIT } from './constants.js'
-import { auditTable, extractColumn, extractKey, matchesCell, serializeTable } from './helpers.js'
+import { extractColumn, extractKey, matchesCell, serializeTable } from './helpers.js'
 import { isTableSchema } from './validators.js'
 
 /**
@@ -20,9 +20,9 @@ import { isTableSchema } from './validators.js'
  */
 export function parseTable(input: unknown): TableSchema | undefined {
 	const outcome = attempt(() => {
-		if (!isTableSchema(input) || auditTable(input).length !== 0) return undefined
+		if (!isTableSchema(input)) return undefined
 		const projected = serializeTable(input)
-		return isTableSchema(projected) && auditTable(projected).length === 0 ? projected : undefined
+		return isTableSchema(projected) ? projected : undefined
 	})
 
 	return outcome.success ? outcome.value : undefined
@@ -37,7 +37,7 @@ export function parseTable(input: unknown): TableSchema | undefined {
  */
 export function parseRows(schema: TableSchema, input: unknown): readonly TableRow[] | undefined {
 	const outcome = attempt(() => {
-		if (!isTableSchema(schema) || auditTable(schema).length !== 0 || !isArray(input)) {
+		if (!isTableSchema(schema) || !isArray(input)) {
 			return undefined
 		}
 

@@ -18,6 +18,7 @@ import {
 	unionOf,
 } from '@orkestrel/contract'
 import { COLUMN_CELLS } from './constants.js'
+import { auditTable } from './helpers.js'
 
 /**
  * Determine whether an unknown value has a table cell shape.
@@ -121,12 +122,12 @@ export function isTableColumn(input: unknown): input is TableColumn {
 }
 
 /**
- * Determine whether an unknown value is one exact structural table schema.
+ * Determine whether an unknown value has one exact structural table-schema shape.
  *
  * @param input - The value to inspect.
- * @returns Whether the value is a structurally valid table schema.
+ * @returns Whether the value has the exact structure of a table schema.
  */
-export function isTableSchema(input: unknown): input is TableSchema {
+export function isStructuralTableSchema(input: unknown): input is TableSchema {
 	const outcome = attempt(() => {
 		if (!isRecord(input) || !Reflect.ownKeys(input).every((key) => isString(key))) return false
 		return recordOf(
@@ -141,5 +142,16 @@ export function isTableSchema(input: unknown): input is TableSchema {
 		)(input)
 	})
 
+	return outcome.success && outcome.value
+}
+
+/**
+ * Determine whether an unknown value is one semantically sound table schema.
+ *
+ * @param input - The value to inspect.
+ * @returns Whether the value has valid structure, domain relationships, and budgets.
+ */
+export function isTableSchema(input: unknown): input is TableSchema {
+	const outcome = attempt(() => isStructuralTableSchema(input) && auditTable(input).length === 0)
 	return outcome.success && outcome.value
 }

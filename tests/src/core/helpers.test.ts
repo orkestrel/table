@@ -6,8 +6,10 @@ import {
 	NODE_LIMIT,
 	STRING_LIMIT,
 	TEXT_LIMIT,
+	admitsFilter,
 	auditTable,
 	compareCells,
+	computeKeys,
 	extractColumn,
 	extractKey,
 	filterRows,
@@ -101,6 +103,16 @@ describe('table helper leaves', () => {
 		expect(
 			matchesFilter(text, 'Grace', { column: 'name', operator: 'contains', text: 'ace' }),
 		).toBe(true)
+		expect(admitsFilter(text, { column: 'name', operator: 'contains', text: 'ace' })).toBe(true)
+		expect(admitsFilter(number, { column: 'age', operator: 'contains', text: '4' })).toBe(false)
+		expect(
+			admitsFilter(flag, {
+				column: 'active',
+				operator: 'between',
+				minimum: 0,
+				maximum: 1,
+			}),
+		).toBe(false)
 		expect(
 			matchesFilter(text, '2026-03-14', {
 				column: 'name',
@@ -164,6 +176,20 @@ describe('table helper leaves', () => {
 		expect(filtered.map((row) => row.id)).toStrictEqual(['2', '3'])
 		expect(absent.map((row) => row.id)).toStrictEqual(['4'])
 		expect(Object.isFrozen(filtered)).toBe(true)
+	})
+
+	it('computes atomic 0/1/N key-set changes and preserves no-op identity', () => {
+		const known = ['1', '2']
+		const current: ReadonlySet<string> = new Set(['1'])
+		const added = computeKeys(known, current, '2', () => true)
+		const toggled = computeKeys(known, current, ['1', '1'], (included) => !included)
+		const cleared = computeKeys(known, current, undefined, () => false)
+
+		expect(added === undefined ? [] : [...added]).toStrictEqual(['1', '2'])
+		expect(computeKeys(known, current, ['missing'], () => true)).toBeUndefined()
+		expect(computeKeys(known, current, '1', () => true)).toBe(current)
+		expect(toggled).toBe(current)
+		expect(cleared === undefined ? [] : [...cleared]).toStrictEqual([])
 	})
 
 	it('sorts by ordered terms stably with absence and direction applied last', () => {

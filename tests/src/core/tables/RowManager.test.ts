@@ -1,4 +1,5 @@
 import type { TableEventMap, TableRow } from '@src/core'
+import { parseRows } from '@src/core'
 import { createRecorder } from '@orkestrel/test'
 import { describe, expect, it } from 'vitest'
 import { createTableFixture, readTableError } from '../../../setup.js'
@@ -44,6 +45,14 @@ describe('RowManager reads and writes', () => {
 		)
 		expect(table.rows.rows()).toStrictEqual([])
 		expect(writes.count).toBe(0)
+	})
+
+	it('codes every unusable identity as KEY before cell compatibility', () => {
+		const table = createTableFixture({ rows: [] })
+
+		expect(readTableError(() => table.rows.add({ id: 2 }))).toBe('KEY')
+		expect(readTableError(() => table.rows.update({ id: 2 }))).toBe('KEY')
+		expect(parseRows(table.schema, [{ id: 2 }])).toBeUndefined()
 	})
 
 	it('merges one or many updates and withholds no-op events', () => {

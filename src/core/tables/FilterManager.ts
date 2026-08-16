@@ -1,8 +1,7 @@
 import type { Emitter } from '@orkestrel/emitter'
 import type { FilterManagerInterface, TableEventMap, TableFilter, TableSchema } from '../types.js'
-import { STRING_LIMIT } from '../constants.js'
 import { TableError } from '../errors.js'
-import { extractColumn, matchesCell } from '../helpers.js'
+import { admitsFilter, extractColumn } from '../helpers.js'
 
 /** The filters one table applies with and-only composition. */
 export class FilterManager implements FilterManagerInterface {
@@ -11,7 +10,7 @@ export class FilterManager implements FilterManagerInterface {
 	readonly #gate: () => void
 	readonly #read: () => readonly TableFilter[]
 	readonly #write: (filters: readonly TableFilter[]) => void
-	readonly #clamp: () => void
+	readonly #clamp: () => number | undefined
 
 	/**
 	 * Create a filter manager over one table's private filter store.
@@ -21,7 +20,7 @@ export class FilterManager implements FilterManagerInterface {
 	 * @param gate - The table lifecycle gate.
 	 * @param read - A read of the current filters.
 	 * @param write - The filter commit boundary.
-	 * @param clamp - The pagination clamp after a filter commit.
+	 * @param clamp - The pagination clamp commit after a filter commit.
 	 */
 	constructor(
 		schema: TableSchema,
@@ -29,7 +28,7 @@ export class FilterManager implements FilterManagerInterface {
 		gate: () => void,
 		read: () => readonly TableFilter[],
 		write: (filters: readonly TableFilter[]) => void,
-		clamp: () => void,
+		clamp: () => number | undefined,
 	) {
 		this.#schema = schema
 		this.#emitter = emitter
@@ -70,8 +69,9 @@ export class FilterManager implements FilterManagerInterface {
 
 		if (this.#same(next, this.#read())) return
 		this.#write(Object.freeze(next))
+		const page = this.#clamp()
 		this.#emitter.emit('filter', this.filters())
-		this.#clamp()
+		if (page !== undefined) this.#emitter.emit('paginate', page)
 	}
 
 	/** Stop filtering by every column. */
@@ -97,8 +97,9 @@ export class FilterManager implements FilterManagerInterface {
 		const next = this.#read().filter((filter) => !removed.has(filter.column))
 		if (next.length !== this.#read().length) {
 			this.#write(Object.freeze(next))
+			const page = this.#clamp()
 			this.#emitter.emit('filter', this.filters())
-			this.#clamp()
+			if (page !== undefined) this.#emitter.emit('paginate', page)
 		}
 
 		return input === undefined ? undefined : true
@@ -112,20 +113,7 @@ export class FilterManager implements FilterManagerInterface {
 			})
 		}
 
-		let valid = false
-		if (filter.operator === 'contains') {
-			valid =
-				(column.cell === 'text' || column.cell === 'choice') && filter.text.length <= STRING_LIMIT
-		} else if (filter.operator === 'between') {
-			valid =
-				(column.cell === 'text' || column.cell === 'number') &&
-				matchesCell(column, filter.minimum) &&
-				matchesCell(column, filter.maximum)
-		} else {
-			valid = matchesCell(column, filter.value)
-		}
-
-		if (!valid) {
+		if (!admitsFilter(column, filter)) {
 			throw new TableError('CELL', `Column "${filter.column}" cannot apply that filter`, {
 				column: filter.column,
 			})

@@ -1,7 +1,9 @@
 import type { JSONValue } from '@orkestrel/contract'
 import type {
+	TableCell,
 	TableColumn,
 	TableErrorCode,
+	TableFilter,
 	TableInterface,
 	TableOptions,
 	TableRow,
@@ -9,6 +11,32 @@ import type {
 } from '@src/core'
 import { attempt } from '@orkestrel/contract'
 import { createTable, isTableError, STRING_LIMIT, TEXT_LIMIT } from '@src/core'
+
+/** Compare text with numeric segments in natural lexical order. */
+export function compareTextNaturally(
+	left: TableCell | undefined,
+	right: TableCell | undefined,
+): number {
+	return String(left ?? '').localeCompare(String(right ?? ''), undefined, { numeric: true })
+}
+
+/** Match a contains filter after folding text to lowercase. */
+export function matchTextLoosely(cell: TableCell | undefined, filter: TableFilter): boolean {
+	return (
+		filter.operator === 'contains' &&
+		String(cell ?? '')
+			.toLowerCase()
+			.includes(filter.text.toLowerCase())
+	)
+}
+
+/** Compare text by its string length. */
+export function compareTextLength(
+	left: TableCell | undefined,
+	right: TableCell | undefined,
+): number {
+	return String(left ?? '').length - String(right ?? '').length
+}
 
 /** Build a fresh schema spanning every column cell. */
 export function createTableSchema(): TableSchema {

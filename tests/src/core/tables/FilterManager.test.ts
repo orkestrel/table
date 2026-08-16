@@ -1,7 +1,7 @@
-import type { CellMatcher, TableEventMap, TableFilter } from '@src/core'
+import type { TableEventMap, TableFilter } from '@src/core'
 import { createRecorder } from '@orkestrel/test'
 import { describe, expect, it } from 'vitest'
-import { createTableFixture, readTableError } from '../../../setup.js'
+import { createTableFixture, matchTextLoosely, readTableError } from '../../../setup.js'
 
 describe('FilterManager', () => {
 	it('sets one or many filters and replaces a column in place', () => {
@@ -64,12 +64,7 @@ describe('FilterManager', () => {
 	})
 
 	it('routes one column through its matcher override', () => {
-		const loose: CellMatcher = (cell, filter) =>
-			filter.operator === 'contains' &&
-			String(cell ?? '')
-				.toLowerCase()
-				.includes(filter.text.toLowerCase())
-		const table = createTableFixture({ matchers: { name: loose } })
+		const table = createTableFixture({ matchers: { name: matchTextLoosely } })
 
 		table.filter.set({ column: 'name', operator: 'contains', text: 'ADA' })
 
@@ -77,16 +72,23 @@ describe('FilterManager', () => {
 	})
 
 	it('emits filter before paginate when narrowing clamps the page', () => {
-		const table = createTableFixture({ limit: 1 })
+		const table = createTableFixture({
+			rows: [
+				{ id: '1', active: true },
+				{ id: '2', active: true },
+				{ id: '3', active: false },
+			],
+			limit: 1,
+		})
 		const events: string[] = []
-		table.pagination.move(4)
-		table.emitter.on('filter', () => events.push('filter'))
+		table.pagination.move(3)
+		table.emitter.on('filter', () => events.push(`filter:${table.pagination.page}`))
 		table.emitter.on('paginate', (page) => events.push(`paginate:${page}`))
 
 		table.filter.set({ column: 'active', operator: 'equals', value: true })
 
 		expect(table.pagination.page).toBe(2)
-		expect(events).toStrictEqual(['filter', 'paginate:2'])
+		expect(events).toStrictEqual(['filter:2', 'paginate:2'])
 	})
 
 	it('returns fresh frozen filter snapshots and keeps repeated terms silent', () => {

@@ -56,6 +56,36 @@ export function extractKey(schema: TableSchema, row: TableRow): TableKey | undef
 }
 
 /**
+ * Compute one atomic 0/1/N membership change over known keys.
+ *
+ * @param known - Every key the caller may change.
+ * @param current - The current key set.
+ * @param input - Every known key, one key, or a key list.
+ * @param include - Decide the next membership from each key's membership at that step.
+ * @returns `undefined` when any requested key is unknown, the current set for a no-op, or the next
+ *   set when membership changes.
+ */
+export function computeKeys(
+	known: readonly TableKey[],
+	current: ReadonlySet<TableKey>,
+	input: TableKey | readonly TableKey[] | undefined,
+	include: (included: boolean) => boolean,
+): ReadonlySet<TableKey> | undefined {
+	const requested = input === undefined ? known : Array.isArray(input) ? input : [input]
+	const population = new Set(known)
+	if (requested.some((key) => !population.has(key))) return undefined
+
+	const next = new Set(current)
+	for (const key of requested) {
+		if (include(next.has(key))) next.add(key)
+		else next.delete(key)
+	}
+
+	const changed = next.size !== current.size || [...next].some((key) => !current.has(key))
+	return changed ? next : current
+}
+
+/**
  * Check whether a value has the shape required by one column cell.
  *
  * @param column - The column that owns the cell.
@@ -113,6 +143,32 @@ export function compareCells(
 }
 
 /**
+ * Check whether one column admits a filter and all its operands.
+ *
+ * @param column - The column that fixes the accepted operators and cell shapes.
+ * @param filter - The filter to inspect.
+ * @returns Whether the filter belongs to the column and the column can apply it.
+ */
+export function admitsFilter(column: TableColumn, filter: TableFilter): boolean {
+	if (filter.column !== column.key) return false
+
+	switch (filter.operator) {
+		case 'contains':
+			return (
+				(column.cell === 'text' || column.cell === 'choice') && filter.text.length <= STRING_LIMIT
+			)
+		case 'between':
+			return (
+				(column.cell === 'text' || column.cell === 'number') &&
+				matchesCell(column, filter.minimum) &&
+				matchesCell(column, filter.maximum)
+			)
+		case 'equals':
+			return matchesCell(column, filter.value)
+	}
+}
+
+/**
  * Test one cell against a filter according to its column.
  *
  * @param column - The column that fixes the accepted operators.
@@ -125,26 +181,19 @@ export function matchesFilter(
 	cell: TableCell | undefined,
 	filter: TableFilter,
 ): boolean {
-	if (cell === undefined || filter.column !== column.key || !matchesCell(column, cell)) return false
+	if (cell === undefined || !admitsFilter(column, filter) || !matchesCell(column, cell))
+		return false
 
 	switch (filter.operator) {
 		case 'contains':
-			return (
-				(column.cell === 'text' || column.cell === 'choice') &&
-				isString(cell) &&
-				filter.text.length <= STRING_LIMIT &&
-				cell.includes(filter.text)
-			)
+			return isString(cell) && cell.includes(filter.text)
 		case 'between':
 			return (
-				(column.cell === 'text' || column.cell === 'number') &&
-				matchesCell(column, filter.minimum) &&
-				matchesCell(column, filter.maximum) &&
 				compareCells(column, cell, filter.minimum) >= 0 &&
 				compareCells(column, cell, filter.maximum) <= 0
 			)
 		case 'equals':
-			return matchesCell(column, filter.value) && cell === filter.value
+			return cell === filter.value
 	}
 }
 

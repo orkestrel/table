@@ -27,7 +27,7 @@ import { PaginationManager } from './tables/PaginationManager.js'
 import { RowManager } from './tables/RowManager.js'
 import { SelectionManager } from './tables/SelectionManager.js'
 import { SortManager } from './tables/SortManager.js'
-import { isTableSchema } from './validators.js'
+import { isStructuralTableSchema } from './validators.js'
 
 /** A schema, its rows, and the lens through which they are read. */
 export class Table implements TableInterface {
@@ -60,7 +60,7 @@ export class Table implements TableInterface {
 	 *   identity is unusable or repeated, and `CELL` when a seeded cell is invalid.
 	 */
 	constructor(schema: TableSchema, options?: TableOptions) {
-		const problems = isTableSchema(schema)
+		const problems = isStructuralTableSchema(schema)
 			? auditTable(schema)
 			: ['The schema is not a table schema']
 		if (problems.length > 0) {
@@ -259,14 +259,15 @@ export class Table implements TableInterface {
 			this.#expanded = expanded
 			this.#emitter.emit('expand', new Set(expanded))
 		}
-		this.#clamp()
+		const page = this.#clamp()
+		if (page !== undefined) this.#emitter.emit('paginate', page)
 	}
 
-	#clamp(): void {
+	#clamp(): number | undefined {
 		const page = Math.min(this.#page, this.#pagination.count)
-		if (page === this.#page) return
+		if (page === this.#page) return undefined
 		this.#page = page
-		this.#emitter.emit('paginate', page)
+		return page
 	}
 
 	#gate(): void {
