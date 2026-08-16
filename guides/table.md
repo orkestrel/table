@@ -1046,7 +1046,7 @@ auditTable({
 		{ cell: 'text', key: 'id' },
 	],
 })
-// ['Column "id" is declared more than once']
+// ['column "id" is declared more than once']
 auditTable({ key: 'id', columns: [{ cell: 'text', key: 'id' }] }) // []
 ```
 
