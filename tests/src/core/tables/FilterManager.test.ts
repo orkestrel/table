@@ -1,7 +1,13 @@
 import type { TableEventMap, TableFilter } from '@src/core'
+import { admitsFilter, matchesFilter } from '@src/core'
 import { createRecorder } from '@orkestrel/test'
 import { describe, expect, it } from 'vitest'
-import { createTableFixture, matchTextLoosely, readTableError } from '../../../setup.js'
+import {
+	createFilterAdmissibilityVectors,
+	createTableFixture,
+	matchTextLoosely,
+	readTableError,
+} from '../../../setup.js'
 
 describe('FilterManager', () => {
 	it('sets one or many filters and replaces a column in place', () => {
@@ -45,6 +51,18 @@ describe('FilterManager', () => {
 		expect(table.filter.filters()).toStrictEqual([
 			{ column: 'active', operator: 'equals', value: true },
 		])
+	})
+
+	it('keeps filter admission identical at the helper, matcher, and manager doors', () => {
+		const table = createTableFixture()
+
+		for (const vector of createFilterAdmissibilityVectors()) {
+			expect(admitsFilter(vector.column, vector.filter)).toBe(vector.admitted)
+			expect(matchesFilter(vector.column, vector.cell, vector.filter)).toBe(vector.admitted)
+			expect(readTableError(() => table.filter.set(vector.filter))).toBe(
+				vector.admitted ? undefined : 'CELL',
+			)
+		}
 	})
 
 	it('removes zero, one, or many filters and validates every column first', () => {

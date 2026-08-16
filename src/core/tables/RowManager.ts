@@ -18,7 +18,7 @@ export class RowManager implements RowManagerInterface {
 	readonly #gate: () => void
 	readonly #read: () => readonly TableRow[]
 	readonly #write: (rows: readonly TableRow[]) => void
-	readonly #settle: (removed: readonly TableKey[]) => void
+	readonly #settle: (removed: readonly TableKey[], announce: () => void) => void
 
 	/**
 	 * Create a row manager over one table's private row store.
@@ -28,7 +28,7 @@ export class RowManager implements RowManagerInterface {
 	 * @param gate - The table lifecycle gate.
 	 * @param read - A read of the current rows.
 	 * @param write - The row commit boundary.
-	 * @param settle - The key-pruning and pagination step after a row commit.
+	 * @param settle - Commit dependent state, then order row and dependent announcements.
 	 * @param rows - Rows to seed without announcements.
 	 */
 	constructor(
@@ -37,7 +37,7 @@ export class RowManager implements RowManagerInterface {
 		gate: () => void,
 		read: () => readonly TableRow[],
 		write: (rows: readonly TableRow[]) => void,
-		settle: (removed: readonly TableKey[]) => void,
+		settle: (removed: readonly TableKey[], announce: () => void) => void,
 		rows: readonly TableRow[] = [],
 	) {
 		this.#schema = schema
@@ -79,10 +79,12 @@ export class RowManager implements RowManagerInterface {
 		if (added.length === 0) return
 
 		this.#write(Object.freeze([...this.#read(), ...added]))
-		for (const row of added) {
-			const key = extractKey(this.#schema, row)
-			if (key !== undefined) this.#emitter.emit('write', key)
-		}
+		this.#settle([], () => {
+			for (const row of added) {
+				const key = extractKey(this.#schema, row)
+				if (key !== undefined) this.#emitter.emit('write', key)
+			}
+		})
 	}
 
 	/** Merge several rows into the rows their keys name. */
@@ -123,8 +125,9 @@ export class RowManager implements RowManagerInterface {
 
 		if (moved.length === 0) return true
 		this.#write(Object.freeze(next))
-		for (const key of moved) this.#emitter.emit('write', key)
-		this.#settle([])
+		this.#settle([], () => {
+			for (const key of moved) this.#emitter.emit('write', key)
+		})
 		return true
 	}
 
@@ -146,7 +149,7 @@ export class RowManager implements RowManagerInterface {
 		next.splice(origin, 1)
 		next.splice(target, 0, row)
 		this.#write(Object.freeze(next))
-		this.#emitter.emit('write', key)
+		this.#settle([], () => this.#emitter.emit('write', key))
 		return true
 	}
 
@@ -191,8 +194,9 @@ export class RowManager implements RowManagerInterface {
 				}),
 			),
 		)
-		for (const key of removed) this.#emitter.emit('remove', key)
-		this.#settle(removed)
+		this.#settle(removed, () => {
+			for (const key of removed) this.#emitter.emit('remove', key)
+		})
 		return input === undefined ? undefined : true
 	}
 

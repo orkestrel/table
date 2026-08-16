@@ -48,8 +48,9 @@ export type TableRow = Readonly<Record<string, TableCell>>
  * The cell is the discriminant of every {@link TableColumn} variant, so choosing it fixes what the
  * cells hold, how the column compares, and which filter operators apply to it.
  *
- * A date, a time, and a timestamp are `text` holding an ISO string, because lexical order is
- * chronological order for ISO. There is no temporal cell.
+ * A date, a time, and a timestamp are `text` holding a canonically spelled ISO string. Lexical
+ * order is chronological only when a column uses one offset, one precision, and normalized
+ * midnight spelling such as `00:00:00Z` instead of `24:00:00Z`. There is no temporal cell.
  *
  * @example
  * ```ts

@@ -1,4 +1,5 @@
 import type { TableEventMap, TableSchema } from '@src/core'
+import { readFileSync } from 'node:fs'
 import {
 	ExpansionManager,
 	FilterManager,
@@ -61,6 +62,22 @@ describe('Table construction and derived state', () => {
 		expect(Object.getOwnPropertyNames(PaginationManager.prototype).sort()).toStrictEqual(
 			['constructor', 'count', 'limit', 'move', 'offset', 'page', 'resize'].sort(),
 		)
+	})
+
+	it('keeps selection and expansion membership arithmetic in the shared key-set engine', () => {
+		const selection = readFileSync(
+			new URL('../../../src/core/tables/SelectionManager.ts', import.meta.url),
+			'utf8',
+		)
+		const expansion = readFileSync(
+			new URL('../../../src/core/tables/ExpansionManager.ts', import.meta.url),
+			'utf8',
+		)
+
+		expect(selection.match(/\bcomputeKeys\(/gu)).toHaveLength(1)
+		expect(expansion.match(/\bcomputeKeys\(/gu)).toHaveLength(1)
+		expect(selection).not.toMatch(/\.(?:add|delete|has)\(/u)
+		expect(expansion).not.toMatch(/\.(?:add|delete|has)\(/u)
 	})
 
 	it('owns the schema and seeded rows while opening without events', () => {
@@ -178,25 +195,47 @@ describe('Table events and lifecycle', () => {
 		table.expansion.expand(['4', '5'])
 		table.pagination.move(3)
 		table.emitter.on('remove', (key) =>
-			events.push(`remove:${key}:${table.rows.row(key) === undefined}`),
+			events.push(`remove:${key}:${table.rows.row(key) === undefined}:${table.pagination.page}`),
 		)
 		table.emitter.on('select', (keys) =>
-			events.push(`select:${keys.size}:${table.selection.keys.size}`),
+			events.push(`select:${keys.size}:${table.selection.keys.size}:${table.pagination.page}`),
 		)
 		table.emitter.on('expand', (keys) =>
-			events.push(`expand:${keys.size}:${table.expansion.keys.size}`),
+			events.push(`expand:${keys.size}:${table.expansion.keys.size}:${table.pagination.page}`),
 		)
 		table.emitter.on('paginate', (page) => events.push(`paginate:${page}:${table.pagination.page}`))
 
 		table.rows.remove(['4', '5'])
 
 		expect(events).toStrictEqual([
-			'remove:4:true',
-			'remove:5:true',
-			'select:0:0',
-			'expand:0:0',
+			'remove:4:true:2',
+			'remove:5:true:2',
+			'select:0:0:2',
+			'expand:0:0:2',
 			'paginate:2:2',
 		])
+	})
+
+	it('commits an update-driven page clamp before announcing the write', () => {
+		const table = createTableFixture({
+			rows: [
+				{ id: '1', active: true },
+				{ id: '2', active: true },
+				{ id: '3', active: true },
+				{ id: '4', active: true },
+				{ id: '5', active: true },
+			],
+			limit: 2,
+		})
+		const events: string[] = []
+		table.filter.set({ column: 'active', operator: 'equals', value: true })
+		table.pagination.move(3)
+		table.emitter.on('write', (key) => events.push(`write:${key}:${table.pagination.page}`))
+		table.emitter.on('paginate', (page) => events.push(`paginate:${page}:${table.pagination.page}`))
+
+		table.rows.update({ id: '5', active: false })
+
+		expect(events).toStrictEqual(['write:5:2', 'paginate:2:2'])
 	})
 
 	it('clears every moving axis with one announcement', () => {

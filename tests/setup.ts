@@ -31,11 +31,89 @@ export function matchTextLoosely(cell: TableCell | undefined, filter: TableFilte
 }
 
 /** Compare text by its string length. */
-export function compareTextLength(
+export function compareTextByLength(
 	left: TableCell | undefined,
 	right: TableCell | undefined,
 ): number {
 	return String(left ?? '').length - String(right ?? '').length
+}
+
+/**
+ * Build the shared filter-admissibility behavior matrix.
+ *
+ * @returns Matching cells and filters spanning admitted and refused combinations.
+ */
+export function createFilterAdmissibilityVectors(): ReadonlyArray<{
+	readonly column: TableColumn
+	readonly filter: TableFilter
+	readonly cell: TableCell | undefined
+	readonly admitted: boolean
+}> {
+	const columns = createTableSchema().columns
+	const text = columns.find((column) => column.key === 'name')
+	const number = columns.find((column) => column.key === 'age')
+	const flag = columns.find((column) => column.key === 'active')
+	const choice = columns.find((column) => column.key === 'status')
+	if (text === undefined || number === undefined || flag === undefined || choice === undefined) {
+		throw new Error('Expected fixture columns')
+	}
+
+	return [
+		{
+			column: text,
+			filter: { column: 'name', operator: 'contains', text: 'd' },
+			cell: 'Ada',
+			admitted: true,
+		},
+		{
+			column: number,
+			filter: { column: 'age', operator: 'between', minimum: 30, maximum: 40 },
+			cell: 36,
+			admitted: true,
+		},
+		{
+			column: flag,
+			filter: { column: 'active', operator: 'equals', value: true },
+			cell: true,
+			admitted: true,
+		},
+		{
+			column: choice,
+			filter: { column: 'status', operator: 'contains', text: 'iv' },
+			cell: 'live',
+			admitted: true,
+		},
+		{
+			column: number,
+			filter: { column: 'age', operator: 'contains', text: '3' },
+			cell: 36,
+			admitted: false,
+		},
+		{
+			column: flag,
+			filter: { column: 'active', operator: 'between', minimum: 0, maximum: 1 },
+			cell: true,
+			admitted: false,
+		},
+		{
+			column: choice,
+			filter: { column: 'status', operator: 'between', minimum: 'draft', maximum: 'live' },
+			cell: 'live',
+			admitted: false,
+		},
+		{
+			column: number,
+			filter: { column: 'age', operator: 'equals', value: '36' },
+			cell: 36,
+			admitted: false,
+		},
+		{
+			column: choice,
+			filter: { column: 'status', operator: 'equals', value: 'missing' },
+			cell: 'live',
+			admitted: false,
+		},
+	]
 }
 
 /** Build a fresh schema spanning every column cell. */

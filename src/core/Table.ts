@@ -139,7 +139,7 @@ export class Table implements TableInterface {
 			(rows) => {
 				this.#rowStore = rows
 			},
-			(removed) => this.#settle(removed),
+			(removed, announce) => this.#settle(removed, announce),
 			options?.rows,
 		)
 	}
@@ -246,20 +246,20 @@ export class Table implements TableInterface {
 		})
 	}
 
-	#settle(removed: readonly TableKey[]): void {
+	#settle(removed: readonly TableKey[], announce: () => void): void {
 		const keys = new Set(removed)
 		const selected = new Set([...this.#selected].filter((key) => !keys.has(key)))
 		const expanded = new Set([...this.#expanded].filter((key) => !keys.has(key)))
+		const selectedChanged = selected.size !== this.#selected.size
+		const expandedChanged = expanded.size !== this.#expanded.size
 
-		if (selected.size !== this.#selected.size) {
-			this.#selected = selected
-			this.#emitter.emit('select', new Set(selected))
-		}
-		if (expanded.size !== this.#expanded.size) {
-			this.#expanded = expanded
-			this.#emitter.emit('expand', new Set(expanded))
-		}
+		if (selectedChanged) this.#selected = selected
+		if (expandedChanged) this.#expanded = expanded
 		const page = this.#clamp()
+
+		announce()
+		if (selectedChanged) this.#emitter.emit('select', new Set(selected))
+		if (expandedChanged) this.#emitter.emit('expand', new Set(expanded))
 		if (page !== undefined) this.#emitter.emit('paginate', page)
 	}
 

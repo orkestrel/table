@@ -14,7 +14,7 @@
 > second copy of an answer can go stale. A write validates all of itself before any of it lands, and
 > announces itself once it has.
 >
-> The core is pure and total. Every guard returns `false` off-shape rather than throwing, every
+> The core is host-independent. Every guard returns `false` off-shape rather than throwing, every
 > parser returns `undefined` on refusal, and every row the table hands back is a frozen owned copy.
 > Table-owned refusals raise `TableError`, and each one names a caller mistake.
 
@@ -173,18 +173,19 @@ Two of them answer about a schema, and which one to reach for is which question 
 `isStructuralTableSchema` asks whether the shape is exact: every declared member present and typed,
 and nothing else there. `isTableSchema` asks that and then asks `auditTable`, so it refuses a
 schema-shaped value carrying a domain fault or a budget breach — a `key` naming no declared column,
-a column key declared twice, a `choice` column offering nothing. It is the guard the parsers and the
-`Table` constructor read, which is what keeps the guard, the constructor, and `parseTable` agreeing
-on which schemas are usable: a value this guard accepts is never refused at the door that checked
-it. Reach for the structural guard where you mean to run the audit yourself and read its
-diagnostics.
+a column key declared twice, a `choice` column offering nothing. It is the guard the parsers read.
+The `Table` constructor asks the same questions through `isStructuralTableSchema` and one
+`auditTable` run, so its `SCHEMA` message keeps the audit diagnostics intact. The guard, constructor,
+and `parseTable` therefore agree on which schemas are usable. Reach for the structural guard where
+you mean to run the audit yourself and read its diagnostics.
 
 ### Helpers
 
 The pure leaves the table composes: the column lookup, the identity read, the key-set engine, the
 cell gate, the comparison, the two filter tests, the two row passes, the audit, and the wire
-projections. Every one of them is total except `serializeTable`, which raises `SCHEMA` for a `meta`
-no clone can own.
+projections. `computeKeys`, `filterRows`, and `sortRows` propagate exceptions from supplied
+callbacks; `serializeTable` raises `SCHEMA` for a `meta` no clone can own. The other helpers are
+total over their declared inputs.
 
 | API              | Kind     | Summary                                                                                                                    |
 | ---------------- | -------- | -------------------------------------------------------------------------------------------------------------------------- |
@@ -212,13 +213,13 @@ row the table hands back is a live internal reference.
 | `cloneRow`    | function | Own one row as a frozen copy of its cells.                                                                                     |
 | `cloneSchema` | function | Own a whole schema, freezing every nested column, choice list, choice, and `meta`; raises `SCHEMA` for a `meta` it cannot own. |
 
-`cloneRow` cannot fail, because a cell is a primitive. `cloneSchema` can, and one thing makes it
-fail: a column's `meta` holding something no clone can own, such as a record that refers back to
-itself. `meta` is typed as JSON and a cycle satisfies that type, so the refusal is a `TableError`
-coded `SCHEMA` rather than a silent partial copy. `createTable` never reaches it, because
-`isTableColumn` admits only a bounded JSON record there and refuses such a schema first. This is the
-door a caller cloning or serializing a schema on its own meets, and `serializeTable` refuses the
-same value the same way.
+`cloneRow` cannot fail for an ordinary row record, because a cell is a primitive. A proxy can make
+reflection fail, and `cloneRow` propagates that failure. `cloneSchema` can also fail when a column's
+`meta` holds something no clone can own, such as a record that refers back to itself. `meta` is typed
+as JSON and a cycle satisfies that type, so the refusal is a `TableError` coded `SCHEMA` rather than
+a silent partial copy. `createTable` never reaches it, because `isTableColumn` admits only a bounded
+JSON record there and refuses such a schema first. This is the door a caller cloning or serializing
+a schema on its own meets, and `serializeTable` refuses the same value the same way.
 
 ### Parsers
 
@@ -327,10 +328,10 @@ compareCells({ cell: 'flag', key: 'ok' }, false, true) < 0 // true — false bef
 ### Temporal data is text
 
 There is no temporal cell. A date, a time, and a timestamp are `text` columns holding ISO strings,
-because **lexical order is chronological order for ISO written one way** — one offset and one
-precision across the whole column. That is the whole reason the format exists, and it is what lets a
-`between` filter over such a column be a date range with no new operator, no new cell, and no
-calendar inside this package.
+because **lexical order is chronological order for one canonical ISO representation** — one offset,
+one precision, and one normalized spelling for each instant across the whole column. That is the
+whole reason the format exists, and it is what lets a `between` filter over such a column be a date
+range with no new operator, no new cell, and no calendar inside this package.
 
 ```ts
 import { matchesFilter } from '@orkestrel/table'
@@ -348,7 +349,7 @@ matchesFilter(when, '2026-03-14', range) // true
 matchesFilter(when, '2025-12-31', range) // false
 ```
 
-That is a boundary drawn on purpose, and it asks three things of the values a column holds. Every
+That is a boundary drawn on purpose, and it asks four things of the values a column holds. Every
 one of them is a comparison on the spelling, because that is the only comparison there is here.
 
 **One offset.** A column mixing offsets is not in chronological order:
@@ -358,6 +359,10 @@ earlier than it. Normalize to UTC `Z` before a value is stored — the usual ans
 
 **One precision.** `'09:00'` sorts before `'09:00:00'`, so a column mixing the two orders them by
 spelling rather than by clock. A filter's operands must match their cells the same way.
+
+**Normalized midnight.** ISO permits `24:00:00Z`, but `2026-01-01T24:00:00Z` names the same instant
+as `2026-01-02T00:00:00Z` while sorting before it. Normalize midnight to the next day's
+`00:00:00Z`, and use that spelling in filter operands too.
 
 **No calendar.** No value is checked against a real date, so `'2026-02-31'` is an ordinary `text`
 cell here. A host that renders a date control already refuses an impossible day, and a domain that
@@ -1042,8 +1047,9 @@ isTableSchema({ columns: [] }) // false — `key` is required
 
 The two schema guards are where the boundary is drawn twice, because a schema can be the right shape
 and still be a table nobody could open. `isStructuralTableSchema` answers the shape;
-`isTableSchema` answers the shape and the audit together, and it is the one the parser and the
-constructor read.
+`isTableSchema` answers the shape and the audit together, and it is the single-call guard consumers
+and parsers read. The constructor reads `isStructuralTableSchema` and runs `auditTable` once so its
+`SCHEMA` message retains the diagnostics.
 
 ```ts
 import { isStructuralTableSchema, isTableSchema, parseTable } from '@orkestrel/table'
@@ -1389,12 +1395,14 @@ These invariants hold across [`src/core`](../src/core) and this guide.
     wording of its strings is not, and no consumer should parse them.
 21. **Temporal values are ISO text compared lexically, under one spelling.** A date, a time, and a
     timestamp are `text` cells, and lexical order is chronological order only where a column's
-    values share one offset — normally UTC `Z` — and one precision. Mixed offsets order by spelling:
-    `'2026-01-01T00:00:00+01:00'` sorts after `'2025-12-31T23:30:00Z'` and names an instant half an
-    hour earlier. So does mixed precision, because `'09:00'` sorts before `'09:00:00'`, and a
-    filter's operands must match their cells the same way. No calendar is consulted either, so
-    `'2026-02-31'` is an ordinary cell here. Normalizing the spelling is the host's, and a
-    `CellComparator` covers a column that cannot.
+    values share one offset — normally UTC `Z` — one precision, and normalized midnight spelling.
+    Mixed offsets order by spelling: `'2026-01-01T00:00:00+01:00'` sorts after
+    `'2025-12-31T23:30:00Z'` and names an instant half an hour earlier. So does mixed precision,
+    because `'09:00'` sorts before `'09:00:00'`. `2026-01-01T24:00:00Z` and
+    `2026-01-02T00:00:00Z` name the same instant but sort differently, so midnight must use the
+    next day's `00:00:00Z`. A filter's operands must match their cells the same way. No calendar is
+    consulted either, so `'2026-02-31'` is an ordinary cell here. Normalizing the spelling is the
+    host's, and a `CellComparator` covers a column that cannot.
 
 ## Concept inventory
 
@@ -1423,7 +1431,7 @@ this package answers today through a mechanism it already exposes.
 | Row count budget             | out           | A table legitimately holds a million rows. The budgets bound one schema's declarations, which arrive from a wire; how many rows a host holds is the host's memory to spend.                                                                                                                                                                                                                                                   |
 | Parsing a lens off the wire  | out           | Sort terms, filters, and the picked keys are what a session is looking through, not the document. A host persisting them owns the format, so a parser here would parse the host's decision.                                                                                                                                                                                                                                   |
 | Case folding and collation   | seam          | `contains` compares case-sensitively and `text` compares with the language's own string order. Locale is a decision this package cannot make for a host, so a `CellMatcher` or `CellComparator` makes it.                                                                                                                                                                                                                     |
-| A temporal cell              | out           | ISO text written to one offset and one precision sorts chronologically already, so a temporal cell would add a variant that behaves exactly like `text` and a calendar to go with it. Normalizing to that one spelling is the host's, and a `CellComparator` covers a column that arrives mixed.                                                                                                                              |
+| A temporal cell              | out           | ISO text written with one offset, one precision, and normalized midnight spelling sorts chronologically already, so a temporal cell would add a variant that behaves exactly like `text` and a calendar to go with it. Normalizing to that one canonical representation is the host's, and a `CellComparator` covers a column that arrives mixed.                                                                             |
 | Calendar validity            | host          | `'2026-02-31'` is lexically fine and not a real day. A date control refuses it before it arrives, and a domain that needs the check adds it at its own door.                                                                                                                                                                                                                                                                  |
 | Number and date formatting   | host          | A `number` cell is a number and a date is its ISO string. Turning either into what a person reads is locale work at the point of drawing, and `meta` carries the hint when a schema must ship one.                                                                                                                                                                                                                            |
 | CSV and spreadsheet export   | host          | `view` or `rows()` plus `schema.columns` is the whole input an exporter needs, and the file format, encoding, and download belong to the host that has a filesystem or a browser.                                                                                                                                                                                                                                             |
@@ -1456,7 +1464,7 @@ this package answers today through a mechanism it already exposes.
 - [`tests/src/core/validators.test.ts`](../tests/src/core/validators.test.ts) — every guard against
   valid, off-shape, and hostile input, plus guard/parser soundness in both directions.
 - [`tests/src/core/parsers.test.ts`](../tests/src/core/parsers.test.ts) — `parseTable`, `parseRows`,
-  the two coercions, identity at the parse door, and the byte-exact round trip.
+  the two coercions, identity at the parse door, and the canonical byte-stable round trip.
 - [`tests/src/core/cloners.test.ts`](../tests/src/core/cloners.test.ts) — every clone is owned,
   frozen, and deep enough that no caller reference survives.
 - [`tests/src/core/constants.test.ts`](../tests/src/core/constants.test.ts) — the cell registry and

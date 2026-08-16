@@ -1,7 +1,7 @@
 import type { TableEventMap } from '@src/core'
 import { createRecorder } from '@orkestrel/test'
 import { describe, expect, it } from 'vitest'
-import { compareTextLength, createTableFixture, readTableError } from '../../../setup.js'
+import { compareTextByLength, createTableFixture, readTableError } from '../../../setup.js'
 
 describe('SortManager', () => {
 	it('sets one or many terms and replaces a term in place', () => {
@@ -66,7 +66,7 @@ describe('SortManager', () => {
 	})
 
 	it('routes a column through its comparator override in both directions', () => {
-		const table = createTableFixture({ comparators: { name: compareTextLength } })
+		const table = createTableFixture({ comparators: { name: compareTextByLength } })
 
 		table.sort.set({ column: 'name', direction: 'ascending' })
 		expect(table.view.map((row) => row.name)).toStrictEqual(['Ada', 'Lin', 'Alan', 'Grace'])
