@@ -39,8 +39,40 @@ const rows: readonly TableRow[] = [
 ]
 
 describe('src core entry', () => {
-	it('exposes the contract with no runtime value behind it', () => {
-		expect(Object.keys(entry)).toStrictEqual([])
+	it('exports every pure engine runtime name exactly', () => {
+		expect(Object.keys(entry).sort()).toStrictEqual(
+			[
+				'CHOICE_LIMIT',
+				'COLUMN_CELLS',
+				'COLUMN_LIMIT',
+				'NAME_LIMIT',
+				'NODE_LIMIT',
+				'STRING_LIMIT',
+				'TEXT_LIMIT',
+				'TableError',
+				'auditTable',
+				'cloneRow',
+				'cloneSchema',
+				'compareCells',
+				'extractColumn',
+				'extractKey',
+				'filterRows',
+				'isColumnCell',
+				'isColumnChoice',
+				'isTableCell',
+				'isTableColumn',
+				'isTableError',
+				'isTableRow',
+				'isTableSchema',
+				'matchesCell',
+				'matchesFilter',
+				'parseRows',
+				'parseTable',
+				'serializeRows',
+				'serializeTable',
+				'sortRows',
+			].sort(),
+		)
 	})
 
 	it('declares row identity as a column the schema carries', () => {
