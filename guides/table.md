@@ -131,8 +131,13 @@ Two members are spelled `count` and they answer two different questions, because
 tally of the entity it belongs to. `table.count` is **rows** — how many the filter admits, before the
 page narrows them. `table.pagination.count` is **pages** — how many the admitted rows fill.
 
-Each manager class is constructed by `Table` and exported for the consumer implementing
-`TableInterface` itself: the interface is published, so the parts that satisfy it are published too.
+Each manager class is constructed by `Table` and exported because the contract it satisfies is
+exported: a published interface publishes the parts that satisfy it, so nothing here is a mechanism
+the package keeps for itself. Their constructors are not a documented surface. Each takes the
+table's emitter and a set of closures over state the owning table keeps private, which is what keeps
+every store single-owned, and it is not a protocol a consumer can satisfy from this guide. A
+consumer writing its own table composes `Table`, or writes its own managers against the manager
+interfaces and reads these classes as the working reference.
 
 ### Constants
 
@@ -154,32 +159,47 @@ under a consumer. The budgets are numbers.
 Total `is*` guards over unknown input. None throws, none coerces, and each returns `false` for
 anything off-shape — including a hostile prototype, a symbol key, or a cyclic value.
 
-| API              | Kind     | Summary                                                                                           |
-| ---------------- | -------- | ------------------------------------------------------------------------------------------------- |
-| `isTableCell`    | function | Whether a value has a cell shape — a string, a finite number, or a boolean.                       |
-| `isTableRow`     | function | Whether a value is a record whose every own key is a string and every value a `TableCell`.        |
-| `isColumnCell`   | function | Whether a value is one of the four declared column cells.                                         |
-| `isColumnChoice` | function | Whether a value is one exact `ColumnChoice` record; an unknown member refuses it.                 |
-| `isTableColumn`  | function | Whether a value is one exact discriminated `TableColumn`, checked against its cell's own options. |
-| `isTableSchema`  | function | Whether a value is one exact structural `TableSchema` — structure only, not domain soundness.     |
+| API                       | Kind     | Summary                                                                                                              |
+| ------------------------- | -------- | -------------------------------------------------------------------------------------------------------------------- |
+| `isTableCell`             | function | Whether a value has a cell shape — a string, a finite number, or a boolean.                                          |
+| `isTableRow`              | function | Whether a value is a record whose every own key is a string and every value a `TableCell`.                           |
+| `isColumnCell`            | function | Whether a value is one of the four declared column cells.                                                            |
+| `isColumnChoice`          | function | Whether a value is one exact `ColumnChoice` record; an unknown member refuses it.                                    |
+| `isTableColumn`           | function | Whether a value is one exact discriminated `TableColumn`, checked against its cell's own options.                    |
+| `isStructuralTableSchema` | function | Whether a value has the exact shape of a `TableSchema` — the shape alone, with no domain check.                      |
+| `isTableSchema`           | function | Whether a value is a `TableSchema` a table can be opened against — the exact shape, and an audit that finds nothing. |
+
+Two of them answer about a schema, and which one to reach for is which question you are asking.
+`isStructuralTableSchema` asks whether the shape is exact: every declared member present and typed,
+and nothing else there. `isTableSchema` asks that and then asks `auditTable`, so it refuses a
+schema-shaped value carrying a domain fault or a budget breach — a `key` naming no declared column,
+a column key declared twice, a `choice` column offering nothing. It is the guard the parsers and the
+`Table` constructor read, which is what keeps the guard, the constructor, and `parseTable` agreeing
+on which schemas are usable: a value this guard accepts is never refused at the door that checked
+it. Reach for the structural guard where you mean to run the audit yourself and read its
+diagnostics.
 
 ### Helpers
 
-The pure leaves the table composes: the column lookup, the identity read, the cell gate, the two
-default lens operations, the two row passes, the audit, and the wire projections.
+The pure leaves the table composes: the column lookup, the identity read, the key-set engine, the
+cell gate, the comparison, the two filter tests, the two row passes, the audit, and the wire
+projections. Every one of them is total except `serializeTable`, which raises `SCHEMA` for a `meta`
+no clone can own.
 
-| API              | Kind     | Summary                                                                                                           |
-| ---------------- | -------- | ----------------------------------------------------------------------------------------------------------------- |
-| `extractColumn`  | function | Find one column by key; `undefined` when the schema declares no such column.                                      |
-| `extractKey`     | function | Read a row's identity; `undefined` when its key cell is missing, empty, or not a string.                          |
-| `matchesCell`    | function | Whether one column can hold a value — the shape gate every write and every seed passes through.                   |
-| `compareCells`   | function | Compare two of one column's cells the way its `cell` fixes, describing ascending order.                           |
-| `matchesFilter`  | function | Test one of a column's cells against one filter the way its `cell` fixes.                                         |
-| `filterRows`     | function | Keep the rows every filter accepts, in the order given; a supplied `CellMatcher` replaces the default per column. |
-| `sortRows`       | function | Order rows by the terms given, stably; a supplied `CellComparator` replaces the default per column.               |
-| `auditTable`     | function | Audit a structurally valid schema for domain faults and budget breaches, returning human diagnostics.             |
-| `serializeTable` | function | Project a schema into JSON in declaration order, dropping every absent member.                                    |
-| `serializeRows`  | function | Project rows into JSON with each row's cells in the schema's column order, dropping every absent cell.            |
+| API              | Kind     | Summary                                                                                                                    |
+| ---------------- | -------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `extractColumn`  | function | Find one column by key; `undefined` when the schema declares no such column.                                               |
+| `extractKey`     | function | Read a row's identity; `undefined` when its key cell is missing, empty, or not a string.                                   |
+| `computeKeys`    | function | Work out one atomic 0/1/N membership change over the keys a caller may address — the engine selection and expansion share. |
+| `matchesCell`    | function | Whether one column can hold a value — the shape gate every write and every seed passes through.                            |
+| `compareCells`   | function | Compare two of one column's cells the way its `cell` fixes, describing ascending order.                                    |
+| `admitsFilter`   | function | Whether one column admits a filter and every operand it carries — the gate `filter.set` and `matchesFilter` share.         |
+| `matchesFilter`  | function | Test one of a column's cells against one filter the way its `cell` fixes.                                                  |
+| `filterRows`     | function | Keep the rows every filter accepts, in the order given; a supplied `CellMatcher` replaces the default per column.          |
+| `sortRows`       | function | Order rows by the terms given, stably; a supplied `CellComparator` replaces the default per column.                        |
+| `auditTable`     | function | Audit a structurally valid schema for domain faults and budget breaches, returning human diagnostics.                      |
+| `serializeTable` | function | Project a schema into JSON in declaration order, dropping every absent member; raises `SCHEMA` for a `meta` it cannot own. |
+| `serializeRows`  | function | Project rows into JSON with each row's cells in the schema's column order, dropping every absent cell.                     |
 
 ### Cloners
 
@@ -187,10 +207,18 @@ Owned frozen snapshots. The table takes one of the schema at construction and on
 admission, so a later edit to the object a caller passed changes nothing inside the table, and no
 row the table hands back is a live internal reference.
 
-| API           | Kind     | Summary                                                                            |
-| ------------- | -------- | ---------------------------------------------------------------------------------- |
-| `cloneRow`    | function | Own one row as a frozen copy of its cells.                                         |
-| `cloneSchema` | function | Own a whole schema, freezing every nested column, choice list, choice, and `meta`. |
+| API           | Kind     | Summary                                                                                                                        |
+| ------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `cloneRow`    | function | Own one row as a frozen copy of its cells.                                                                                     |
+| `cloneSchema` | function | Own a whole schema, freezing every nested column, choice list, choice, and `meta`; raises `SCHEMA` for a `meta` it cannot own. |
+
+`cloneRow` cannot fail, because a cell is a primitive. `cloneSchema` can, and one thing makes it
+fail: a column's `meta` holding something no clone can own, such as a record that refers back to
+itself. `meta` is typed as JSON and a cycle satisfies that type, so the refusal is a `TableError`
+coded `SCHEMA` rather than a silent partial copy. `createTable` never reaches it, because
+`isTableColumn` admits only a bounded JSON record there and refuses such a schema first. This is the
+door a caller cloning or serializing a schema on its own meets, and `serializeTable` refuses the
+same value the same way.
 
 ### Parsers
 
@@ -299,9 +327,10 @@ compareCells({ cell: 'flag', key: 'ok' }, false, true) < 0 // true — false bef
 ### Temporal data is text
 
 There is no temporal cell. A date, a time, and a timestamp are `text` columns holding ISO strings,
-because **lexical order is chronological order for ISO** — the whole reason the format exists. A
-`between` filter over such a column is therefore a date range with no new operator, no new cell, and
-no calendar inside this package.
+because **lexical order is chronological order for ISO written one way** — one offset and one
+precision across the whole column. That is the whole reason the format exists, and it is what lets a
+`between` filter over such a column be a date range with no new operator, no new cell, and no
+calendar inside this package.
 
 ```ts
 import { matchesFilter } from '@orkestrel/table'
@@ -319,12 +348,20 @@ matchesFilter(when, '2026-03-14', range) // true
 matchesFilter(when, '2025-12-31', range) // false
 ```
 
-That is a boundary drawn on purpose, and it has two consequences worth stating out loud. Operands
-and cells must use the same precision, because the comparison is lexical: `'09:00'` sorts before
-`'09:00:00'`, and mixing the two orders them by spelling rather than by clock. And no value is
-checked against a calendar, so `'2026-02-31'` is an ordinary `text` cell here. A host that renders a
-date control already refuses an impossible day, and a domain that needs the check adds it at its own
-door.
+That is a boundary drawn on purpose, and it asks three things of the values a column holds. Every
+one of them is a comparison on the spelling, because that is the only comparison there is here.
+
+**One offset.** A column mixing offsets is not in chronological order:
+`'2026-01-01T00:00:00+01:00'` sorts after `'2025-12-31T23:30:00Z'` and names an instant half an hour
+earlier than it. Normalize to UTC `Z` before a value is stored — the usual answer — or supply a
+`CellComparator` for that column that reads the offset before it compares.
+
+**One precision.** `'09:00'` sorts before `'09:00:00'`, so a column mixing the two orders them by
+spelling rather than by clock. A filter's operands must match their cells the same way.
+
+**No calendar.** No value is checked against a real date, so `'2026-02-31'` is an ordinary `text`
+cell here. A host that renders a date control already refuses an impossible day, and a domain that
+needs the check adds it at its own door.
 
 ### meta
 
@@ -625,6 +662,24 @@ try {
 }
 ```
 
+That admissibility rule has one home. `admitsFilter` answers whether a column takes a filter and
+every operand it carries, and both doors read it: `filter.set` raises `CELL` when it says no, and
+`matchesFilter` returns `false` for the same filter rather than testing it. So a host can ask the
+question before it offers the control — which operators to put in a column's menu, and whether the
+value somebody typed is one that column can take.
+
+```ts
+import { admitsFilter } from '@orkestrel/table'
+import type { NumberColumn } from '@orkestrel/table'
+
+const age: NumberColumn = { cell: 'number', key: 'age', label: 'Age' }
+
+admitsFilter(age, { column: 'age', operator: 'between', minimum: 30, maximum: 40 }) // true
+admitsFilter(age, { column: 'age', operator: 'contains', text: '3' }) // false — not an operator a number takes
+admitsFilter(age, { column: 'age', operator: 'equals', value: '36' }) // false — an operand the column cannot hold
+admitsFilter(age, { column: 'name', operator: 'equals', value: 36 }) // false — the filter names another column
+```
+
 `filterRows` is the same pass without a table, and it keeps the order it was given.
 
 ```ts
@@ -660,6 +715,9 @@ the filter admits, so nothing here can drift out of step with what the table hol
 - `limit` is how many rows a page holds, or `undefined` when the table is not paged. An unpaged table
   reports `page` 1, `offset` 0, and `count` 1, and its `view` is every row the filter admits.
 - `offset` counts the rows skipped, from zero, which is exactly what a database query asks for.
+- `count` is `max(1, ceil(rows / limit))`, so a paged table whose filter admits no rows still
+  reports one page, and that page's `view` is empty. There is no page zero, and a host drawing
+  "page 1 of 1" over an empty list needs no separate case for it.
 - A page beyond the last one clamps to the last one. Narrowing the filter therefore moves the page
   on its own, and moving to page 9 of 3 shows page 3 rather than nothing.
 - `resize` keeps the first row the view was showing, so the page moves to wherever that row now
@@ -740,6 +798,26 @@ table.expansion.keys.has('2') // false
 
 table.expansion.toggle('2')
 table.expansion.keys.size // 3
+```
+
+Both managers are the same algorithm over two sets, so it is written once. `computeKeys` takes the
+keys a caller may address, the set as it stands, the 0/1/N argument, and a decision made per key
+from that key's own membership. It returns `undefined` when any requested key is unknown, which is
+the `false` those verbs report. It returns the set it was handed when nothing moved, which is how a
+no-op stays silent. Otherwise it returns the next set. It is exported for the reason the managers
+are: a host keeping a third key set of its own gets the same atomicity without writing it again.
+
+```ts
+import { computeKeys } from '@orkestrel/table'
+import type { TableKey } from '@orkestrel/table'
+
+const known: readonly TableKey[] = ['1', '2', '3']
+const picked: ReadonlySet<TableKey> = new Set(['1'])
+
+computeKeys(known, picked, '2', () => true)?.size // 2 — '2' joins '1'
+computeKeys(known, picked, '9', () => true) // undefined — '9' is not a key the caller may address
+computeKeys(known, picked, '1', () => true) === picked // true — nothing moved, so nothing is announced
+computeKeys(known, picked, undefined, (included) => !included)?.size // 2 — every key turned around
 ```
 
 ## Lifecycle and state
@@ -882,11 +960,18 @@ parseTable({ key: 'id', columns: 'not a list' }) // undefined
 parseTable({ columns: [{ cell: 'text', key: 'id' }] }) // undefined — no `key`
 ```
 
-The round trip is byte-exact because both projections fix the order they emit in: `serializeTable`
+The round trip is byte-stable because both projections fix the order they emit in: `serializeTable`
 writes a schema's members in declaration order and a column's in the order the contract declares
 them, and `serializeRows` writes each row's cells in the schema's column order. Ordering is what
 turns "the same data" into "the same bytes", and it is the only reason a caller can compare two wire
 forms with `===` instead of walking them.
+
+That is canonicalization, not preservation. A projection reorders whatever it was handed: an object
+written `columns` before `key` comes back with `key` before `columns`, because declaration order is
+the order the contract declares and not the order the caller typed. So the bytes settle at the first
+projection, and every projection after it — of that schema, or of what `parseTable` returned from
+those bytes — reproduces them exactly. Compare two wire forms, never a wire form against arbitrary
+incoming bytes.
 
 Rows travel too, and they arrive as strings far more often than not — a query string, a form post, a
 CSV cell. `parseRows` coerces exactly two things and nothing else: a numeric string into a `number`
@@ -895,7 +980,9 @@ value must already have its column's shape.
 
 `parseRows` is strict in every other direction. It reads rows against the schema, so a key the
 schema does not declare refuses the whole payload, a cell its column cannot hold refuses the whole
-payload, and so does a row with no usable identity or an identity another row already used. There is
+payload, and so does a row with no usable identity or an identity another row already used. A JSON
+`null` is a cell no column can hold, and it is the refusal a wire producer meets most often: absence
+here is an absent key, so a producer writing `null` for an empty field drops the key instead. There is
 no partial result, because a half-accepted row set is worse than a rejected one — and the door where
 identity is checked is this one, so nothing that reaches the table has to be checked for it twice.
 
@@ -914,6 +1001,7 @@ const schema: TableSchema = {
 
 parseRows(schema, [{ id: '1', age: '36', active: 'true' }]) // [{ id: '1', age: 36, active: true }]
 parseRows(schema, [{ id: '1', age: 'old' }]) // undefined — not a number
+parseRows(schema, [{ id: '1', age: null }]) // undefined — JSON's null is not an absent cell
 parseRows(schema, [{ id: '1' }, { id: '1' }]) // undefined — one identity, twice
 parseRows(schema, [{ id: '1', colour: 'red' }]) // undefined — no such column
 serializeRows(schema, [{ age: 36, id: '1' }]) // [{ id: '1', age: 36 }] — schema column order
@@ -950,6 +1038,22 @@ isColumnChoice({ value: 'a', label: 'A', colour: 'red' }) // false — an unknow
 isTableColumn({ cell: 'choice', key: 'status', choices: [] }) // true — structure only
 isTableSchema({ key: 'id', columns: [{ cell: 'text', key: 'id' }] }) // true
 isTableSchema({ columns: [] }) // false — `key` is required
+```
+
+The two schema guards are where the boundary is drawn twice, because a schema can be the right shape
+and still be a table nobody could open. `isStructuralTableSchema` answers the shape;
+`isTableSchema` answers the shape and the audit together, and it is the one the parser and the
+constructor read.
+
+```ts
+import { isStructuralTableSchema, isTableSchema, parseTable } from '@orkestrel/table'
+
+const unsound = { key: 'missing', columns: [{ cell: 'text', key: 'id' }] }
+
+isStructuralTableSchema(unsound) // true — every member is present and typed
+isTableSchema(unsound) // false — `key` names no declared column
+parseTable(unsound) // undefined — the parser refuses exactly what the guard refuses
+isStructuralTableSchema({ columns: [] }) // false — `key` is required by the shape itself
 ```
 
 ### Owning what arrives
@@ -1024,6 +1128,9 @@ and every budget breach above:
 
 The audit runs inside `createTable` and inside `parseTable`, so a consumer rarely calls it directly —
 but it is exported, because a schema editor wants the diagnostics before it constructs anything.
+`isTableSchema` is this list's emptiness over a structurally exact value, and nothing else, so the
+guard, the constructor, and the parser cannot disagree about which schemas a table can be opened
+against. The guard is the yes-or-no; the audit is why.
 
 **It returns human diagnostics, not a machine contract.** Read them, show them, log them. Do not
 branch on their text or parse a column key out of them: the wording is free to change with the
@@ -1064,7 +1171,11 @@ function types with one call signature and no named members.
 
 Where a method takes no argument, one key, or a key list, that is one method with three overloads
 rather than three methods. A list is checked in full before any of it moves, and the call returns
-`true` only when every key in it named a row the table holds.
+`true` only when every name in it names what its manager addresses: a row the table holds for
+`rows`, `selection`, and `expansion`, and a column the schema declares for `sort` and `filter`. So
+`selection.clear('9')` is `false` for a key no row carries, while `sort.remove('age')` is `true` for
+a declared `age` column nothing was sorting by — the column exists, and afterwards nothing sorts by
+it either way.
 
 #### `TableInterface`
 
@@ -1086,21 +1197,21 @@ rather than three methods. A list is checked in full before any of it moves, and
 
 #### `SortManagerInterface`
 
-| Method   | Returns                     | Behavior                                                                                                                |
-| -------- | --------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| `order`  | `TableOrder` or `undefined` | Find one column's term; `undefined` when nothing sorts that column.                                                     |
-| `orders` | `readonly TableOrder[]`     | Every term the table sorts by, first to last, in the order they decide.                                                 |
-| `set`    | `void`                      | Sort by one column or several. A term for a column already sorted replaces its direction in place; others join the end. |
-| `remove` | `void` or `boolean`         | Stop sorting by everything, by one column, or by several. An undeclared column is refused.                              |
+| Method   | Returns                     | Behavior                                                                                                                                                      |
+| -------- | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `order`  | `TableOrder` or `undefined` | Find one column's term; `undefined` when nothing sorts that column.                                                                                           |
+| `orders` | `readonly TableOrder[]`     | Every term the table sorts by, first to last, in the order they decide.                                                                                       |
+| `set`    | `void`                      | Sort by one column or several. A term for a column already sorted replaces its direction in place; others join the end. An undeclared column raises `COLUMN`. |
+| `remove` | `void` or `boolean`         | Stop sorting by everything, by one column, or by several. An undeclared column returns `false` and stops nothing.                                             |
 
 #### `FilterManagerInterface`
 
-| Method    | Returns                      | Behavior                                                                                               |
-| --------- | ---------------------------- | ------------------------------------------------------------------------------------------------------ |
-| `filter`  | `TableFilter` or `undefined` | Find one column's filter; `undefined` when nothing filters that column.                                |
-| `filters` | `readonly TableFilter[]`     | Every filter the table keeps rows by, in the order they were set.                                      |
-| `set`     | `void`                       | Filter one column or several. A filter for a column already filtered replaces it; others join the end. |
-| `remove`  | `void` or `boolean`          | Stop filtering everything, one column, or several. An undeclared column is refused.                    |
+| Method    | Returns                      | Behavior                                                                                                                                                                                           |
+| --------- | ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `filter`  | `TableFilter` or `undefined` | Find one column's filter; `undefined` when nothing filters that column.                                                                                                                            |
+| `filters` | `readonly TableFilter[]`     | Every filter the table keeps rows by, in the order they were set.                                                                                                                                  |
+| `set`     | `void`                       | Filter one column or several. A filter for a column already filtered replaces it; others join the end. An undeclared column raises `COLUMN`, and a filter the column does not admit raises `CELL`. |
+| `remove`  | `void` or `boolean`          | Stop filtering everything, one column, or several. An undeclared column returns `false` and stops nothing.                                                                                         |
 
 #### `SelectionManagerInterface`
 
@@ -1130,13 +1241,13 @@ rather than three methods. A list is checked in full before any of it moves, and
 `TableError` carries a machine-readable `code` and an optional structured `context`. Narrow a caught
 value with `isTableError` and branch on `code`; never match on message text.
 
-| Code        | Raised when                                                                                                                                    |
-| ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| `SCHEMA`    | The schema is not a table schema, or `auditTable` found a domain fault or a budget breach. `createTable` and the `Table` constructor raise it. |
-| `COLUMN`    | A term or a filter names a column the schema does not declare.                                                                                 |
-| `KEY`       | A row's identity is missing, unusable, already taken, or repeated inside one batch.                                                            |
-| `CELL`      | A cell is one its column cannot hold, or a filter's operator or operand is one its column cannot take.                                         |
-| `DESTROYED` | A write reached a table that has been torn down.                                                                                               |
+| Code        | Raised when                                                                                                                                                                                                                                                |
+| ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `SCHEMA`    | The schema is not a table schema, or `auditTable` found a domain fault or a budget breach — `createTable` and the `Table` constructor raise those. `serializeTable` and `cloneSchema` raise it for a third reason: a column's `meta` that cannot be owned. |
+| `COLUMN`    | A term or a filter names a column the schema does not declare.                                                                                                                                                                                             |
+| `KEY`       | A row's identity is missing, unusable, already taken, or repeated inside one batch.                                                                                                                                                                        |
+| `CELL`      | A cell is one its column cannot hold, or a filter's operator or operand is one its column cannot take.                                                                                                                                                     |
+| `DESTROYED` | A write reached a table that has been torn down.                                                                                                                                                                                                           |
 
 ```ts
 import { createTable, isTableError } from '@orkestrel/table'
@@ -1203,10 +1314,12 @@ These invariants hold across [`src/core`](../src/core) and this guide.
    admits and each row it hands back, and clones and freezes the schema at construction. An edit to
    the object a caller passed changes nothing inside the table, and no getter returns a live internal
    reference.
-5. **A write is all-or-nothing.** `rows.add`, `rows.update`, `rows.remove`, `sort.set`,
-   `sort.remove`, `filter.set`, `filter.remove`, and every 0/1/N verb on selection and expansion
-   check the whole argument before any of it lands, so a `KEY`, `CELL`, or `COLUMN` refusal leaves
-   the table exactly as it was.
+5. **A write is all-or-nothing, and it refuses one of two ways.** `rows.add`, `rows.update`,
+   `rows.remove`, `sort.set`, `sort.remove`, `filter.set`, `filter.remove`, and every 0/1/N verb on
+   selection and expansion check the whole argument before any of it lands. A bad value raises
+   `KEY`, `CELL`, or `COLUMN`. A name that nothing answers to returns `false` and raises nothing —
+   an unheld row key for `rows`, `selection`, and `expansion`, and an undeclared column for
+   `sort.remove` and `filter.remove`. Either way the table is left exactly as it was.
 6. **`update` merges and cannot move a key.** The cells given replace the cells held and the cells
    left out stay as they are, and the row is found by the key it carries — so no sequence of
    `update` calls changes any row's identity.
@@ -1234,10 +1347,10 @@ These invariants hold across [`src/core`](../src/core) and this guide.
     survives a sort, a filter, and a page turn; and a row leaving the table removes its key from
     both. Selecting with no argument picks every row the table holds, not every row in `view`.
 13. **Pagination is derived and clamps.** `page` is the only stored fact, counted from one;
-    `offset` is `(page - 1) * limit` and zero when unpaged; `count` is the number of pages the
-    filtered rows fill and `1` when unpaged. A page beyond the last clamps to the last, including
-    when a filter or a removal shrinks the rows underneath it. `resize` keeps the first row the view
-    was showing.
+    `offset` is `(page - 1) * limit` and zero when unpaged; `count` is `max(1, ceil(rows / limit))`
+    and `1` when unpaged — so a paged table with no admitted rows holds one page, and that page's
+    `view` is empty. A page beyond the last clamps to the last, including when a filter or a removal
+    shrinks the rows underneath it. `resize` keeps the first row the view was showing.
 14. **Every event fires after commit, and a no-op is silent.** No listener sees a state the table has
     not finished writing, and a call that moves nothing announces nothing — the same sort term twice,
     a toggle back to where it was, a `move` to the index a row already occupies. When one call moves
@@ -1250,11 +1363,17 @@ These invariants hold across [`src/core`](../src/core) and this guide.
 16. **Guards are total and parsers refuse.** No `is*` throws for any input — hostile prototype,
     symbol key, cycle, or depth. No `parse*` throws; each returns `undefined` on refusal. A
     guard-valid value is never refused by its parser, and every parsed result satisfies its guard.
-17. **Only data crosses the wire, and the round trip is byte-exact.** `serializeTable` and
-    `serializeRows` emit in declaration and column order, so serializing what `parseTable` or
-    `parseRows` returned reproduces the bytes that arrived. `meta` survives verbatim key for key.
-    Options and live state have no projection at all: functions, sort terms, filters, picked keys,
-    opened keys, and the page never travel.
+    `isTableSchema` is therefore semantic and not merely structural: it is the exact shape plus an
+    empty `auditTable`, which is exactly what `parseTable` and the `Table` constructor demand.
+    `isStructuralTableSchema` is the shape alone, for a caller running the audit itself.
+17. **Only data crosses the wire, and the round trip is byte-stable.** `serializeTable` and
+    `serializeRows` emit in canonical order — a schema's members in declaration order, a column's in
+    the order the contract declares them, and a row's cells in the schema's column order. Incoming
+    key order is canonicalized rather than preserved, so the bytes settle at the first projection
+    and every projection after it reproduces them, including a projection of what `parseTable` or
+    `parseRows` returned from those bytes. `meta` survives verbatim key for key. Options and live
+    state have no projection at all: functions, sort terms, filters, picked keys, opened keys, and
+    the page never travel.
 18. **Identity is checked at the parse door.** `parseRows` refuses the whole payload when a row has
     no usable identity, when two rows share one, when a cell's column cannot hold it, or when a key
     names no declared column. It coerces exactly two things — a numeric string for a `number` column
@@ -1268,9 +1387,14 @@ These invariants hold across [`src/core`](../src/core) and this guide.
     read at the parse door, which is the transport's to bound.
 20. **`auditTable` returns diagnostics, not a contract.** The list's emptiness is the promise. The
     wording of its strings is not, and no consumer should parse them.
-21. **Temporal values are ISO text compared lexically.** A date, a time, and a timestamp are `text`
-    cells. No calendar is consulted, so `'2026-02-31'` is an ordinary cell here, and operands must
-    match their cells' precision because `'09:00'` sorts before `'09:00:00'`.
+21. **Temporal values are ISO text compared lexically, under one spelling.** A date, a time, and a
+    timestamp are `text` cells, and lexical order is chronological order only where a column's
+    values share one offset — normally UTC `Z` — and one precision. Mixed offsets order by spelling:
+    `'2026-01-01T00:00:00+01:00'` sorts after `'2025-12-31T23:30:00Z'` and names an instant half an
+    hour earlier. So does mixed precision, because `'09:00'` sorts before `'09:00:00'`, and a
+    filter's operands must match their cells the same way. No calendar is consulted either, so
+    `'2026-02-31'` is an ordinary cell here. Normalizing the spelling is the host's, and a
+    `CellComparator` covers a column that cannot.
 
 ## Concept inventory
 
@@ -1279,38 +1403,38 @@ taken on evidence, not an omission — so a reader can tell a boundary from a ga
 knows what it is reopening. `Layer` names who owns the concept, and a row reading **seam** is one
 this package answers today through a mechanism it already exposes.
 
-| Concept                      | Layer         | Why it sits there                                                                                                                                                                                         |
-| ---------------------------- | ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Rendering                    | host          | The table owns values, not pixels. It names no host type, so one table serves a browser, a terminal, a report, and an export equally — and the moment it drew one of them it would serve only that one.   |
-| ARIA and roles               | host          | `label` and `help` are the strings an accessible grid needs. The roles, the ids, and their uniqueness belong to the layer that owns the elements.                                                         |
-| Keyboard and focus           | host          | Arrow keys, roving focus, and type-ahead are input gestures over drawn cells. The table has no cursor because it has no cells on a screen.                                                                |
-| Virtualization               | host          | Which rows are cheap to draw is a measurement of drawn things. `pagination` already gives a windowing host `offset` and `limit`, and a virtualizer that wants every row reads `rows()`.                   |
-| Column resizing              | host          | A width is pixels. `meta` carries one when a host must ship it in the schema, and the table never reads it.                                                                                               |
-| Column reordering and hiding | seam          | `columns` order is presentation order and `hidden` is the flag. Reordering is building the next schema, which is one line over the array a host already holds.                                            |
-| Row drag-and-drop            | seam          | The gesture is the host's; the result is `rows.move(key, index)`, which is the one verb that writes the table's own order.                                                                                |
-| Sticky columns and headers   | host          | Which columns stay put while the rest scroll is a layout decision about drawn elements.                                                                                                                   |
-| Or-filters and nested groups | out           | v1 composes filters with **and** only, one per column, which is what a filter bar produces. Either-or turns a flat list into a tree and takes every guard, parser, and wire form with it.                 |
-| Grouping and aggregation     | out           | Group headers, subtotals, and rollups add a second row kind that is not a row, and a fold that is not a filter. `view` stays a flat list of the rows the table holds.                                     |
-| Tree and hierarchical rows   | out           | A parent key would make `view` a traversal rather than a projection, and expansion would mean "show children" instead of "this row is open". Expansion here says only which rows are open.                |
-| Editing transactions         | out           | A staged edit set with commit and rollback is a second store beside the row store, and two writers that can disagree. A host that needs one holds the pending values and calls `update` once.             |
-| Undo and history             | out           | The table holds the rows now. A stack of everything before is a host concern with a host's retention policy, built over the same `update` and `remove` calls.                                             |
-| Async data sources           | host          | Every read here is synchronous, so `view` is right the instant anything moves. Fetching, paging a server, and reconciling a response are the host's; it reads the lens and calls `add` or `clear`.        |
-| Server-side paging           | seam          | `sort.orders()`, `filter.filters()`, `pagination.offset`, and `pagination.limit` are already the shape a query asks for, in the vocabulary `@orkestrel/database` uses.                                    |
-| Row count budget             | out           | A table legitimately holds a million rows. The budgets bound one schema's declarations, which arrive from a wire; how many rows a host holds is the host's memory to spend.                               |
-| Parsing a lens off the wire  | out           | Sort terms, filters, and the picked keys are what a session is looking through, not the document. A host persisting them owns the format, so a parser here would parse the host's decision.               |
-| Case folding and collation   | seam          | `contains` compares case-sensitively and `text` compares with the language's own string order. Locale is a decision this package cannot make for a host, so a `CellMatcher` or `CellComparator` makes it. |
-| A temporal cell              | out           | ISO text sorts chronologically already, so a temporal cell would add a variant that behaves exactly like `text` and a calendar to go with it.                                                             |
-| Calendar validity            | host          | `'2026-02-31'` is lexically fine and not a real day. A date control refuses it before it arrives, and a domain that needs the check adds it at its own door.                                              |
-| Number and date formatting   | host          | A `number` cell is a number and a date is its ISO string. Turning either into what a person reads is locale work at the point of drawing, and `meta` carries the hint when a schema must ship one.        |
-| CSV and spreadsheet export   | host          | `view` or `rows()` plus `schema.columns` is the whole input an exporter needs, and the file format, encoding, and download belong to the host that has a filesystem or a browser.                         |
-| Cell-level selection         | out           | Selection holds row keys. A rectangular cell range is a second selection model with its own vocabulary, and no consumer has asked for one.                                                                |
-| Choice `meta`                | out           | `meta` is on `ColumnBase` alone, because a column carrier is what the first consumer asked for. The exact guard refuses it on `ColumnChoice` until one asks.                                              |
-| Browser binding              | `src/browser` | Binding a table to real elements — a grid, its headings, its scroll container — belongs in a future `src/browser`, taking a table and an element. Nothing renders in this round.                          |
+| Concept                      | Layer         | Why it sits there                                                                                                                                                                                                                                                                                                                                                                                                             |
+| ---------------------------- | ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Rendering                    | host          | The table owns values, not pixels. It names no host type, so one table serves a browser, a terminal, a report, and an export equally — and the moment it drew one of them it would serve only that one.                                                                                                                                                                                                                       |
+| ARIA and roles               | host          | `label` and `help` are the strings an accessible grid needs. The roles, the ids, and their uniqueness belong to the layer that owns the elements.                                                                                                                                                                                                                                                                             |
+| Keyboard and focus           | host          | Arrow keys, roving focus, and type-ahead are input gestures over drawn cells. The table has no cursor because it has no cells on a screen.                                                                                                                                                                                                                                                                                    |
+| Virtualization               | host          | Which rows are cheap to draw is a measurement of drawn things. `pagination` already gives a windowing host `offset` and `limit`, and a virtualizer that wants the whole list leaves the table unpaged and reads `view`, which is every admitted row in sort order. `rows()` is the store's own order and ignores the lens.                                                                                                    |
+| Column resizing              | host          | A width is pixels. `meta` carries one when a host must ship it in the schema, and the table never reads it.                                                                                                                                                                                                                                                                                                                   |
+| Column reordering and hiding | seam          | `columns` order is presentation order and `hidden` is the flag. Reordering is building the next schema, which is one line over the array a host already holds.                                                                                                                                                                                                                                                                |
+| Row drag-and-drop            | seam          | The gesture is the host's; the result is `rows.move(key, index)`, which is the one verb that writes the table's own order.                                                                                                                                                                                                                                                                                                    |
+| Sticky columns and headers   | host          | Which columns stay put while the rest scroll is a layout decision about drawn elements.                                                                                                                                                                                                                                                                                                                                       |
+| Or-filters and nested groups | out           | v1 composes filters with **and** only, one per column, which is what a filter bar produces. The one thing it cannot express at all is the global search box that matches a term against every column: that is an or across columns, and a host wanting one narrows `rows()` with its own predicate and holds the result itself. Either-or turns a flat list into a tree and takes every guard, parser, and wire form with it. |
+| Grouping and aggregation     | out           | Group headers, subtotals, and rollups add a second row kind that is not a row, and a fold that is not a filter. `view` stays a flat list of the rows the table holds.                                                                                                                                                                                                                                                         |
+| Tree and hierarchical rows   | out           | A parent key would make `view` a traversal rather than a projection, and expansion would mean "show children" instead of "this row is open". Expansion here says only which rows are open.                                                                                                                                                                                                                                    |
+| Editing transactions         | out           | A staged edit set with commit and rollback is a second store beside the row store, and two writers that can disagree. A host that needs one holds the pending values and calls `update` once.                                                                                                                                                                                                                                 |
+| Undo and history             | out           | The table holds the rows now. A stack of everything before is a host concern with a host's retention policy, built over the same `update` and `remove` calls.                                                                                                                                                                                                                                                                 |
+| Async data sources           | host          | Every read here is synchronous, so `view` is right the instant anything moves. Fetching, paging a server, and reconciling a response are the host's; it reads the lens and calls `add` or `clear`.                                                                                                                                                                                                                            |
+| Server-side paging           | seam          | `sort.orders()`, `filter.filters()`, `pagination.offset`, and `pagination.limit` are already the shape a query asks for, in the vocabulary `@orkestrel/database` uses.                                                                                                                                                                                                                                                        |
+| Row count budget             | out           | A table legitimately holds a million rows. The budgets bound one schema's declarations, which arrive from a wire; how many rows a host holds is the host's memory to spend.                                                                                                                                                                                                                                                   |
+| Parsing a lens off the wire  | out           | Sort terms, filters, and the picked keys are what a session is looking through, not the document. A host persisting them owns the format, so a parser here would parse the host's decision.                                                                                                                                                                                                                                   |
+| Case folding and collation   | seam          | `contains` compares case-sensitively and `text` compares with the language's own string order. Locale is a decision this package cannot make for a host, so a `CellMatcher` or `CellComparator` makes it.                                                                                                                                                                                                                     |
+| A temporal cell              | out           | ISO text written to one offset and one precision sorts chronologically already, so a temporal cell would add a variant that behaves exactly like `text` and a calendar to go with it. Normalizing to that one spelling is the host's, and a `CellComparator` covers a column that arrives mixed.                                                                                                                              |
+| Calendar validity            | host          | `'2026-02-31'` is lexically fine and not a real day. A date control refuses it before it arrives, and a domain that needs the check adds it at its own door.                                                                                                                                                                                                                                                                  |
+| Number and date formatting   | host          | A `number` cell is a number and a date is its ISO string. Turning either into what a person reads is locale work at the point of drawing, and `meta` carries the hint when a schema must ship one.                                                                                                                                                                                                                            |
+| CSV and spreadsheet export   | host          | `view` or `rows()` plus `schema.columns` is the whole input an exporter needs, and the file format, encoding, and download belong to the host that has a filesystem or a browser.                                                                                                                                                                                                                                             |
+| Cell-level selection         | out           | Selection holds row keys. A rectangular cell range is a second selection model with its own vocabulary, and no consumer has asked for one.                                                                                                                                                                                                                                                                                    |
+| Choice `meta`                | out           | `meta` is on `ColumnBase` alone, because a column carrier is what the first consumer asked for. The exact guard refuses it on `ColumnChoice` until one asks.                                                                                                                                                                                                                                                                  |
+| Browser binding              | `src/browser` | Binding a table to real elements — a grid, its headings, its scroll container — belongs in a future `src/browser`, taking a table and an element. Nothing renders in this round.                                                                                                                                                                                                                                              |
 
 ## Tests
 
 - [`tests/guides.test.ts`](../tests/guides.test.ts) — the `## Surface` ↔ barrel bijection, the seven
-  interface ↔ class method bijections, and the flagship fences above executed against the real
+  interface ↔ class method bijections, and the worked examples above executed against the real
   source so a documented value that the code contradicts fails.
 - [`tests/src/core/Table.test.ts`](../tests/src/core/Table.test.ts) — construction, seeding, the
   derived `view` and `count`, emission order, `clear`, `destroy`, and writes after teardown.
@@ -1327,8 +1451,8 @@ this package answers today through a mechanism it already exposes.
 - [`tests/src/core/tables/PaginationManager.test.ts`](../tests/src/core/tables/PaginationManager.test.ts)
   — `page`, `limit`, `offset`, `count`, `move`, `resize`, clamping, and the unpaged table.
 - [`tests/src/core/helpers.test.ts`](../tests/src/core/helpers.test.ts) — `extractColumn`,
-  `extractKey`, `matchesCell`, `compareCells`, `matchesFilter`, `filterRows`, `sortRows`,
-  `auditTable`, `serializeTable`, `serializeRows`, and the budgets.
+  `extractKey`, `computeKeys`, `matchesCell`, `compareCells`, `admitsFilter`, `matchesFilter`,
+  `filterRows`, `sortRows`, `auditTable`, `serializeTable`, `serializeRows`, and the budgets.
 - [`tests/src/core/validators.test.ts`](../tests/src/core/validators.test.ts) — every guard against
   valid, off-shape, and hostile input, plus guard/parser soundness in both directions.
 - [`tests/src/core/parsers.test.ts`](../tests/src/core/parsers.test.ts) — `parseTable`, `parseRows`,

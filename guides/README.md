@@ -14,8 +14,9 @@ A dual-axis index into this repository's guides — by concept, and by directory
 | ---------- | ---------------------- |
 | `src/core` | [`table.md`](table.md) |
 
-The parity suite transcribes and executes the flagship fence set from `table.md`. It name-checks and
-parity-checks the remaining fences but does not run them.
+The parity suite checks every fence in `table.md` — its language, its imports, and the exports it
+names — and transcribes its worked examples, plus the Usage fence in the root `README.md`, into
+tests that run against the real source. A documented value the code contradicts fails there.
 
 ## Dependency reference
 
