@@ -558,12 +558,13 @@ describe('configuration helpers', () => {
 			expect(configHelpers.isStylesheetPath('src/core/index.ts')).toBe(false)
 			expect(configHelpers.decodeAssetSource('./asset%20name.png')).toBe('./asset name.png')
 			expect(configHelpers.decodeAssetSource('%')).toBeUndefined()
-			await expect(configHelpers.environmentAssetSources(code, source)).resolves.toStrictEqual([
+			const written = readFileSync(source, 'utf8')
+			await expect(configHelpers.environmentAssetSources(written, source)).resolves.toStrictEqual([
 				'./module.js',
 				'./asset name.png',
 			])
 			await expect(
-				configHelpers.environmentAssetSources(code, source, true),
+				configHelpers.environmentAssetSources(written, source, true),
 			).resolves.toStrictEqual([])
 		} finally {
 			scratch.destroy()

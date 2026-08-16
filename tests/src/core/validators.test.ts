@@ -143,16 +143,21 @@ describe('table structural guards', () => {
 				let accepted: boolean | undefined
 				expect(() => {
 					accepted = guard(value)
-				}, `strict guard against hostile value ${index}`).not.toThrow()
-				expect(accepted, `strict guard against hostile value ${index}`).toBe(false)
+				}, `${guard.name} against hostile value ${index}`).not.toThrow()
+				expect(accepted, `${guard.name} against hostile value ${index}`).toBe(false)
 			}
 		}
 	})
 
 	it('answers every hostile corpus member by the row guard contract without throwing', () => {
 		const expectations = [false, false, true, false, false, true]
+		const values = createHostileValues()
+		expect(expectations.length).toBe(values.length)
 
-		for (const [index, value] of createHostileValues().entries()) {
+		// index 2 (the get-throwing proxy) and index 5 (the null-prototype empty record) are
+		// accepted because isTableRow checks own string keys only, and both expose zero own keys.
+
+		for (const [index, value] of values.entries()) {
 			let rowAccepted: boolean | undefined
 			expect(() => {
 				rowAccepted = isTableRow(value)
