@@ -1,6 +1,6 @@
 {
 	"name": "@orkestrel/table",
-	"version": "0.0.1",
+	"version": "0.0.2",
 	"description": "The @orkestrel/table package.",
 	"keywords": [],
 	"homepage": "https://github.com/orkestrel/table#readme",
@@ -58,14 +58,14 @@
 		"prepublishOnly": "npm run format:check && npm run lint:check && npm run check && npm run build && npm test"
 	},
 	"dependencies": {
-		"@orkestrel/contract": "^0.0.11",
-		"@orkestrel/emitter": "^0.0.6"
+		"@orkestrel/contract": "^0.0.12",
+		"@orkestrel/emitter": "^0.0.7"
 	},
 	"devDependencies": {
 		"@microsoft/api-extractor": "^7.58.12",
 		"@orkestrel/guide": "^0.0.11",
 		"@orkestrel/scaffold": "^0.0.38",
-		"@orkestrel/test": "^0.0.5",
+		"@orkestrel/test": "^0.0.6",
 		"@types/node": "^26.2.0",
 		"oxfmt": "^0.62.0",
 		"oxlint": "^1.77.0",
