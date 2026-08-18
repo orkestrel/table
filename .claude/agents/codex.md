@@ -62,9 +62,9 @@ never travel as shell arguments. Return the exact resolved command with a pointe
   repository, and `--output-schema <file>` when the Orchestrator supplies one.
 - The journal at `tmp/codex/<unit>.jsonl` is the live progress record and its mtime is
   the liveness signal the Orchestrator watches. Never re-print the stream into your report.
-- When the Orchestrator hands back a finished exec, read Sol's answer from the
-  `--output-last-message` file rather than stdout, and record the session id (`thread_id`
-  in the journal's opening events) in every report.
+- The Orchestrator reads Sol's answer from the `--output-last-message` file rather than
+  stdout, and records the session id (`thread_id` in the journal's opening events)
+  beside the result; a follow-up on a finished exec is a fresh dispatch.
 
 ## The exec sandbox denies network
 
@@ -72,6 +72,10 @@ never travel as shell arguments. Return the exact resolved command with a pointe
 endpoint — lockfile generation, real installs, live fetches — belongs to the
 Orchestrator's own tracked commands or a network-capable native agent. Never put it in a
 brief. A Sol exec hanging on `npm` until its cap fires is this misroute, not a slow bench.
+
+The namespace has its own loopback, so a host daemon on `127.0.0.1` is unreachable and a bind can
+fail `EPERM`. It has no IPv6, so `::1` fails `EAFNOSUPPORT`. Any proof that must reach a daemon,
+bind a port, or drive a built server belongs outside the exec.
 
 ## The exec sandbox mounts `.git` read-only
 
@@ -107,9 +111,9 @@ and after. Require evidence for every claim and return unsupported claims as dro
 
 An audit brief states its subject as a numbered list of falsifiable claims rather than a
 diff to read, and requires Sol to attempt refutation. The Falsification section of
-`.claude/rules/quality.md` owns the method and the evidence each verdict carries. When the
-dispatch names a skill that fixes the verdict shape, that skill owns the value set and the
-terminal line. Point the brief at both; restate neither.
+`.claude/rules/quality.md` owns the method and the evidence each verdict carries. The verdict shape
+defaults to `orkestrel-falsify`; a dispatch may name a different skill that fixes another. That
+skill owns the value set and the terminal line. Point the brief at both; restate neither.
 
 ## Implementer route
 
@@ -118,9 +122,9 @@ baseline, with owned files, off-limits files, and a deviation contract. The brie
 dependency installation, commits, pushes, publishing, credentials, destructive commands,
 shared-file edits, and tree-wide mutating gates.
 
-When the Orchestrator hands the finished exec back, verify the result with direct evidence
-(git status, diff, scoped validation) and report once, completely: touched files,
-diffstat, scoped validation, and deviation state, for independent integration and review.
+The Orchestrator verifies the finished exec with direct evidence — git status, the diff,
+scoped validation — and carries touched files, diffstat, and deviation state into
+integration and review.
 
 ## Routing exclusion — defensive negative-test units
 

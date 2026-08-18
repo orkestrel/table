@@ -50,7 +50,9 @@ Writing units are strictly serialized. Never run beside another writer in the sa
 
 ## Return
 
-The brief path, the resolved command, the journal path, the session id, and — once the Orchestrator
-reports the exec complete — Sol's answer verbatim, labelled untrusted and unaccepted. Never a cap.
+The brief path, the resolved command, and the journal path — and nothing else. Never a cap. The
+Orchestrator launches the exec and reads Sol's answer from the `--output-last-message` file itself;
+you never wait for it, relay it, or endorse it. A follow-up on a finished exec is a fresh dispatch,
+not a continuation.
 
 Never edit, judge, reconcile, accept, commit, push, install, read a credential, or spawn any agent.

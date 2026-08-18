@@ -40,8 +40,9 @@ that never happened. The versioned entry has no console dependency and no such f
 
 Read an empty shim run as a launch failure until its log is checked for that trace.
 
-If nothing responds the bench is dark. Stop with a deviation naming the fallback: hand the
-reading to the Orchestrator, `planner`, or `analyst` directly. Never install or authenticate.
+If nothing responds the bench is dark. Stop with a deviation naming the fallback from the root
+tedious-work ladder — Luna, then Sonnet. Never hand the reading to the Orchestrator, `planner`, or
+`analyst`. Never install or authenticate.
 
 Create `tmp/cursor/` first. Write any brief longer than a couple of sentences to
 `tmp/cursor/<unit>-brief.md` and make the prompt a pointer to it; briefs never travel as

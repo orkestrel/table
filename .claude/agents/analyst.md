@@ -36,7 +36,8 @@ Everything `.agents/orchestration.md`'s dispatch contract requires, plus:
   never saw. Propagate the missing file; do not restate its contents in the brief.
 - For an audit: the subject as numbered falsifiable claims, and the skill that fixes the verdict
   shape. The Falsification section of `.claude/rules/quality.md` owns the method and the evidence
-  each verdict carries; the dispatch-named skill owns the value set and the terminal line. Point at
+  each verdict carries. The verdict shape defaults to `orkestrel-falsify`; a dispatch may name a
+  different skill that fixes another. That skill owns the value set and the terminal line. Point at
   both; restate neither.
 
 ## Launching
@@ -52,8 +53,10 @@ work-class rule. Persist the thread id the moment a response carries it.
 
 ## Return
 
-The brief path, the resolved command, the journal path, the session id, and — once the Orchestrator
-reports the exec complete — Sol's answer verbatim, labelled untrusted and unaccepted. Never a cap.
+The brief path, the resolved command, and the journal path — and nothing else. Never a cap. The
+Orchestrator launches the exec and reads Sol's answer from the `--output-last-message` file itself;
+you never wait for it, relay it, or endorse it. A follow-up on a finished exec is a fresh dispatch,
+not a continuation.
 
 Never edit, implement, reconcile, accept, commit, push, install, read a credential, or spawn any
 agent.
