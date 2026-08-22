@@ -150,19 +150,19 @@ describe('table structural guards', () => {
 	})
 
 	it('answers every hostile corpus member by the row guard contract without throwing', () => {
-		const expectations = [false, false, true, false, false, true]
-		const values = createHostileValues()
-		expect(expectations.length).toBe(values.length)
-
-		// index 2 (the get-throwing proxy) and index 5 (the null-prototype empty record) are
+		// The get-throwing proxy over an empty target and the null-prototype empty record are
 		// accepted because isTableRow checks own string keys only, and both expose zero own keys.
+		// Every other member is refused. Name the accepted positions rather than tabulating an
+		// answer per position, so a corpus that grows by a refused member leaves this proof intact
+		// and a corpus that grows by an accepted one breaks it.
+		const accepting = new Set([2, 5])
 
-		for (const [index, value] of values.entries()) {
+		for (const [index, value] of createHostileValues().entries()) {
 			let rowAccepted: boolean | undefined
 			expect(() => {
 				rowAccepted = isTableRow(value)
 			}, `row guard against hostile value ${index}`).not.toThrow()
-			expect(rowAccepted, `row guard against hostile value ${index}`).toBe(expectations[index])
+			expect(rowAccepted, `row guard against hostile value ${index}`).toBe(accepting.has(index))
 		}
 	})
 

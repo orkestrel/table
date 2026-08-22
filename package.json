@@ -1,6 +1,6 @@
 {
 	"name": "@orkestrel/table",
-	"version": "0.0.2",
+	"version": "0.0.3",
 	"description": "The @orkestrel/table package.",
 	"keywords": [],
 	"homepage": "https://github.com/orkestrel/table#readme",
@@ -58,7 +58,7 @@
 		"prepublishOnly": "npm run format:check && npm run lint:check && npm run check && npm run build && npm test"
 	},
 	"dependencies": {
-		"@orkestrel/contract": "^0.0.12",
+		"@orkestrel/contract": "^0.0.13",
 		"@orkestrel/emitter": "^0.0.7"
 	},
 	"devDependencies": {
