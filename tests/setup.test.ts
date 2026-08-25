@@ -132,18 +132,18 @@ describe('root test setup', () => {
 		expect(createTableFixture({ limit: 2 }).view.map((row) => row.id)).toStrictEqual(['1', '2'])
 	})
 
-	it('reports a table error code and reports nothing for a success or a foreign throw', () => {
+	it('names a success, a foreign throw, and a table error code as distinct outcomes', () => {
 		const table = createTableFixture()
 
-		expect(readTableError(() => table.rows.rows())).toBeUndefined()
+		expect(readTableError(() => table.rows.rows())).toBe('NO_THROW')
 		expect(readTableError(() => table.rows.add({ id: '1' }))).toBe('KEY')
-		// A throw this package did not raise reads the same as a success, so a consumer asserting
-		// `undefined` asserts the absence of a table error rather than the absence of an error.
+		// A throw this package did not raise names its own outcome, distinct from a success, so a
+		// consumer reading `NOT_TABLE_ERROR` never mistakes a foreign throw for the absence of one.
 		expect(
 			readTableError(() => {
 				throw new RangeError('raised outside the table')
 			}),
-		).toBeUndefined()
+		).toBe('NOT_TABLE_ERROR')
 	})
 
 	it('drives a currently valid call at every destroyed-write entry', () => {
@@ -152,7 +152,7 @@ describe('root test setup', () => {
 		// that position would be reading an operation refused for some other reason.
 		const live = readDestroyedWrites(table)
 
-		expect(live.filter((code) => code !== undefined)).toStrictEqual([])
+		expect(live.filter((code) => code !== 'NO_THROW')).toStrictEqual([])
 
 		table.destroy()
 

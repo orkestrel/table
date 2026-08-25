@@ -60,7 +60,7 @@ describe('FilterManager', () => {
 			expect(admitsFilter(vector.column, vector.filter)).toBe(vector.admitted)
 			expect(matchesFilter(vector.column, vector.cell, vector.filter)).toBe(vector.admitted)
 			expect(readTableError(() => table.filter.set(vector.filter))).toBe(
-				vector.admitted ? undefined : 'CELL',
+				vector.admitted ? 'NO_THROW' : 'CELL',
 			)
 		}
 
@@ -69,7 +69,7 @@ describe('FilterManager', () => {
 		const filter: TableFilter = { column: 'name', operator: 'contains', text: 'z' }
 		expect(admitsFilter(column, filter)).toBe(true)
 		expect(matchesFilter(column, 'Ada', filter)).toBe(false)
-		expect(readTableError(() => table.filter.set(filter))).toBeUndefined()
+		expect(readTableError(() => table.filter.set(filter))).toBe('NO_THROW')
 	})
 
 	it('removes zero, one, or many filters and validates every column first', () => {

@@ -9,7 +9,6 @@ import type {
 	TableRow,
 	TableSchema,
 } from '@src/core'
-import { attempt } from '@orkestrel/contract'
 import { createTable, isTableError, STRING_LIMIT, TEXT_LIMIT } from '@src/core'
 
 /** Compare text with numeric segments in natural lexical order. */
@@ -158,16 +157,24 @@ export function createTableFixture(options?: TableOptions): TableInterface {
 	return createTable(createTableSchema(), options === undefined ? { rows } : { ...options, rows })
 }
 
-/** Read the table-domain error code raised by one operation. */
-export function readTableError(operation: () => unknown): TableErrorCode | undefined {
-	const outcome = attempt(operation)
-	return outcome.success || !isTableError(outcome.error) ? undefined : outcome.error.code
+// Run `operation`, returning a thrown `TableError`'s `code` (or a named literal) — so an error
+// code is asserted unconditionally, never inside a conditional `expect`. Mirrors the sqlite
+// package's `sqliteErrorCode` in `tests/setupServer.ts`.
+export function readTableError(
+	operation: () => unknown,
+): TableErrorCode | 'NOT_TABLE_ERROR' | 'NO_THROW' {
+	try {
+		operation()
+		return 'NO_THROW'
+	} catch (error) {
+		return isTableError(error) ? error.code : 'NOT_TABLE_ERROR'
+	}
 }
 
 /** Exercise every public table write after teardown. */
 export function readDestroyedWrites(
 	table: TableInterface,
-): ReadonlyArray<TableErrorCode | undefined> {
+): ReadonlyArray<TableErrorCode | 'NOT_TABLE_ERROR' | 'NO_THROW'> {
 	return [
 		readTableError(() => table.rows.add({ id: 'late' })),
 		readTableError(() => table.rows.update({ id: '1', name: 'late' })),
