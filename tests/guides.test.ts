@@ -1,17 +1,17 @@
 import { describe, expect, it } from 'vitest'
 import {
+	computeSymbolKey,
 	createGuide,
 	createSource,
 	createSourceManager,
-	fenceImports,
+	extractFenceImports,
 	findMissing,
+	findMissingSymbols,
 	findUnexampled,
 	findUnlisted,
 	isExternalLink,
-	missingSymbols,
 	parseManifest,
 	resolveLink,
-	symbolKey,
 } from '@orkestrel/guide'
 import { readFileSync } from 'node:fs'
 import { requireValue, resolveRoot } from '@orkestrel/test'
@@ -67,7 +67,7 @@ const MODULES = Object.freeze({
 	'@orkestrel/table': 'src/core',
 	'@src/core': 'src/core',
 })
-/** Declarations deliberately kept out of the barrel, as `symbolKey` strings. */
+/** Declarations deliberately kept out of the barrel, as `computeSymbolKey` strings. */
 const INTERNAL: readonly string[] = Object.freeze(['class KeyManager'])
 /** Root-level files this package's guides link to. */
 const ROOT_FILES = Object.freeze(['AGENTS.md', 'README.md'])
@@ -87,7 +87,7 @@ const readme = createGuide(requireValue(files['README.md'], 'Missing file: READM
 it('imports only real exports in every root README ```ts fence', () => {
 	const fences = readme.fences().filter((fence) => fence.language === EXAMPLE_LANGUAGE)
 	for (const fence of fences) {
-		for (const { specifier, names } of fenceImports(fence.code)) {
+		for (const { specifier, names } of extractFenceImports(fence.code)) {
 			const imported = sources.source(specifier)
 			if (imported === undefined) continue
 			const surface = imported.surface().map((symbol) => symbol.name)
@@ -121,25 +121,25 @@ for (const entry of manifest) {
 			expect(guide.surface().length).toBeGreaterThan(0)
 		})
 		it('re-exports every direct declaration that is not named internal', () => {
-			const stranded = missingSymbols(source.exports(), source.surface())
+			const stranded = findMissingSymbols(source.exports(), source.surface())
 			expect(stranded.filter((key) => !INTERNAL.includes(key))).toEqual([])
 		})
 		it('names no symbol internal that the barrel already exports', () => {
-			const stranded = missingSymbols(source.exports(), source.surface())
+			const stranded = findMissingSymbols(source.exports(), source.surface())
 			expect(INTERNAL.filter((key) => !stranded.includes(key))).toEqual([])
 		})
 		it('re-exports only direct declarations', () => {
-			expect(missingSymbols(source.surface(), source.exports())).toEqual([])
+			expect(findMissingSymbols(source.surface(), source.exports())).toEqual([])
 		})
 		it('documents every barrel export', () => {
-			expect(missingSymbols(source.surface(), guide.surface())).toEqual([])
+			expect(findMissingSymbols(source.surface(), guide.surface())).toEqual([])
 		})
 		it('documents only barrel exports', () => {
-			expect(missingSymbols(guide.surface(), source.surface())).toEqual([])
+			expect(findMissingSymbols(guide.surface(), source.surface())).toEqual([])
 		})
 
 		it('exposes no hidden module-scope declarations', () => {
-			expect(source.hidden().map(symbolKey)).toEqual([])
+			expect(source.hidden().map(computeSymbolKey)).toEqual([])
 		})
 
 		for (const group of guide.methods()) {
@@ -195,7 +195,7 @@ for (const entry of manifest) {
 		it('imports only real exports in every ```ts fence', () => {
 			const fences = guide.fences().filter((fence) => fence.language === EXAMPLE_LANGUAGE)
 			for (const fence of fences) {
-				for (const { specifier, names } of fenceImports(fence.code)) {
+				for (const { specifier, names } of extractFenceImports(fence.code)) {
 					const imported = sources.source(specifier)
 					if (imported === undefined) continue
 					const surface = imported.surface().map((symbol) => symbol.name)
