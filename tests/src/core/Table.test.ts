@@ -1,8 +1,10 @@
+import type { JSONRecord } from '@orkestrel/contract'
 import type { TableEventMap, TableSchema } from '@src/core'
 import { readFileSync } from 'node:fs'
 import {
 	ExpansionManager,
 	FilterManager,
+	isStructuralTableSchema,
 	PaginationManager,
 	createTable,
 	parseRows,
@@ -65,6 +67,10 @@ describe('Table construction and derived state', () => {
 	})
 
 	it('keeps selection and expansion membership arithmetic in the shared key-set engine', () => {
+		const engine = readFileSync(
+			new URL('../../../src/core/tables/KeyManager.ts', import.meta.url),
+			'utf8',
+		)
 		const selection = readFileSync(
 			new URL('../../../src/core/tables/SelectionManager.ts', import.meta.url),
 			'utf8',
@@ -74,10 +80,38 @@ describe('Table construction and derived state', () => {
 			'utf8',
 		)
 
-		expect(selection.match(/\bcomputeKeys\(/gu)).toHaveLength(1)
-		expect(expansion.match(/\bcomputeKeys\(/gu)).toHaveLength(1)
+		expect(engine.match(/\bcomputeKeys\(/gu)).toHaveLength(1)
+		expect(selection).not.toMatch(/\bcomputeKeys\(/u)
+		expect(expansion).not.toMatch(/\bcomputeKeys\(/u)
+		expect(selection.match(/new KeyManager\(/gu)).toHaveLength(1)
+		expect(expansion.match(/new KeyManager\(/gu)).toHaveLength(1)
+		expect(engine).not.toMatch(/\.(?:add|delete|has)\(/u)
 		expect(selection).not.toMatch(/\.(?:add|delete|has)\(/u)
 		expect(expansion).not.toMatch(/\.(?:add|delete|has)\(/u)
+	})
+
+	it('refuses a schema whose owned copy fails the guard the caller-supplied one passed', () => {
+		const deep: Record<string, JSONRecord> = {}
+		let current = deep
+		for (let index = 0; index < 600; index += 1) {
+			const next: Record<string, JSONRecord> = {}
+			current.next = next
+			current = next
+		}
+		// The trap answers a property read; the clone reads the data descriptor instead, so the
+		// object the guard accepted and the object the table would own are not the same schema.
+		const meta: JSONRecord = new Proxy(
+			{ align: deep },
+			{
+				get(holder, key, receiver) {
+					return key === 'align' ? 'end' : Reflect.get(holder, key, receiver)
+				},
+			},
+		)
+		const schema: TableSchema = { key: 'id', columns: [{ cell: 'text', key: 'id', meta }] }
+
+		expect(isStructuralTableSchema(schema)).toBe(true)
+		expect(readTableError(() => new Table(schema))).toBe('SCHEMA')
 	})
 
 	it('owns the schema and seeded rows while opening without events', () => {

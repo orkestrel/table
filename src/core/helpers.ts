@@ -9,6 +9,7 @@ import type {
 	TableOrder,
 	TableRow,
 	TableSchema,
+	TableTerm,
 } from './types.js'
 import {
 	attempt,
@@ -83,6 +84,67 @@ export function computeKeys(
 
 	const changed = next.size !== current.size || [...next].some((key) => !current.has(key))
 	return changed ? next : current
+}
+
+/**
+ * Merges lens terms into a column-keyed list, replacing the entry that names the same column.
+ *
+ * @param current - The list as it stands.
+ * @param requested - The terms to write, in the order they are written.
+ * @returns A frozen list holding one owned entry per column, in the order the columns first
+ *   appeared.
+ */
+export function mergeTerms<Term extends TableTerm>(
+	current: readonly Term[],
+	requested: readonly Term[],
+): readonly Term[] {
+	const next = [...current]
+	for (const term of requested) {
+		const owned = Object.freeze({ ...term })
+		const index = next.findIndex((candidate) => candidate.column === term.column)
+		if (index === -1) next.push(owned)
+		else next[index] = owned
+	}
+
+	return Object.freeze(next)
+}
+
+/**
+ * Removes every lens term naming one of the given columns.
+ *
+ * @param current - The list as it stands.
+ * @param columns - The column keys to drop.
+ * @returns A frozen list holding the entries no named column matched, in their original order.
+ */
+export function removeTerms<Term extends TableTerm>(
+	current: readonly Term[],
+	columns: readonly string[],
+): readonly Term[] {
+	const removed = new Set(columns)
+	return Object.freeze(current.filter((term) => !removed.has(term.column)))
+}
+
+/**
+ * Checks whether two lens lists hold the same terms in the same order.
+ *
+ * @param left - The first list.
+ * @param right - The second list.
+ * @param equal - Decide whether two terms naming one column carry the same operands.
+ * @returns True if the lists are the same length and every position names the same column and
+ *   carries the same operands; false otherwise.
+ */
+export function matchesTerms<Term extends TableTerm>(
+	left: readonly Term[],
+	right: readonly Term[],
+	equal: (left: Term, right: Term) => boolean,
+): boolean {
+	return (
+		left.length === right.length &&
+		left.every((term, index) => {
+			const other = right[index]
+			return other !== undefined && term.column === other.column && equal(term, other)
+		})
+	)
 }
 
 /**

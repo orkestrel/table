@@ -1,7 +1,7 @@
 import type { Emitter } from '@orkestrel/emitter'
 import type { FilterManagerInterface, TableEventMap, TableFilter, TableSchema } from '../types.js'
 import { TableError } from '../errors.js'
-import { admitsFilter, extractColumn } from '../helpers.js'
+import { admitsFilter, extractColumn, matchesTerms, mergeTerms, removeTerms } from '../helpers.js'
 
 /** The filters one table applies with and-only composition. */
 export class FilterManager implements FilterManagerInterface {
@@ -59,16 +59,9 @@ export class FilterManager implements FilterManagerInterface {
 		const requested = Array.isArray(input) ? input : [input]
 		for (const filter of requested) this.#validate(filter)
 
-		const next = [...this.#read()]
-		for (const filter of requested) {
-			const owned = Object.freeze({ ...filter })
-			const index = next.findIndex((candidate) => candidate.column === filter.column)
-			if (index === -1) next.push(owned)
-			else next[index] = owned
-		}
-
-		if (this.#same(next, this.#read())) return
-		this.#write(Object.freeze(next))
+		const next = mergeTerms(this.#read(), requested)
+		if (matchesTerms(next, this.#read(), (filter, other) => this.#operands(filter, other))) return
+		this.#write(next)
 		const page = this.#clamp()
 		this.#emitter.emit('filter', this.filters())
 		if (page !== undefined) this.#emitter.emit('paginate', page)
@@ -93,10 +86,9 @@ export class FilterManager implements FilterManagerInterface {
 			if (extractColumn(this.#schema, column) === undefined) return false
 		}
 
-		const removed = new Set(columns)
-		const next = this.#read().filter((filter) => !removed.has(filter.column))
+		const next = removeTerms(this.#read(), columns)
 		if (next.length !== this.#read().length) {
-			this.#write(Object.freeze(next))
+			this.#write(next)
 			const page = this.#clamp()
 			this.#emitter.emit('filter', this.filters())
 			if (page !== undefined) this.#emitter.emit('paginate', page)
@@ -120,29 +112,14 @@ export class FilterManager implements FilterManagerInterface {
 		}
 	}
 
-	#same(left: readonly TableFilter[], right: readonly TableFilter[]): boolean {
-		return (
-			left.length === right.length &&
-			left.every((filter, index) => {
-				const other = right[index]
-				if (
-					other === undefined ||
-					filter.column !== other.column ||
-					filter.operator !== other.operator
-				) {
-					return false
-				}
-				if (filter.operator === 'contains' && other.operator === 'contains')
-					return filter.text === other.text
-				if (filter.operator === 'between' && other.operator === 'between') {
-					return filter.minimum === other.minimum && filter.maximum === other.maximum
-				}
-				return (
-					filter.operator === 'equals' &&
-					other.operator === 'equals' &&
-					filter.value === other.value
-				)
-			})
-		)
+	#operands(left: TableFilter, right: TableFilter): boolean {
+		if (left.operator !== right.operator) return false
+		if (left.operator === 'contains' && right.operator === 'contains') {
+			return left.text === right.text
+		}
+		if (left.operator === 'between' && right.operator === 'between') {
+			return left.minimum === right.minimum && left.maximum === right.maximum
+		}
+		return left.operator === 'equals' && right.operator === 'equals' && left.value === right.value
 	}
 }

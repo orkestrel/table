@@ -1,17 +1,13 @@
 import type { Emitter } from '@orkestrel/emitter'
 import type { SelectionManagerInterface, TableEventMap, TableKey } from '../types.js'
-import { computeKeys } from '../helpers.js'
+import { KeyManager } from './KeyManager.js'
 
 /** The keys of the rows somebody has picked. */
 export class SelectionManager implements SelectionManagerInterface {
-	readonly #emitter: Emitter<TableEventMap>
-	readonly #gate: () => void
-	readonly #rows: () => readonly TableKey[]
-	readonly #read: () => ReadonlySet<TableKey>
-	readonly #write: (keys: ReadonlySet<TableKey>) => void
+	readonly #keys: KeyManager
 
 	/**
-	 * Create a selection manager over one table's private stores.
+	 * Creates a selection manager over one table's private stores.
 	 *
 	 * @param emitter - The table's event emitter.
 	 * @param gate - The table lifecycle gate.
@@ -26,16 +22,12 @@ export class SelectionManager implements SelectionManagerInterface {
 		read: () => ReadonlySet<TableKey>,
 		write: (keys: ReadonlySet<TableKey>) => void,
 	) {
-		this.#emitter = emitter
-		this.#gate = gate
-		this.#rows = rows
-		this.#read = read
-		this.#write = write
+		this.#keys = new KeyManager(emitter, 'select', gate, rows, read, write)
 	}
 
 	/** The keys of the rows picked right now. */
 	get keys(): ReadonlySet<TableKey> {
-		return new Set(this.#read())
+		return this.#keys.keys
 	}
 
 	/** Pick every row the table holds. */
@@ -46,8 +38,7 @@ export class SelectionManager implements SelectionManagerInterface {
 	select(keys: readonly TableKey[]): boolean
 	/** Pick one or more rows. */
 	select(input?: TableKey | readonly TableKey[]): void | boolean {
-		this.#gate()
-		return this.#change(input, () => true)
+		return this.#keys.change(input, () => true)
 	}
 
 	/** Drop every pick. */
@@ -58,8 +49,7 @@ export class SelectionManager implements SelectionManagerInterface {
 	clear(keys: readonly TableKey[]): boolean
 	/** Drop one or more picks. */
 	clear(input?: TableKey | readonly TableKey[]): void | boolean {
-		this.#gate()
-		return this.#change(input, () => false)
+		return this.#keys.change(input, () => false)
 	}
 
 	/** Pick one row or drop it when already picked. */
@@ -68,22 +58,6 @@ export class SelectionManager implements SelectionManagerInterface {
 	toggle(keys: readonly TableKey[]): boolean
 	/** Turn one or more rows around independently. */
 	toggle(input: TableKey | readonly TableKey[]): boolean {
-		this.#gate()
-		return this.#change(input, (included) => !included) === true
-	}
-
-	#change(
-		input: TableKey | readonly TableKey[] | undefined,
-		include: (included: boolean) => boolean,
-	): void | boolean {
-		const previous = this.#read()
-		const next = computeKeys(this.#rows(), previous, input, include)
-		if (next === undefined) return false
-		if (next !== previous) {
-			this.#write(next)
-			this.#emitter.emit('select', new Set(next))
-		}
-
-		return input === undefined ? undefined : true
+		return this.#keys.change(input, (included) => !included) === true
 	}
 }

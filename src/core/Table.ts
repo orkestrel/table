@@ -17,9 +17,10 @@ import type {
 	TableRow,
 	TableSchema,
 } from './types.js'
+import { attempt } from '@orkestrel/contract'
 import { Emitter } from '@orkestrel/emitter'
 import { cloneRow, cloneSchema } from './cloners.js'
-import { TableError } from './errors.js'
+import { isTableError, TableError } from './errors.js'
 import { auditTable, extractKey, filterRows, sortRows } from './helpers.js'
 import { ExpansionManager } from './tables/ExpansionManager.js'
 import { FilterManager } from './tables/FilterManager.js'
@@ -60,16 +61,23 @@ export class Table implements TableInterface {
 	 *   identity is unusable or repeated, and `CELL` when a seeded cell is invalid.
 	 */
 	constructor(schema: TableSchema, options?: TableOptions) {
-		const problems = isStructuralTableSchema(schema)
-			? auditTable(schema)
-			: ['The schema is not a table schema']
+		const unusable = 'The schema is not a table schema'
+		const owned = isStructuralTableSchema(schema) ? attempt(() => cloneSchema(schema)) : undefined
+		if (owned !== undefined && !owned.success && isTableError(owned.error)) throw owned.error
+		if (owned === undefined || !owned.success) {
+			throw new TableError('SCHEMA', `The table schema is unusable: ${unusable}`, {
+				problems: [unusable],
+			})
+		}
+
+		const problems = isStructuralTableSchema(owned.value) ? auditTable(owned.value) : [unusable]
 		if (problems.length > 0) {
 			throw new TableError('SCHEMA', `The table schema is unusable: ${problems.join('; ')}`, {
 				problems: [...problems],
 			})
 		}
 
-		this.#schema = cloneSchema(schema)
+		this.#schema = owned.value
 		this.#comparators =
 			options?.comparators === undefined ? undefined : Object.freeze({ ...options.comparators })
 		this.#matchers =

@@ -177,6 +177,19 @@ export interface TableSchema {
 }
 
 /**
+ * One entry of a lens list, held against one declared column.
+ *
+ * @remarks
+ * A table holds at most one sort term and at most one filter per column, so `column` is what
+ * places an entry in either list. {@link mergeTerms}, {@link removeTerms}, and
+ * {@link matchesTerms} work over this shape alone, which is how sorting and filtering share one
+ * list engine while keeping their own operands.
+ */
+export interface TableTerm {
+	readonly column: string
+}
+
+/**
  * Which way a column sorts.
  *
  * @remarks

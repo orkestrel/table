@@ -1,4 +1,11 @@
-import type { CellComparator, CellMatcher, TableRow, TableSchema } from '@src/core'
+import type {
+	CellComparator,
+	CellMatcher,
+	TableFilter,
+	TableOrder,
+	TableRow,
+	TableSchema,
+} from '@src/core'
 import {
 	CHOICE_LIMIT,
 	COLUMN_LIMIT,
@@ -15,6 +22,9 @@ import {
 	filterRows,
 	matchesCell,
 	matchesFilter,
+	matchesTerms,
+	mergeTerms,
+	removeTerms,
 	serializeRows,
 	serializeTable,
 	sortRows,
@@ -190,6 +200,77 @@ describe('table helper leaves', () => {
 		expect(computeKeys(known, current, '1', () => true)).toBe(current)
 		expect(toggled).toBe(current)
 		expect(cleared === undefined ? [] : [...cleared]).toStrictEqual([])
+	})
+
+	it('merges lens terms by column, keeping first-appearance order and owning each entry', () => {
+		const current: readonly TableOrder[] = [
+			{ column: 'name', direction: 'ascending' },
+			{ column: 'age', direction: 'ascending' },
+		]
+		const merged = mergeTerms(current, [
+			{ column: 'age', direction: 'descending' },
+			{ column: 'active', direction: 'ascending' },
+		])
+
+		expect(merged.map((order) => order.column)).toStrictEqual(['name', 'age', 'active'])
+		expect(merged.map((order) => order.direction)).toStrictEqual([
+			'ascending',
+			'descending',
+			'ascending',
+		])
+		expect(Object.isFrozen(merged)).toBe(true)
+		expect(Object.isFrozen(merged[1])).toBe(true)
+		expect(Object.isFrozen(merged[2])).toBe(true)
+		expect(merged[0]).toBe(current[0])
+		expect(current.map((order) => order.direction)).toStrictEqual(['ascending', 'ascending'])
+		expect(mergeTerms(current, []).map((order) => order.column)).toStrictEqual(['name', 'age'])
+	})
+
+	it('removes lens terms by column and leaves the rest in order', () => {
+		const current: readonly TableFilter[] = [
+			{ column: 'name', operator: 'contains', text: 'a' },
+			{ column: 'age', operator: 'between', minimum: 1, maximum: 2 },
+			{ column: 'active', operator: 'equals', value: true },
+		]
+		const remaining = removeTerms(current, ['age', 'missing'])
+
+		expect(remaining.map((filter) => filter.column)).toStrictEqual(['name', 'active'])
+		expect(Object.isFrozen(remaining)).toBe(true)
+		expect(removeTerms(current, []).length).toBe(3)
+		expect(removeTerms(current, ['name', 'age', 'active']).length).toBe(0)
+	})
+
+	it('matches two lens lists on length, column order, and the supplied operand test', () => {
+		const left: readonly TableOrder[] = [
+			{ column: 'name', direction: 'ascending' },
+			{ column: 'age', direction: 'descending' },
+		]
+		const sameDirection = (first: TableOrder, second: TableOrder): boolean =>
+			first.direction === second.direction
+
+		expect(matchesTerms(left, [...left], sameDirection)).toBe(true)
+		expect(matchesTerms(left, left.slice(0, 1), sameDirection)).toBe(false)
+		expect(
+			matchesTerms(
+				left,
+				[
+					{ column: 'age', direction: 'descending' },
+					{ column: 'name', direction: 'ascending' },
+				],
+				sameDirection,
+			),
+		).toBe(false)
+		expect(
+			matchesTerms(
+				left,
+				[
+					{ column: 'name', direction: 'ascending' },
+					{ column: 'age', direction: 'ascending' },
+				],
+				sameDirection,
+			),
+		).toBe(false)
+		expect(matchesTerms([], [], sameDirection)).toBe(true)
 	})
 
 	it('sorts by ordered terms stably with absence and direction applied last', () => {

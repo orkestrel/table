@@ -83,6 +83,7 @@ fixes.
 
 | API              | Kind      | Summary                                                                                                                              |
 | ---------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `TableTerm`      | interface | One entry of a lens list — the `column` it names. A sort term and a filter each hold one, which is why the two share a list engine.  |
 | `TableDirection` | type      | Which way a column sorts — `'ascending' \| 'descending'`. A column nobody has sorted carries no term at all.                         |
 | `TableOrder`     | interface | One column's place in the sort — the `column` and its `direction`. The list is read left to right.                                   |
 | `FilterOperator` | type      | How a filter tests a cell — `'contains' \| 'between' \| 'equals'`.                                                                   |
@@ -182,16 +183,20 @@ you mean to run the audit yourself and read its diagnostics.
 ### Helpers
 
 The pure leaves the table composes: the column lookup, the identity read, the key-set engine, the
-cell gate, the comparison, the two filter tests, the two row passes, the audit, and the wire
-projections. `computeKeys`, `filterRows`, and `sortRows` propagate exceptions from supplied
-callbacks; `serializeTable` raises `SCHEMA` for a `meta` no clone can own. The other helpers are
-total over ordinary declared inputs, subject to the core's hostile-reflection boundary below.
+lens-list operations, the cell gate, the comparison, the two filter tests, the two row passes, the
+audit, and the wire projections. `computeKeys`, `matchesTerms`, `filterRows`, and `sortRows`
+propagate exceptions from supplied callbacks; `serializeTable` raises `SCHEMA` for a `meta` no clone
+can own. The other helpers are total over ordinary declared inputs, subject to the core's
+hostile-reflection boundary below.
 
 | API              | Kind     | Summary                                                                                                                    |
 | ---------------- | -------- | -------------------------------------------------------------------------------------------------------------------------- |
 | `extractColumn`  | function | Find one column by key; `undefined` when the schema declares no such column.                                               |
 | `extractKey`     | function | Read a row's identity; `undefined` when its key cell is missing, empty, or not a string.                                   |
 | `computeKeys`    | function | Work out one atomic 0/1/N membership change over the keys a caller may address — the engine selection and expansion share. |
+| `mergeTerms`     | function | Merge lens terms into a column-keyed list, replacing the entry naming the same column — the `set` write.                   |
+| `removeTerms`    | function | Remove every lens term naming one of the given columns — the drop `sort.remove` and `filter.remove` share.                 |
+| `matchesTerms`   | function | Whether two lens lists hold the same terms in the same order, with the supplied test deciding the operands.                |
 | `matchesCell`    | function | Whether one column can hold a value — the shape gate every write and every seed passes through.                            |
 | `compareCells`   | function | Compare two of one column's cells the way its `cell` fixes, describing ascending order.                                    |
 | `admitsFilter`   | function | Whether one column admits a filter and every operand it carries — the gate `filter.set` and `matchesFilter` share.         |
@@ -604,6 +609,28 @@ reads the column's term, decides, and then calls `set` or `remove`. Setting a te
 already sorted replaces that column's direction **in place**, keeping its position in the list; every
 other term joins the end.
 
+Sorting and filtering keep the same list: at most one term per column, replaced in place, and
+compared as a whole before anything is announced. `mergeTerms` performs that write, `removeTerms`
+the drop, and `matchesTerms` the comparison, which takes the operand test from its caller because a
+direction and a filter's operands are not compared the same way. They are exported for the reason
+the managers are: a host holding a lens of its own gets the same list arithmetic without writing it
+again.
+
+```ts
+import { matchesTerms, mergeTerms, removeTerms } from '@orkestrel/table'
+import type { TableOrder } from '@orkestrel/table'
+
+const current: readonly TableOrder[] = [
+	{ column: 'team', direction: 'ascending' },
+	{ column: 'age', direction: 'descending' },
+]
+const next = mergeTerms(current, [{ column: 'age', direction: 'ascending' }])
+
+next.map((order) => order.column) // ['team', 'age'] — the replaced term keeps its place
+matchesTerms(next, current, (order, other) => order.direction === other.direction) // false
+removeTerms(next, ['team']).map((order) => order.column) // ['age']
+```
+
 `sortRows` is the same pass without a table, for a caller that has rows and terms and no entity. It
 sorts a copy, so the list handed to it never moves.
 
@@ -809,9 +836,11 @@ table.expansion.toggle('2')
 table.expansion.keys.size // 3
 ```
 
-Both managers are the same algorithm over two sets, so it is written once. `computeKeys` takes the
-keys a caller may address, the set as it stands, the 0/1/N argument, and a decision made per key
-from that key's own membership. It returns `undefined` when any requested key is unknown, which is
+Both managers are the same algorithm over two sets, so it is written once, and so is the shell around
+it: one key-set engine holds the store reads, the lifecycle gate, and the announcement, and each
+manager supplies only its own verbs and its own event. `computeKeys` takes the keys a caller may
+address, the set as it stands, the 0/1/N argument, and a decision made per key from that key's own
+membership. It returns `undefined` when any requested key is unknown, which is
 the `false` those verbs report. It returns the set it was handed when nothing moved, which is how a
 no-op stays silent. Otherwise it returns the next set. It is exported for the reason the managers
 are: a host keeping a third key set of its own gets the same atomicity without writing it again.
@@ -1072,6 +1101,11 @@ isStructuralTableSchema({ columns: [] }) // false — `key` is required by the s
 The cloners are how a value stops being the caller's. The table clones the schema at construction and
 every row at admission, and it clones every row it hands back. They are exported because a consumer
 building its own row store needs the same guarantee.
+
+Construction guards the schema it was handed, owns a copy, and then guards and audits that copy, so
+the schema a table opens against is the one it validated. A schema whose property reads and stored
+values disagree — a proxy answering a read with one value while holding another — is refused with
+`SCHEMA` instead of opened.
 
 ```ts
 import { cloneRow, cloneSchema } from '@orkestrel/table'
@@ -1451,8 +1485,9 @@ this package answers today through a mechanism it already exposes.
 - [`tests/guides.test.ts`](../tests/guides.test.ts) — the `## Surface` ↔ barrel bijection, the seven
   interface ↔ class method bijections, and the worked examples above executed against the real
   source so a documented value that the code contradicts fails.
-- [`tests/src/core/Table.test.ts`](../tests/src/core/Table.test.ts) — construction, seeding, the
-  derived `view` and `count`, emission order, `clear`, `destroy`, and writes after teardown.
+- [`tests/src/core/Table.test.ts`](../tests/src/core/Table.test.ts) — construction, schema
+  ownership, seeding, the derived `view` and `count`, emission order, `clear`, `destroy`, and writes
+  after teardown.
 - [`tests/src/core/tables/RowManager.test.ts`](../tests/src/core/tables/RowManager.test.ts) —
   `row`, `rows`, `add`, `update`, `move`, `remove`, batch atomicity, and identity refusals.
 - [`tests/src/core/tables/SortManager.test.ts`](../tests/src/core/tables/SortManager.test.ts) —
@@ -1466,8 +1501,9 @@ this package answers today through a mechanism it already exposes.
 - [`tests/src/core/tables/PaginationManager.test.ts`](../tests/src/core/tables/PaginationManager.test.ts)
   — `page`, `limit`, `offset`, `count`, `move`, `resize`, clamping, and the unpaged table.
 - [`tests/src/core/helpers.test.ts`](../tests/src/core/helpers.test.ts) — `extractColumn`,
-  `extractKey`, `computeKeys`, `matchesCell`, `compareCells`, `admitsFilter`, `matchesFilter`,
-  `filterRows`, `sortRows`, `auditTable`, `serializeTable`, `serializeRows`, and the budgets.
+  `extractKey`, `computeKeys`, `mergeTerms`, `removeTerms`, `matchesTerms`, `matchesCell`,
+  `compareCells`, `admitsFilter`, `matchesFilter`, `filterRows`, `sortRows`, `auditTable`,
+  `serializeTable`, `serializeRows`, and the budgets.
 - [`tests/src/core/validators.test.ts`](../tests/src/core/validators.test.ts) — every guard against
   valid, off-shape, and hostile input, plus guard/parser soundness in both directions.
 - [`tests/src/core/parsers.test.ts`](../tests/src/core/parsers.test.ts) — `parseTable`, `parseRows`,

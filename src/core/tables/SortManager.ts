@@ -1,7 +1,7 @@
 import type { Emitter } from '@orkestrel/emitter'
 import type { SortManagerInterface, TableEventMap, TableOrder, TableSchema } from '../types.js'
 import { TableError } from '../errors.js'
-import { extractColumn } from '../helpers.js'
+import { extractColumn, matchesTerms, mergeTerms, removeTerms } from '../helpers.js'
 
 /** The ordered sort terms of one table. */
 export class SortManager implements SortManagerInterface {
@@ -55,17 +55,12 @@ export class SortManager implements SortManagerInterface {
 		const requested = Array.isArray(input) ? input : [input]
 		for (const order of requested) this.#require(order.column)
 
-		const next = [...this.#read()]
-		for (const order of requested) {
-			const owned = Object.freeze({ ...order })
-			const index = next.findIndex((candidate) => candidate.column === order.column)
-			if (index === -1) next.push(owned)
-			else next[index] = owned
+		const next = mergeTerms(this.#read(), requested)
+		if (matchesTerms(next, this.#read(), (order, other) => order.direction === other.direction)) {
+			return
 		}
 
-		if (this.#same(next, this.#read())) return
-		const committed = Object.freeze(next)
-		this.#write(committed)
+		this.#write(next)
 		this.#emitter.emit('sort', this.orders())
 	}
 
@@ -88,10 +83,9 @@ export class SortManager implements SortManagerInterface {
 			if (extractColumn(this.#schema, column) === undefined) return false
 		}
 
-		const removed = new Set(columns)
-		const next = this.#read().filter((order) => !removed.has(order.column))
+		const next = removeTerms(this.#read(), columns)
 		if (next.length !== this.#read().length) {
-			this.#write(Object.freeze(next))
+			this.#write(next)
 			this.#emitter.emit('sort', this.orders())
 		}
 
@@ -102,19 +96,5 @@ export class SortManager implements SortManagerInterface {
 		if (extractColumn(this.#schema, column) === undefined) {
 			throw new TableError('COLUMN', `The schema declares no column named "${column}"`, { column })
 		}
-	}
-
-	#same(left: readonly TableOrder[], right: readonly TableOrder[]): boolean {
-		return (
-			left.length === right.length &&
-			left.every((order, index) => {
-				const other = right[index]
-				return (
-					other !== undefined &&
-					order.column === other.column &&
-					order.direction === other.direction
-				)
-			})
-		)
 	}
 }

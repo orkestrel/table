@@ -22,6 +22,7 @@ import type {
 	FlagColumn,
 	NumberColumn,
 	TableKey,
+	TableOrder,
 	TableSchema,
 	TextColumn,
 } from '@src/core'
@@ -45,8 +46,11 @@ import {
 	isTableSchema,
 	matchesCell,
 	matchesFilter,
+	matchesTerms,
+	mergeTerms,
 	parseRows,
 	parseTable,
+	removeTerms,
 	serializeRows,
 	serializeTable,
 	sortRows,
@@ -64,7 +68,7 @@ const MODULES = Object.freeze({
 	'@src/core': 'src/core',
 })
 /** Declarations deliberately kept out of the barrel, as `symbolKey` strings. */
-const INTERNAL: readonly string[] = Object.freeze([])
+const INTERNAL: readonly string[] = Object.freeze(['class KeyManager'])
 /** Root-level files this package's guides link to. */
 const ROOT_FILES = Object.freeze(['AGENTS.md', 'README.md'])
 
@@ -425,6 +429,20 @@ describe('table.md fences', () => {
 			column: 'age',
 			direction: 'descending',
 		})
+	})
+
+	it('merges, compares, and removes lens terms', () => {
+		const current: readonly TableOrder[] = [
+			{ column: 'team', direction: 'ascending' },
+			{ column: 'age', direction: 'descending' },
+		]
+		const next = mergeTerms(current, [{ column: 'age', direction: 'ascending' }])
+
+		expect(next.map((order) => order.column)).toStrictEqual(['team', 'age'])
+		expect(matchesTerms(next, current, (order, other) => order.direction === other.direction)).toBe(
+			false,
+		)
+		expect(removeTerms(next, ['team']).map((order) => order.column)).toStrictEqual(['age'])
 	})
 
 	it('sorts rows without moving the input', () => {
