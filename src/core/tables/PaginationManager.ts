@@ -1,7 +1,7 @@
 import type { Emitter } from '@orkestrel/emitter'
 import type { PaginationManagerInterface, TableEventMap } from '../types.js'
 
-/** The page arithmetic over one table's filtered rows. */
+/** Manages the page arithmetic over one table's filtered rows. */
 export class PaginationManager implements PaginationManagerInterface {
 	readonly #emitter: Emitter<TableEventMap>
 	readonly #gate: () => void
@@ -12,7 +12,7 @@ export class PaginationManager implements PaginationManagerInterface {
 	readonly #writeLimit: (limit: number | undefined) => void
 
 	/**
-	 * Create a pagination manager over one table's private stores.
+	 * Creates a pagination manager over one table's private stores.
 	 *
 	 * @param emitter - The table's event emitter.
 	 * @param gate - The table lifecycle gate.
@@ -43,29 +43,29 @@ export class PaginationManager implements PaginationManagerInterface {
 		if (limit !== undefined) this.#writeLimit(this.#normalize(limit))
 	}
 
-	/** The page shown, counted from one. */
+	/** Returns the page shown, counted from one. */
 	get page(): number {
 		return this.#readLimit() === undefined ? 1 : this.#readPage()
 	}
 
-	/** The number of rows one page holds. */
+	/** Returns the number of rows one page holds. */
 	get limit(): number | undefined {
 		return this.#readLimit()
 	}
 
-	/** The number of filtered rows skipped before this page. */
+	/** Returns the number of filtered rows skipped before this page. */
 	get offset(): number {
 		const limit = this.#readLimit()
 		return limit === undefined ? 0 : (this.#readPage() - 1) * limit
 	}
 
-	/** The number of pages filled by the filtered rows. */
+	/** Returns the number of pages filled by the filtered rows. */
 	get count(): number {
 		const limit = this.#readLimit()
 		return limit === undefined ? 1 : Math.max(1, Math.ceil(this.#rows() / limit))
 	}
 
-	/** Show another page, clamped to the pages that exist. */
+	/** Shows another page, clamped to the pages that exist. */
 	move(page: number): void {
 		this.#gate()
 		const next = this.#readLimit() === undefined ? 1 : Math.min(this.count, this.#normalize(page))
@@ -74,7 +74,7 @@ export class PaginationManager implements PaginationManagerInterface {
 		this.#emitter.emit('paginate', next)
 	}
 
-	/** Change the page size while keeping the first row previously shown. */
+	/** Changes the page size while keeping the first row previously shown. */
 	resize(limit?: number): void {
 		this.#gate()
 		const previous = this.#readLimit()

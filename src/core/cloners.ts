@@ -4,7 +4,7 @@ import { cloneJSONRecord, isContractError } from '@orkestrel/contract'
 import { TableError } from './errors.js'
 
 /**
- * Clone one row into an owned frozen snapshot.
+ * Clones one row into an owned frozen snapshot.
  *
  * @param row - The row to own.
  * @returns A frozen copy of the row's cells.
@@ -14,7 +14,7 @@ export function cloneRow(row: TableRow): TableRow {
 }
 
 /**
- * Clone a table schema into an owned frozen snapshot.
+ * Clones a table schema into an owned frozen snapshot.
  *
  * @param schema - The schema to own.
  * @returns A frozen schema with every nested column, choice, list, and metadata record owned.

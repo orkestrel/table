@@ -30,7 +30,7 @@ import { SelectionManager } from './tables/SelectionManager.js'
 import { SortManager } from './tables/SortManager.js'
 import { isStructuralTableSchema } from './validators.js'
 
-/** A schema, its rows, and the lens through which they are read. */
+/** Holds a schema, its rows, and the lens through which they are read. */
 export class Table implements TableInterface {
 	readonly #emitter: Emitter<TableEventMap>
 	readonly #schema: TableSchema
@@ -53,7 +53,7 @@ export class Table implements TableInterface {
 	readonly #pagination: PaginationManager
 
 	/**
-	 * Open a table against a schema.
+	 * Opens a table against a schema.
 	 *
 	 * @param schema - The table declaration to own.
 	 * @param options - Initial rows, lens overrides, pagination, and emitter wiring.
@@ -152,47 +152,47 @@ export class Table implements TableInterface {
 		)
 	}
 
-	/** The table's event emitter. */
+	/** Holds the table's event emitter. */
 	get emitter(): EmitterInterface<TableEventMap> {
 		return this.#emitter
 	}
 
-	/** The owned frozen schema. */
+	/** Holds the owned frozen schema. */
 	get schema(): TableSchema {
 		return this.#schema
 	}
 
-	/** The rows the table holds. */
+	/** Manages the rows the table holds. */
 	get rows(): RowManagerInterface {
 		return this.#rows
 	}
 
-	/** The ordered sort terms. */
+	/** Manages the ordered sort terms. */
 	get sort(): SortManagerInterface {
 		return this.#sort
 	}
 
-	/** The filters applied with and-only composition. */
+	/** Manages the filters applied with and-only composition. */
 	get filter(): FilterManagerInterface {
 		return this.#filter
 	}
 
-	/** The selected row keys. */
+	/** Manages the selected row keys. */
 	get selection(): SelectionManagerInterface {
 		return this.#selection
 	}
 
-	/** The expanded row keys. */
+	/** Manages the expanded row keys. */
 	get expansion(): ExpansionManagerInterface {
 		return this.#expansion
 	}
 
-	/** The page arithmetic. */
+	/** Manages the page arithmetic. */
 	get pagination(): PaginationManagerInterface {
 		return this.#pagination
 	}
 
-	/** The filtered, sorted, and paged rows as owned frozen snapshots. */
+	/** Returns the filtered, sorted, and paged rows as owned frozen snapshots. */
 	get view(): readonly TableRow[] {
 		const ordered = sortRows(this.#schema, this.#filtered(), this.#orderStore, this.#comparators)
 		const limit = this.#limit
@@ -203,17 +203,17 @@ export class Table implements TableInterface {
 		return Object.freeze(page.map((row) => cloneRow(row)))
 	}
 
-	/** The number of rows admitted by the filters. */
+	/** Returns the number of rows admitted by the filters. */
 	get count(): number {
 		return this.#filtered().length
 	}
 
-	/** Whether the table has been torn down. */
+	/** Reports whether the table has been torn down. */
 	get destroyed(): boolean {
 		return this.#destroyed
 	}
 
-	/** Reset every moving axis to its opening state. */
+	/** Resets every moving axis to its opening state. */
 	clear(): void {
 		this.#gate()
 		const changed =
@@ -236,7 +236,7 @@ export class Table implements TableInterface {
 		this.#emitter.emit('clear')
 	}
 
-	/** Tear the table down while leaving every getter readable. */
+	/** Tears the table down while leaving every getter readable. */
 	destroy(): void {
 		if (this.#destroyed) return
 		this.#destroyed = true

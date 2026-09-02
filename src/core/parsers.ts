@@ -13,7 +13,7 @@ import { extractColumn, extractKey, matchesCell, serializeTable } from './helper
 import { isTableSchema } from './validators.js'
 
 /**
- * Parse unknown wire data into an owned, semantically sound table schema.
+ * Parses unknown wire data into an owned, semantically sound table schema.
  *
  * @param input - The unknown schema value to parse.
  * @returns An owned table schema, or `undefined` on refusal.
@@ -29,7 +29,7 @@ export function parseTable(input: unknown): TableSchema | undefined {
 }
 
 /**
- * Parse unknown wire rows against one table schema.
+ * Parses unknown wire rows against one table schema.
  *
  * @param schema - The schema that declares the accepted keys and cell shapes.
  * @param input - The unknown row-list value to parse.

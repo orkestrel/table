@@ -2,7 +2,7 @@ import type { Emitter } from '@orkestrel/emitter'
 import type { TableEventMap, TableKey } from '../types.js'
 import { computeKeys } from '../helpers.js'
 
-/** The key set one table axis holds, and the event it announces when that set moves. */
+/** Manages the key set one table axis holds, and the event it announces when that set moves. */
 export class KeyManager {
 	readonly #emitter: Emitter<TableEventMap>
 	readonly #event: 'select' | 'expand'
@@ -37,7 +37,7 @@ export class KeyManager {
 		this.#write = write
 	}
 
-	/** The keys held right now. */
+	/** Returns the keys held right now. */
 	get keys(): ReadonlySet<TableKey> {
 		return new Set(this.#read())
 	}

@@ -22,20 +22,20 @@ import { COLUMN_CELLS } from './constants.js'
 import { auditTable } from './helpers.js'
 
 /**
- * Determine whether an unknown value has a table cell shape.
+ * Determines whether an unknown value has a table cell shape.
  *
  * @param input - The value to inspect.
- * @returns Whether the value is a string, finite number, or boolean.
+ * @returns True if the value is a string, finite number, or boolean; false otherwise.
  */
 export function isTableCell(input: unknown): input is TableCell {
 	return unionOf(isString, isFiniteNumber, isBoolean)(input)
 }
 
 /**
- * Determine whether an unknown value is a record of table cells.
+ * Determines whether an unknown value is a record of table cells.
  *
  * @param input - The value to inspect.
- * @returns Whether every own key is a string and every value is a table cell.
+ * @returns True if every own key is a string and every value is a table cell; false otherwise.
  */
 export function isTableRow(input: unknown): input is TableRow {
 	const outcome = attempt(() => {
@@ -49,20 +49,20 @@ export function isTableRow(input: unknown): input is TableRow {
 }
 
 /**
- * Determine whether an unknown value is a declared column cell.
+ * Determines whether an unknown value is a declared column cell.
  *
  * @param input - The value to inspect.
- * @returns Whether the value is one of the four column cells.
+ * @returns True if the value is one of the four column cells; false otherwise.
  */
 export function isColumnCell(input: unknown): input is ColumnCell {
 	return COLUMN_CELLS.some((cell) => cell === input)
 }
 
 /**
- * Determine whether an unknown value is one exact column choice record.
+ * Determines whether an unknown value is one exact column choice record.
  *
  * @param input - The value to inspect.
- * @returns Whether the value is a column choice.
+ * @returns True if the value is a column choice; false otherwise.
  */
 export function isColumnChoice(input: unknown): input is ColumnChoice {
 	const outcome = attempt(() => {
@@ -74,10 +74,10 @@ export function isColumnChoice(input: unknown): input is ColumnChoice {
 }
 
 /**
- * Determine whether an unknown value is one exact discriminated table column.
+ * Determines whether an unknown value is one exact discriminated table column.
  *
  * @param input - The value to inspect.
- * @returns Whether the value is a structurally valid table column.
+ * @returns True if the value is a structurally valid table column; false otherwise.
  */
 export function isTableColumn(input: unknown): input is TableColumn {
 	const outcome = attempt(() => {
@@ -127,10 +127,10 @@ export function isTableColumn(input: unknown): input is TableColumn {
 }
 
 /**
- * Determine whether an unknown value has one exact structural table-schema shape.
+ * Determines whether an unknown value has one exact structural table-schema shape.
  *
  * @param input - The value to inspect.
- * @returns Whether the value has the exact structure of a table schema.
+ * @returns True if the value has the exact structure of a table schema; false otherwise.
  */
 export function isStructuralTableSchema(input: unknown): input is TableSchema {
 	const outcome = attempt(() => {
@@ -151,10 +151,11 @@ export function isStructuralTableSchema(input: unknown): input is TableSchema {
 }
 
 /**
- * Determine whether an unknown value is one semantically sound table schema.
+ * Determines whether an unknown value is one semantically sound table schema.
  *
  * @param input - The value to inspect.
- * @returns Whether the value has valid structure, domain relationships, and budgets.
+ * @returns True if the value has valid structure, domain relationships, and
+ *   budgets; false otherwise.
  */
 export function isTableSchema(input: unknown): input is TableSchema {
 	const outcome = attempt(() => isStructuralTableSchema(input) && auditTable(input).length === 0)

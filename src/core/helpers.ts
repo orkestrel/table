@@ -33,7 +33,7 @@ import {
 import { TableError } from './errors.js'
 
 /**
- * Find one column by key.
+ * Finds one column by key.
  *
  * @param schema - The schema whose columns to search.
  * @param key - The column key to find.
@@ -44,7 +44,7 @@ export function extractColumn(schema: TableSchema, key: string): TableColumn | u
 }
 
 /**
- * Read one row's declared identity.
+ * Reads one row's declared identity.
  *
  * @param schema - The schema that names the identity column.
  * @param row - The row whose identity to read.
@@ -57,7 +57,7 @@ export function extractKey(schema: TableSchema, row: TableRow): TableKey | undef
 }
 
 /**
- * Compute one atomic 0/1/N membership change over known keys.
+ * Computes one atomic 0/1/N membership change over known keys.
  *
  * @param known - Every key the caller may change.
  * @param current - The current key set.
@@ -148,11 +148,11 @@ export function matchesTerms<Term extends TableTerm>(
 }
 
 /**
- * Check whether a value has the shape required by one column cell.
+ * Checks whether a value has the shape required by one column cell.
  *
  * @param column - The column that owns the cell.
  * @param value - The unknown value to inspect.
- * @returns Whether the column can hold the value.
+ * @returns True if the column can hold the value; false otherwise.
  */
 export function matchesCell(column: TableColumn, value: unknown): value is TableCell {
 	if (isString(value) && value.length > STRING_LIMIT) return false
@@ -170,7 +170,7 @@ export function matchesCell(column: TableColumn, value: unknown): value is Table
 }
 
 /**
- * Compare two cells in ascending order according to one column.
+ * Compares two cells in ascending order according to one column.
  *
  * @param column - The column that fixes the comparison.
  * @param left - The first cell, or absence.
@@ -205,11 +205,11 @@ export function compareCells(
 }
 
 /**
- * Check whether one column admits a filter and all its operands.
+ * Checks whether one column admits a filter and all its operands.
  *
  * @param column - The column that fixes the accepted operators and cell shapes.
  * @param filter - The filter to inspect.
- * @returns Whether the filter belongs to the column and the column can apply it.
+ * @returns True if the filter belongs to the column and the column can apply it; false otherwise.
  */
 export function admitsFilter(column: TableColumn, filter: TableFilter): boolean {
 	if (filter.column !== column.key) return false
@@ -231,12 +231,12 @@ export function admitsFilter(column: TableColumn, filter: TableFilter): boolean 
 }
 
 /**
- * Test one cell against a filter according to its column.
+ * Tests one cell against a filter according to its column.
  *
  * @param column - The column that fixes the accepted operators.
  * @param cell - The cell to test, or absence.
  * @param filter - The filter to apply.
- * @returns Whether the filter accepts the cell.
+ * @returns True if the filter accepts the cell; false otherwise.
  */
 export function matchesFilter(
 	column: TableColumn,
@@ -260,7 +260,7 @@ export function matchesFilter(
 }
 
 /**
- * Keep the rows accepted by every filter.
+ * Keeps the rows accepted by every filter.
  *
  * @param schema - The schema that declares the filtered columns.
  * @param rows - The rows to filter.
@@ -291,7 +291,7 @@ export function filterRows(
 }
 
 /**
- * Order rows stably by a sequence of terms.
+ * Orders rows stably by a sequence of terms.
  *
  * @param schema - The schema that declares the sorted columns.
  * @param rows - The rows to order.
@@ -333,7 +333,7 @@ export function sortRows(
 }
 
 /**
- * Audit a structurally valid schema for domain and budget faults.
+ * Audits a structurally valid schema for domain and budget faults.
  *
  * @param schema - The table schema to audit.
  * @returns Frozen human-readable diagnostics, or an empty list when the schema is sound.
@@ -470,7 +470,7 @@ export function auditTable(schema: TableSchema): readonly string[] {
 }
 
 /**
- * Project a schema into declaration-ordered JSON.
+ * Projects a schema into declaration-ordered JSON.
  *
  * @param schema - The schema to project.
  * @returns A deeply owned JSON record with absent members omitted.
@@ -510,7 +510,7 @@ export function serializeTable(schema: TableSchema): JSONRecord {
 }
 
 /**
- * Project rows into schema-column-ordered JSON.
+ * Projects rows into schema-column-ordered JSON.
  *
  * @param schema - The schema that fixes cell order.
  * @param rows - The rows to project.

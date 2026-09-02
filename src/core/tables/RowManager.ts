@@ -11,7 +11,7 @@ import { TableError } from '../errors.js'
 import { extractColumn, extractKey, matchesCell } from '../helpers.js'
 import { isTableRow } from '../validators.js'
 
-/** The rows one table holds in its own order. */
+/** Manages the rows one table holds in its own order. */
 export class RowManager implements RowManagerInterface {
 	readonly #schema: TableSchema
 	readonly #emitter: Emitter<TableEventMap>
@@ -21,7 +21,7 @@ export class RowManager implements RowManagerInterface {
 	readonly #settle: (removed: readonly TableKey[], announce: () => void) => void
 
 	/**
-	 * Create a row manager over one table's private row store.
+	 * Creates a row manager over one table's private row store.
 	 *
 	 * @param schema - The table schema.
 	 * @param emitter - The table's event emitter.
@@ -51,22 +51,22 @@ export class RowManager implements RowManagerInterface {
 		if (seeded.length > 0) this.#write(Object.freeze(seeded))
 	}
 
-	/** Find one row by key as an owned frozen snapshot. */
+	/** Finds one row by key as an owned frozen snapshot. */
 	row(key: TableKey): TableRow | undefined {
 		const row = this.#read().find((candidate) => extractKey(this.#schema, candidate) === key)
 		return row === undefined ? undefined : cloneRow(row)
 	}
 
-	/** Read every row as owned frozen snapshots in table order. */
+	/** Reads every row as owned frozen snapshots in table order. */
 	rows(): readonly TableRow[] {
 		return Object.freeze(this.#read().map((row) => cloneRow(row)))
 	}
 
-	/** Append several rows. */
+	/** Appends several rows. */
 	add(rows: readonly TableRow[]): void
-	/** Append one row. */
+	/** Appends one row. */
 	add(row: TableRow): void
-	/** Append one row or several. */
+	/** Appends one row or several. */
 	add(input: TableRow | readonly TableRow[]): void {
 		this.#gate()
 		const rows = Array.isArray(input) ? input : [input]
@@ -87,11 +87,11 @@ export class RowManager implements RowManagerInterface {
 		})
 	}
 
-	/** Merge several rows into the rows their keys name. */
+	/** Merges several rows into the rows their keys name. */
 	update(rows: readonly TableRow[]): boolean
-	/** Merge one row into the row its key names. */
+	/** Merges one row into the row its key names. */
 	update(row: TableRow): boolean
-	/** Merge one row or several into the rows their keys name. */
+	/** Merges one row or several into the rows their keys name. */
 	update(input: TableRow | readonly TableRow[]): boolean {
 		this.#gate()
 		const updates = (Array.isArray(input) ? input : [input]).map((row) => cloneRow(row))
@@ -131,7 +131,7 @@ export class RowManager implements RowManagerInterface {
 		return true
 	}
 
-	/** Move one row to a clamped index in table order. */
+	/** Moves one row to a clamped index in table order. */
 	move(key: TableKey, index: number): boolean {
 		this.#gate()
 		const current = this.#read()
@@ -153,13 +153,13 @@ export class RowManager implements RowManagerInterface {
 		return true
 	}
 
-	/** Remove every row. */
+	/** Removes every row. */
 	remove(): void
-	/** Remove one row. */
+	/** Removes one row. */
 	remove(key: TableKey): boolean
-	/** Remove several rows. */
+	/** Removes several rows. */
 	remove(keys: readonly TableKey[]): boolean
-	/** Remove one or more rows. */
+	/** Removes one or more rows. */
 	remove(input?: TableKey | readonly TableKey[]): void | boolean {
 		this.#gate()
 		const current = this.#read()

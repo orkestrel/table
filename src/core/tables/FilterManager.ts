@@ -3,7 +3,7 @@ import type { FilterManagerInterface, TableEventMap, TableFilter, TableSchema } 
 import { TableError } from '../errors.js'
 import { admitsFilter, extractColumn, matchesTerms, mergeTerms, removeTerms } from '../helpers.js'
 
-/** The filters one table applies with and-only composition. */
+/** Manages the filters one table applies with and-only composition. */
 export class FilterManager implements FilterManagerInterface {
 	readonly #schema: TableSchema
 	readonly #emitter: Emitter<TableEventMap>
@@ -13,7 +13,7 @@ export class FilterManager implements FilterManagerInterface {
 	readonly #clamp: () => number | undefined
 
 	/**
-	 * Create a filter manager over one table's private filter store.
+	 * Creates a filter manager over one table's private filter store.
 	 *
 	 * @param schema - The table schema.
 	 * @param emitter - The table's event emitter.
@@ -38,22 +38,22 @@ export class FilterManager implements FilterManagerInterface {
 		this.#clamp = clamp
 	}
 
-	/** Find one column's filter. */
+	/** Finds one column's filter. */
 	filter(column: string): TableFilter | undefined {
 		const filter = this.#read().find((candidate) => candidate.column === column)
 		return filter === undefined ? undefined : Object.freeze({ ...filter })
 	}
 
-	/** Read every filter as an owned frozen snapshot. */
+	/** Reads every filter as an owned frozen snapshot. */
 	filters(): readonly TableFilter[] {
 		return Object.freeze(this.#read().map((filter) => Object.freeze({ ...filter })))
 	}
 
-	/** Filter several columns. */
+	/** Filters several columns. */
 	set(filters: readonly TableFilter[]): void
-	/** Filter one column. */
+	/** Filters one column. */
 	set(filter: TableFilter): void
-	/** Filter one column or several. */
+	/** Filters one column or several. */
 	set(input: TableFilter | readonly TableFilter[]): void {
 		this.#gate()
 		const requested = Array.isArray(input) ? input : [input]
@@ -67,13 +67,13 @@ export class FilterManager implements FilterManagerInterface {
 		if (page !== undefined) this.#emitter.emit('paginate', page)
 	}
 
-	/** Stop filtering by every column. */
+	/** Stops filtering by every column. */
 	remove(): void
-	/** Stop filtering by one column. */
+	/** Stops filtering by one column. */
 	remove(column: string): boolean
-	/** Stop filtering by several columns. */
+	/** Stops filtering by several columns. */
 	remove(columns: readonly string[]): boolean
-	/** Stop filtering by one or more columns. */
+	/** Stops filtering by one or more columns. */
 	remove(input?: string | readonly string[]): void | boolean {
 		this.#gate()
 		const columns =

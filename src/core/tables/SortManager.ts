@@ -3,7 +3,7 @@ import type { SortManagerInterface, TableEventMap, TableOrder, TableSchema } fro
 import { TableError } from '../errors.js'
 import { extractColumn, matchesTerms, mergeTerms, removeTerms } from '../helpers.js'
 
-/** The ordered sort terms of one table. */
+/** Manages the ordered sort terms of one table. */
 export class SortManager implements SortManagerInterface {
 	readonly #schema: TableSchema
 	readonly #emitter: Emitter<TableEventMap>
@@ -12,7 +12,7 @@ export class SortManager implements SortManagerInterface {
 	readonly #write: (orders: readonly TableOrder[]) => void
 
 	/**
-	 * Create a sort manager over one table's private term store.
+	 * Creates a sort manager over one table's private term store.
 	 *
 	 * @param schema - The table schema.
 	 * @param emitter - The table's event emitter.
@@ -34,22 +34,22 @@ export class SortManager implements SortManagerInterface {
 		this.#write = write
 	}
 
-	/** Find one column's sort term. */
+	/** Finds one column's sort term. */
 	order(column: string): TableOrder | undefined {
 		const order = this.#read().find((candidate) => candidate.column === column)
 		return order === undefined ? undefined : Object.freeze({ ...order })
 	}
 
-	/** Read every sort term as an owned frozen snapshot. */
+	/** Reads every sort term as an owned frozen snapshot. */
 	orders(): readonly TableOrder[] {
 		return Object.freeze(this.#read().map((order) => Object.freeze({ ...order })))
 	}
 
-	/** Sort by several columns. */
+	/** Sorts by several columns. */
 	set(orders: readonly TableOrder[]): void
-	/** Sort by one column. */
+	/** Sorts by one column. */
 	set(order: TableOrder): void
-	/** Sort by one column or several. */
+	/** Sorts by one column or several. */
 	set(input: TableOrder | readonly TableOrder[]): void {
 		this.#gate()
 		const requested = Array.isArray(input) ? input : [input]
@@ -64,13 +64,13 @@ export class SortManager implements SortManagerInterface {
 		this.#emitter.emit('sort', this.orders())
 	}
 
-	/** Stop sorting by every column. */
+	/** Stops sorting by every column. */
 	remove(): void
-	/** Stop sorting by one column. */
+	/** Stops sorting by one column. */
 	remove(column: string): boolean
-	/** Stop sorting by several columns. */
+	/** Stops sorting by several columns. */
 	remove(columns: readonly string[]): boolean
-	/** Stop sorting by one or more columns. */
+	/** Stops sorting by one or more columns. */
 	remove(input?: string | readonly string[]): void | boolean {
 		this.#gate()
 		const columns =

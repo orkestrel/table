@@ -2,7 +2,7 @@ import type { TableInterface, TableOptions, TableSchema } from './types.js'
 import { Table } from './Table.js'
 
 /**
- * Open a table against a schema.
+ * Opens a table against a schema.
  *
  * @param schema - The table declaration to own.
  * @param options - Initial rows, lens overrides, pagination, and emitter wiring.
