@@ -54,9 +54,10 @@ table.view.map((row) => row.name) // ['Grace', 'Alan'] — page one, oldest firs
 ```
 
 Everything below is exported from `@orkestrel/table` ([`src/core`](../src/core)). The manager
-classes and the key-set shell they compose are the module's internal declarations: each constructor
-takes the table's emitter and closures over state `Table` keeps private, so no consumer can
-construct one. Every other declaration is reachable from the barrel, so a consumer holds the
+classes and the key-set shell they compose are the module's internal declarations: they stay out
+of the barrel, so no consumer can construct one, and each constructor takes the table's emitter
+and closures over state `Table` keeps private, which is why they are internal rather than
+published. Every other declaration is reachable from the barrel, so a consumer holds the
 mechanisms the package uses on itself.
 
 ### Rows, cells, and columns
@@ -128,10 +129,10 @@ Two members are spelled `count` and they answer two different questions, because
 tally of the entity it belongs to. `table.count` is **rows** — how many the filter admits, before the
 page narrows them. `table.pagination.count` is **pages** — how many the admitted rows fill.
 
-Each manager class is constructed by `Table` and stays out of the barrel. Its constructor takes
-the table's emitter and a set of closures over state the owning table keeps private, which is what
-keeps every store single-owned and what no consumer can supply, so the class is internal and its
-interface is the published contract. A consumer writing its own table composes `Table`, or writes
+Each manager class is constructed by `Table` and stays out of the barrel, so no consumer can
+construct one. Its constructor takes the table's emitter and a set of closures over state the
+owning table keeps private, which is what keeps every store single-owned, so the class is internal
+and its interface is the published contract. A consumer writing its own table composes `Table`, or writes
 its own managers against the manager interfaces and reads these classes as the working reference.
 
 ### Constants
@@ -614,9 +615,8 @@ other term joins the end.
 Sorting and filtering keep the same list: at most one term per column, replaced in place, and
 compared as a whole before anything is announced. `mergeTerms` performs that write, `removeTerms`
 the drop, and `matchesTerms` the comparison, which takes the operand test from its caller because a
-direction and a filter's operands are not compared the same way. They are exported for the reason
-the managers are: a host holding a lens of its own gets the same list arithmetic without writing it
-again.
+direction and a filter's operands are not compared the same way. They are exported so that a host
+holding a lens of its own gets the same list arithmetic without writing it again.
 
 ```ts
 import { matchesTerms, mergeTerms, removeTerms } from '@orkestrel/table'
