@@ -68,7 +68,15 @@ const MODULES = Object.freeze({
 	'@src/core': 'src/core',
 })
 /** Declarations deliberately kept out of the barrel, as `computeSymbolKey` strings. */
-const INTERNAL: readonly string[] = Object.freeze(['class KeyManager'])
+const INTERNAL: readonly string[] = Object.freeze([
+	'class ExpansionManager',
+	'class FilterManager',
+	'class KeyManager',
+	'class PaginationManager',
+	'class RowManager',
+	'class SelectionManager',
+	'class SortManager',
+])
 /** Root-level files this package's guides link to. */
 const ROOT_FILES = Object.freeze(['AGENTS.md', 'README.md'])
 

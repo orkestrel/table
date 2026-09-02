@@ -53,9 +53,11 @@ table.pagination.count // 2 — two pages of two
 table.view.map((row) => row.name) // ['Grace', 'Alan'] — page one, oldest first
 ```
 
-Everything below is exported from `@orkestrel/table` ([`src/core`](../src/core)). Nothing is
-internal: every declaration in the module is reachable from the barrel, so a consumer holds exactly
-the mechanisms the package uses on itself.
+Everything below is exported from `@orkestrel/table` ([`src/core`](../src/core)). The manager
+classes and the key-set shell they compose are the module's internal declarations: each constructor
+takes the table's emitter and closures over state `Table` keeps private, so no consumer can
+construct one. Every other declaration is reachable from the barrel, so a consumer holds the
+mechanisms the package uses on itself.
 
 ### Rows, cells, and columns
 
@@ -106,17 +108,11 @@ The entity, its six managers, its factory, its contract, and the error it raises
 | `TableOptions`               | interface | How to open a table — `on` listeners, an `error` handler, seeded `rows`, per-column `comparators` and `matchers`, and a page `limit`. |
 | `TableEventMap`              | type      | Everything a table announces — `write` / `remove` / `sort` / `filter` / `select` / `expand` / `paginate` / `clear`.                   |
 | `RowManagerInterface`        | interface | The rows the table holds, in its own order.                                                                                           |
-| `RowManager`                 | class     | The row store. Implements `RowManagerInterface` exactly.                                                                              |
 | `SortManagerInterface`       | interface | The order the table reads its rows in.                                                                                                |
-| `SortManager`                | class     | The sort terms. Implements `SortManagerInterface` exactly.                                                                            |
 | `FilterManagerInterface`     | interface | Which rows the table keeps.                                                                                                           |
-| `FilterManager`              | class     | The filters. Implements `FilterManagerInterface` exactly.                                                                             |
 | `SelectionManagerInterface`  | interface | The rows somebody has picked.                                                                                                         |
-| `SelectionManager`           | class     | The picked keys. Implements `SelectionManagerInterface` exactly.                                                                      |
 | `ExpansionManagerInterface`  | interface | The rows somebody has opened up.                                                                                                      |
-| `ExpansionManager`           | class     | The opened keys. Implements `ExpansionManagerInterface` exactly.                                                                      |
 | `PaginationManagerInterface` | interface | Which stretch of the filtered rows the view shows.                                                                                    |
-| `PaginationManager`          | class     | The page arithmetic. Implements `PaginationManagerInterface` exactly.                                                                 |
 | `TableError`                 | class     | An error raised by the table domain — a machine-readable `code` and optional structured `context`.                                    |
 | `TableErrorCode`             | type      | The reason a `TableError` carries — `SCHEMA` / `COLUMN` / `KEY` / `CELL` / `DESTROYED`.                                               |
 | `isTableError`               | function  | Whether a caught value is a `TableError`, so a `catch` branches on `code` without an assertion.                                       |
@@ -132,13 +128,11 @@ Two members are spelled `count` and they answer two different questions, because
 tally of the entity it belongs to. `table.count` is **rows** — how many the filter admits, before the
 page narrows them. `table.pagination.count` is **pages** — how many the admitted rows fill.
 
-Each manager class is constructed by `Table` and exported because the contract it satisfies is
-exported: a published interface publishes the parts that satisfy it, so nothing here is a mechanism
-the package keeps for itself. Their constructors are not a documented surface. Each takes the
-table's emitter and a set of closures over state the owning table keeps private, which is what keeps
-every store single-owned, and it is not a protocol a consumer can satisfy from this guide. A
-consumer writing its own table composes `Table`, or writes its own managers against the manager
-interfaces and reads these classes as the working reference.
+Each manager class is constructed by `Table` and stays out of the barrel. Its constructor takes
+the table's emitter and a set of closures over state the owning table keeps private, which is what
+keeps every store single-owned and what no consumer can supply, so the class is internal and its
+interface is the published contract. A consumer writing its own table composes `Table`, or writes
+its own managers against the manager interfaces and reads these classes as the working reference.
 
 ### Constants
 
@@ -175,10 +169,18 @@ Two of them answer about a schema, and which one to reach for is which question 
 and nothing else there. `isTableSchema` asks that and then asks `auditTable`, so it refuses a
 schema-shaped value carrying a domain fault or a budget breach — a `key` naming no declared column,
 a column key declared twice, a `choice` column offering nothing. It is the guard the parsers read.
-The `Table` constructor asks the same questions through `isStructuralTableSchema` and one
-`auditTable` run, so its `SCHEMA` message keeps the audit diagnostics intact. The guard, constructor,
-and `parseTable` therefore agree on which schemas are usable. Reach for the structural guard where
-you mean to run the audit yourself and read its diagnostics.
+The `Table` constructor asks in a different order. It guards the value it was handed, owns a copy
+of it, then guards and audits that copy and keeps that same object. Its `SCHEMA` message carries
+the audit diagnostics when the owned copy reaches the audit, and names
+`The schema is not a table schema` when the copy fails the guard the handed value passed.
+
+`isTableSchema`, the constructor, and `parseTable` agree on every schema whose reads are stable,
+which is every schema made of ordinary declared data. They part where a foreign object answers a
+property read with something other than the value a clone of it holds — a `meta` behind a `get`
+trap is the shipped case. `isTableSchema` admits such a schema, because it reads it once and the
+read answers. The constructor refuses it, because it guards the copy it owns rather than the object
+it read, and `parseTable` refuses it too, because it re-guards its own projection. Reach for the
+structural guard where you mean to run the audit yourself and read its diagnostics.
 
 ### Helpers
 
@@ -837,13 +839,16 @@ table.expansion.keys.size // 3
 ```
 
 Both managers are the same algorithm over two sets, so it is written once, and so is the shell around
-it: one key-set engine holds the store reads, the lifecycle gate, and the announcement, and each
-manager supplies only its own verbs and its own event. `computeKeys` takes the keys a caller may
-address, the set as it stands, the 0/1/N argument, and a decision made per key from that key's own
-membership. It returns `undefined` when any requested key is unknown, which is
-the `false` those verbs report. It returns the set it was handed when nothing moved, which is how a
-no-op stays silent. Otherwise it returns the next set. It is exported for the reason the managers
-are: a host keeping a third key set of its own gets the same atomicity without writing it again.
+it. `KeyManager`, the shared key-set shell, holds the store reads, the lifecycle gate, and the
+announcement, and each manager supplies only its own verbs and its own event. The shell is internal,
+like the managers that compose it.
+
+`computeKeys` is the key-set engine underneath the shell, and it is published. It takes the keys a
+caller may address, the set as it stands, the 0/1/N argument, and a decision made per key from that
+key's own membership. It returns `undefined` when any requested key is unknown, which is the `false`
+those verbs report. It returns the set it was handed when nothing moved, which is how a no-op stays
+silent. Otherwise it returns the next set. A host keeping a third key set of its own gets the same
+atomicity without writing it again.
 
 ```ts
 import { computeKeys } from '@orkestrel/table'
@@ -1498,6 +1503,9 @@ this package answers today through a mechanism it already exposes.
   — `select`, `clear`, `toggle`, the 0/1/N overloads, and pruning on removal.
 - [`tests/src/core/tables/ExpansionManager.test.ts`](../tests/src/core/tables/ExpansionManager.test.ts)
   — `expand`, `clear`, `toggle`, the 0/1/N overloads, and pruning on removal.
+- [`tests/src/core/tables/KeyManager.test.ts`](../tests/src/core/tables/KeyManager.test.ts) — the
+  0/1/N forms, the unknown-key refusal, the announcement only on a move, the owned key set, and the
+  gate throw passed through.
 - [`tests/src/core/tables/PaginationManager.test.ts`](../tests/src/core/tables/PaginationManager.test.ts)
   — `page`, `limit`, `offset`, `count`, `move`, `resize`, clamping, and the unpaged table.
 - [`tests/src/core/helpers.test.ts`](../tests/src/core/helpers.test.ts) — `extractColumn`,

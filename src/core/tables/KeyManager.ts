@@ -12,7 +12,7 @@ export class KeyManager {
 	readonly #write: (keys: ReadonlySet<TableKey>) => void
 
 	/**
-	 * Creates a key-set engine over one table's private store.
+	 * Creates a key-set shell over one table's private store.
 	 *
 	 * @param emitter - The table's event emitter.
 	 * @param event - The event this axis announces when its key set moves.

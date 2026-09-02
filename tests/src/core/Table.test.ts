@@ -2,20 +2,20 @@ import type { JSONRecord } from '@orkestrel/contract'
 import type { TableEventMap, TableSchema } from '@src/core'
 import { readFileSync } from 'node:fs'
 import {
-	ExpansionManager,
-	FilterManager,
 	isStructuralTableSchema,
-	PaginationManager,
 	createTable,
 	parseRows,
 	parseTable,
-	RowManager,
-	SelectionManager,
 	serializeRows,
 	serializeTable,
-	SortManager,
 	Table,
 } from '@src/core'
+import { ExpansionManager } from '../../../src/core/tables/ExpansionManager.js'
+import { FilterManager } from '../../../src/core/tables/FilterManager.js'
+import { PaginationManager } from '../../../src/core/tables/PaginationManager.js'
+import { RowManager } from '../../../src/core/tables/RowManager.js'
+import { SelectionManager } from '../../../src/core/tables/SelectionManager.js'
+import { SortManager } from '../../../src/core/tables/SortManager.js'
 import { createRecorder, requireValue } from '@orkestrel/test'
 import { describe, expect, it } from 'vitest'
 import {
@@ -66,8 +66,8 @@ describe('Table construction and derived state', () => {
 		)
 	})
 
-	it('keeps selection and expansion membership arithmetic in the shared key-set engine', () => {
-		const engine = readFileSync(
+	it('keeps selection and expansion membership arithmetic in the shared key-set shell', () => {
+		const shell = readFileSync(
 			new URL('../../../src/core/tables/KeyManager.ts', import.meta.url),
 			'utf8',
 		)
@@ -80,12 +80,12 @@ describe('Table construction and derived state', () => {
 			'utf8',
 		)
 
-		expect(engine.match(/\bcomputeKeys\(/gu)).toHaveLength(1)
+		expect(shell.match(/\bcomputeKeys\(/gu)).toHaveLength(1)
 		expect(selection).not.toMatch(/\bcomputeKeys\(/u)
 		expect(expansion).not.toMatch(/\bcomputeKeys\(/u)
 		expect(selection.match(/new KeyManager\(/gu)).toHaveLength(1)
 		expect(expansion.match(/new KeyManager\(/gu)).toHaveLength(1)
-		expect(engine).not.toMatch(/\.(?:add|delete|has)\(/u)
+		expect(shell).not.toMatch(/\.(?:add|delete|has)\(/u)
 		expect(selection).not.toMatch(/\.(?:add|delete|has)\(/u)
 		expect(expansion).not.toMatch(/\.(?:add|delete|has)\(/u)
 	})
