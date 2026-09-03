@@ -25,10 +25,27 @@ describe('PaginationManager', () => {
 		table.pagination.move(2)
 		table.pagination.move(-1)
 		table.pagination.move(1)
+		table.pagination.move(Number.POSITIVE_INFINITY)
+
+		expect(table.pagination.page).toBe(table.pagination.count)
+
+		table.pagination.move(Number.NaN)
 
 		expect(table.pagination.page).toBe(1)
 		expect(table.pagination.offset).toBe(0)
-		expect(pages.calls).toStrictEqual([[2], [1]])
+		expect(pages.calls).toStrictEqual([[2], [1], [2], [1]])
+	})
+
+	it('floors a page size below one, and a non-finite one, at a single row', () => {
+		const table = createTableFixture({ limit: 2 })
+
+		expect(table.pagination.limit).toBe(2)
+		table.pagination.resize(0)
+		expect(table.pagination.limit).toBe(1)
+		table.pagination.resize(Number.POSITIVE_INFINITY)
+		expect(table.pagination.limit).toBe(1)
+		table.pagination.resize(Number.NaN)
+		expect(table.pagination.limit).toBe(1)
 	})
 
 	it('resizes while keeping the first row previously shown', () => {

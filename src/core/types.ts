@@ -355,7 +355,6 @@ export type TableEventMap = {
 /**
  * Describes how to open a table.
  *
- * @param options - The table's settings.
  * @remarks
  * `on` wires listeners at construction and `error` receives any throw from one of them.
  *
@@ -456,7 +455,8 @@ export interface RowManagerInterface {
 	 * Moves one row to another place in the table's own order.
 	 *
 	 * @param key - The row's key.
-	 * @param index - Where to put it, counted from zero and clamped to the rows that exist.
+	 * @param index - Where to put it, counted from zero and clamped to the rows that exist. `NaN`
+	 *   puts the row first.
 	 * @returns True if the key named a row the table holds; false otherwise.
 	 */
 	move(key: TableKey, index: number): boolean
@@ -782,7 +782,8 @@ export interface PaginationManagerInterface {
 	/**
 	 * Shows another page.
 	 *
-	 * @param page - The page to show, counted from one and clamped to the pages that exist.
+	 * @param page - The page to show, counted from one and clamped to the pages that exist. `NaN`
+	 *   shows the first page.
 	 */
 	move(page: number): void
 	/**
@@ -805,9 +806,9 @@ export interface PaginationManagerInterface {
  * The table owns values, not pixels. It renders nothing, reads no document, and names no host
  * type, so one table serves a browser, a terminal, a report, and an export equally.
  *
- * Six managers hold everything that moves, one per axis: `rows`, `sort`, `filter`, `selection`,
- * `expansion`, and `pagination`. Nothing else is stored. `view` and `count` are worked out when
- * they are read, so no second copy of the answer can go stale.
+ * One manager holds each axis that moves: `rows`, `sort`, `filter`, `selection`, `expansion`, and
+ * `pagination`. Nothing else is stored. `view` and `count` are worked out when they are read, so no
+ * second copy of the answer can go stale.
  *
  * A write validates all of itself before any of it lands, and announces itself once it has.
  *

@@ -4,7 +4,7 @@
 > holds the rows given against it, and one lens — sort, filter, and page — decides which of them the
 > view shows. Nothing here renders, measures a pixel, reads a keyboard, or names a host type.
 >
-> **A grid, a report, a terminal listing, and a CSV export are the same abstraction.** All four hold
+> **A grid, a report, a terminal listing, and a CSV export are the same abstraction.** They all hold
 > a set of records, order them, narrow them, and show a stretch of them. What differs is who draws
 > the result, and drawing is the one part this package leaves out. The table owns values; the host
 > owns everything a person looks at.
@@ -69,20 +69,19 @@ The document itself — what a table declares and what one row of it holds. All 
 | `TableKey`     | type      | A row's identity — a `string`, carried in the cell the schema's `key` names.                                                                   |
 | `TableCell`    | type      | Every value a cell can hold — a `string`, a `number`, or a `boolean`.                                                                          |
 | `TableRow`     | type      | One row keyed by column. A column nobody has filled has no key here.                                                                           |
-| `ColumnCell`   | type      | What a column's cells hold — the four-member discriminant that fixes the column's options, its comparison, and the filters that apply to it.   |
+| `ColumnCell`   | type      | What a column's cells hold — the discriminant that fixes the column's options, its comparison, and the filters that apply to it.               |
 | `ColumnChoice` | interface | One value a `choice` column offers — `value` is stored, `label` is read, `help` explains.                                                      |
 | `ColumnBase`   | interface | What every column carries whatever its cells hold — `key` / `label` / `help` / `hidden` / `meta`.                                              |
 | `TextColumn`   | interface | A column of text, compared lexically. Carries a date, a time, and a timestamp as ISO strings.                                                  |
 | `NumberColumn` | interface | A column of numbers, compared by magnitude.                                                                                                    |
 | `FlagColumn`   | interface | A column of yes-or-no answers, compared false before true.                                                                                     |
 | `ChoiceColumn` | interface | A column drawn from a declared list, compared by the order that list declares — required `choices`.                                            |
-| `TableColumn`  | type      | Any column a schema can declare — the four-member union discriminated on `cell`.                                                               |
+| `TableColumn`  | type      | Any column a schema can declare — the union discriminated on `cell`.                                                                           |
 | `TableSchema`  | interface | Everything a table declares about itself — optional `name` / `label` / `help`, the required `key` naming row identity, and `columns` in order. |
 
 ### The lens
 
-The three axes a table reads its rows through, and the two slots that replace what a column's cell
-fixes.
+The axes a table reads its rows through, and the slots that replace what a column's cell fixes.
 
 | API              | Kind      | Summary                                                                                                                              |
 | ---------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------ |
@@ -93,13 +92,13 @@ fixes.
 | `ContainsFilter` | interface | Keep the rows whose cell holds this `text` somewhere inside it.                                                                      |
 | `BetweenFilter`  | interface | Keep the rows whose cell falls between `minimum` and `maximum`, both included, compared the way the column compares.                 |
 | `EqualsFilter`   | interface | Keep the rows whose cell holds exactly this `value`.                                                                                 |
-| `TableFilter`    | type      | Any filter a table can hold — the three-member union discriminated on `operator`.                                                    |
+| `TableFilter`    | type      | Any filter a table can hold — the union discriminated on `operator`.                                                                 |
 | `CellComparator` | type      | Compare two cells of one column, replacing what its `cell` fixes. Always describes ascending order; direction is applied afterwards. |
 | `CellMatcher`    | type      | Test one column's cell against a filter, replacing what its `cell` fixes. Receives every filter the table holds against that column. |
 
 ### The table
 
-The entity, its six managers, its factory, its contract, and the error it raises.
+The entity, its managers, its factory, its contract, and the error it raises.
 
 | API                          | Kind      | Summary                                                                                                                               |
 | ---------------------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------- |
@@ -119,15 +118,15 @@ The entity, its six managers, its factory, its contract, and the error it raises
 | `isTableError`               | function  | Whether a caught value is a `TableError`, so a `catch` branches on `code` without an assertion.                                       |
 
 `TableInterface`'s readonly data members stay here rather than in `## Methods`: `emitter` (the typed
-event surface), `schema` (the owned frozen copy), the six managers `rows`, `sort`, `filter`,
+event surface), `schema` (the owned frozen copy), the managers `rows`, `sort`, `filter`,
 `selection`, `expansion`, and `pagination`, plus `view` (the rows to draw right now), `count` (how
 many rows the filter admits), and `destroyed`. The managers carry readonly members of their own:
 `selection.keys` and `expansion.keys` are the picked and opened key sets, and `pagination` publishes
 `page`, `limit`, `offset`, and `count`.
 
-Two members are spelled `count` and they answer two different questions, because each is the lone
-tally of the entity it belongs to. `table.count` is **rows** — how many the filter admits, before the
-page narrows them. `table.pagination.count` is **pages** — how many the admitted rows fill.
+Both members spelled `count` answer different questions, because each is the lone tally of the entity
+it belongs to. `table.count` is **rows** — how many the filter admits, before the page narrows them.
+`table.pagination.count` is **pages** — how many the admitted rows fill.
 
 Each manager class is constructed by `Table` and stays out of the barrel, so no consumer can
 construct one. Its constructor takes the table's emitter and a set of closures over state the
@@ -137,7 +136,7 @@ its own managers against the manager interfaces and reads these classes as the w
 
 ### Constants
 
-The cell registry and six budgets. The registry is frozen, so a shared list cannot be rewritten
+The cell registry and the budgets. The registry is frozen, so a shared list cannot be rewritten
 under a consumer. The budgets are numbers.
 
 | API            | Kind  | Summary                                                                     |
@@ -159,13 +158,13 @@ anything off-shape — including a hostile prototype, a symbol key, or a cyclic 
 | ------------------------- | -------- | -------------------------------------------------------------------------------------------------------------------- |
 | `isTableCell`             | function | Whether a value has a cell shape — a string, a finite number, or a boolean.                                          |
 | `isTableRow`              | function | Whether a value is a record whose every own key is a string and every value a `TableCell`.                           |
-| `isColumnCell`            | function | Whether a value is one of the four declared column cells.                                                            |
+| `isColumnCell`            | function | Whether a value is a declared column cell.                                                                           |
 | `isColumnChoice`          | function | Whether a value is one exact `ColumnChoice` record; an unknown member refuses it.                                    |
 | `isTableColumn`           | function | Whether a value is one exact discriminated `TableColumn`, checked against its cell's own options.                    |
 | `isStructuralTableSchema` | function | Whether a value has the exact shape of a `TableSchema` — the shape alone, with no domain check.                      |
 | `isTableSchema`           | function | Whether a value is a `TableSchema` a table can be opened against — the exact shape, and an audit that finds nothing. |
 
-Two of them answer about a schema, and which one to reach for is which question you are asking.
+The schema guards answer about a schema, and which one to reach for is which question you are asking.
 `isStructuralTableSchema` asks whether the shape is exact: every declared member present and typed,
 and nothing else there. `isTableSchema` asks that and then asks `auditTable`, so it refuses a
 schema-shaped value carrying a domain fault or a budget breach — a `key` naming no declared column,
@@ -173,7 +172,10 @@ a column key declared twice, a `choice` column offering nothing. It is the guard
 The `Table` constructor asks in a different order. It guards the value it was handed, owns a copy
 of it, then guards and audits that copy and keeps that same object. Its `SCHEMA` message carries
 the audit diagnostics when the owned copy reaches the audit, and names
-`The schema is not a table schema` when the copy fails the guard the handed value passed.
+`The schema is not a table schema` when the copy fails the guard the handed value passed. It also
+names `column "<key>" has metadata that cannot be owned` when the column's `meta` answers the
+guard's read and the clone's read differently, the message `cloneSchema` raises and the
+constructor rethrows unchanged.
 
 `isTableSchema`, the constructor, and `parseTable` agree on every schema whose reads are stable,
 which is every schema made of ordinary declared data. They part where a foreign object answers a
@@ -186,7 +188,7 @@ structural guard where you mean to run the audit yourself and read its diagnosti
 ### Helpers
 
 The pure leaves the table composes: the column lookup, the identity read, the key-set engine, the
-lens-list operations, the cell gate, the comparison, the two filter tests, the two row passes, the
+lens-list operations, the cell gate, the comparison, the filter tests, the row passes, the
 audit, and the wire projections. `computeKeys`, `matchesTerms`, `filterRows`, and `sortRows`
 propagate exceptions from supplied callbacks; `serializeTable` raises `SCHEMA` for a `meta` no clone
 can own. The other helpers are total over ordinary declared inputs, subject to the core's
@@ -225,9 +227,11 @@ row the table hands back is a live internal reference.
 below. `cloneSchema` can also fail when a column's `meta` holds something no clone can own, such as a
 record that refers back to itself. `meta` is typed as JSON and a cycle satisfies that type, so the
 refusal is a `TableError` coded `SCHEMA` rather than a silent partial copy. `createTable` never reaches
-it, because `isTableColumn` admits only bounded, exactly ownable JSON there and refuses such a schema
-first. This is the door a caller cloning or serializing a schema on its own meets, and
-`serializeTable` refuses the same value the same way.
+it for a schema whose reads are stable, because `isTableColumn` admits only bounded, exactly ownable
+JSON there and refuses such a schema first; a `meta` that answers the guard's read with ownable JSON
+and the clone's read with something no clone can own reaches it, and it refuses
+with `column "<key>" has metadata that cannot be owned`. This is the door a caller cloning or
+serializing a schema on its own meets, and `serializeTable` refuses the same value the same way.
 
 ### Parsers
 
@@ -245,9 +249,9 @@ throw and refuse instead. This is the hostile-reflection boundary for the whole 
 
 ## Cells
 
-Four cells, and each one fixes three things at once: what the column's cells may hold, how two of
-them compare, and which filter operators apply. Choosing the cell is the whole of a column's
-behavior, which is why there is no `sortable`, no `filterable`, and no comparison declared beside it.
+Each cell fixes what the column's cells may hold, how two of them compare, and which filter operators
+apply. Choosing the cell is the whole of a column's behavior, which is why there is no `sortable`, no
+`filterable`, and no comparison declared beside it.
 
 | Cell     | Holds     | Its own options | Compares by                  | Filters with                    |
 | -------- | --------- | --------------- | ---------------------------- | ------------------------------- |
@@ -361,7 +365,7 @@ matchesFilter(when, '2026-03-14', range) // true
 matchesFilter(when, '2025-12-31', range) // false
 ```
 
-That is a boundary drawn on purpose, and it asks four things of the values a column holds. Every
+That is a boundary drawn on purpose, and it asks these things of the values a column holds. Every
 one of them is a comparison on the spelling, because that is the only comparison there is here.
 
 **One offset.** A column mixing offsets is not in chronological order:
@@ -393,7 +397,7 @@ serialized; whether it is drawn is the host's read of that flag.
 
 ### Reading a column
 
-Two reads turn a column key into a decision, and both are exported because a host asking the same
+These reads turn a column key into a decision, and both are exported because a host asking the same
 question before it writes needs the same answer. `extractColumn` finds the column a key names, and
 `matchesCell` is the gate every write, every seed, and every filter operand passes through.
 
@@ -511,7 +515,7 @@ try {
 table.rows.rows().length // 1 — a refused write changed nothing
 ```
 
-Four rules follow from it, and each one is a refusal rather than a repair:
+These rules follow from it, and each one is a refusal rather than a repair:
 
 - **A key is unique.** `add` raises `KEY` for a key the table already holds, and for a key repeated
   inside one batch. Every row in the batch is checked before any is admitted, so one duplicate
@@ -789,7 +793,7 @@ is in the words, so the two sides agree without either depending on the other.
 
 ### Selection and expansion
 
-Both hold `TableKey` sets and nothing else, and both offer the same three verbs: `select` and
+Both hold `TableKey` sets and nothing else, and both offer the same verbs: `select` and
 `expand` add, `clear` removes, and `toggle` turns one row around. Each takes no argument to mean
 every row, one key to mean one row, and a key list to mean those rows, and a list is checked in full
 before any of it moves.
@@ -869,7 +873,7 @@ A table is a live projection, not a document that settles. It has no terminal su
 submit, and no result: rows arrive and leave for as long as the host holds it, and every read
 answers from what it holds at that moment.
 
-Two verbs end things, and they end different things.
+The verbs that end things end different things.
 
 - **`clear` resets, and the table stays open.** Every row goes, and sort, filter, selection,
   expansion, and the page all reset to how the table opened. The schema and the options do not move.
@@ -913,9 +917,8 @@ them raises `DESTROYED` after teardown. `destroy` itself does not.
 
 ## Events
 
-Eight events, and each carries the fact that moved. No listener sees a state the table has not
-finished writing. An event fires only when something actually moved: a write that changes nothing
-announces nothing.
+Each event carries the fact that moved. No listener sees a state the table has not finished writing.
+An event fires only when something actually moved: a write that changes nothing announces nothing.
 
 | Event      | Payload                     | Fires                                                                                                                                                                      |
 | ---------- | --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -1018,9 +1021,9 @@ those bytes — reproduces them exactly. Compare two wire forms, never a wire fo
 incoming bytes.
 
 Rows travel too, and they arrive as strings far more often than not — a query string, a form post, a
-CSV cell. `parseRows` coerces exactly two things and nothing else: a numeric string into a `number`
-for a `number` column, and `'true'` or `'false'` into a boolean for a `flag` column. Every other
-value must already have its column's shape.
+CSV cell. `parseRows` coerces a numeric string into a `number` for a `number` column, and `'true'` or
+`'false'` into a boolean for a `flag` column, and nothing else. Every other value must already have
+its column's shape.
 
 `parseRows` is strict in every other direction. It reads rows against the schema, so a key the
 schema does not declare refuses the whole payload, a cell its column cannot hold refuses the whole
@@ -1084,7 +1087,7 @@ isTableSchema({ key: 'id', columns: [{ cell: 'text', key: 'id' }] }) // true
 isTableSchema({ columns: [] }) // false — `key` is required
 ```
 
-The two schema guards are where the boundary is drawn twice, because a schema can be the right shape
+The schema guards are where the boundary is drawn twice, because a schema can be the right shape
 and still be a table nobody could open. `isStructuralTableSchema` answers the shape;
 `isTableSchema` answers the shape and the audit together, and it is the single-call guard consumers
 and parsers read. The constructor reads `isStructuralTableSchema` and runs `auditTable` once so its
@@ -1126,7 +1129,7 @@ Object.isFrozen(cloneSchema({ key: 'id', columns: [{ cell: 'text', key: 'id' }] 
 
 ### Budgets
 
-Six budgets bound how much a schema can be, so a document that arrives from a wire cannot cost
+The budgets bound how much a schema can be, so a document that arrives from a wire cannot cost
 unbounded memory or unbounded scanning before anything decides to trust it. Every one is exported, so
 a host can check against the same number the package checks against.
 
@@ -1139,7 +1142,7 @@ a host can check against the same number the package checks against.
 | `TEXT_LIMIT`   | 1048576 | UTF-16 code units       | Every string one schema retains, together |
 | `NODE_LIMIT`   | 16384   | records, arrays, leaves | Everything one schema retains, together   |
 
-They bind at two doors, and which door a limit sits at is the whole story.
+They bind at the schema door and the value door, and which door a limit sits at is the whole story.
 
 **The schema door reports.** `auditTable` counts columns, choices, names, strings, total text, and
 total nodes — `meta` included, since it is retained like everything else — and returns one human
@@ -1153,22 +1156,22 @@ and a seeded row raise `CELL`; `parseRows` returns `undefined`.
 `STRING_LIMIT` is the one that stands at both, so no string this package retains is longer than
 65536 code units whichever way it arrived.
 
-The two whole-schema ceilings are what make the arithmetic safe. Whatever the per-item limits admit,
+The whole-schema ceilings are what make the arithmetic safe. Whatever the per-item limits admit,
 one audited schema retains at most 1048576 string code units and at most 16384 nodes, so the worst
 case is those two numbers rather than the product of the others.
 
-Two things stay unbounded, each for its own reason. **Rows are not budgeted**: a table legitimately
-holds a million of them, and a ceiling here would be product policy wearing a constant's name. And
-the structural **read** at the parse door is not bounded either — `parseTable` copies and guards
-every column that arrived before the audit sees one of them, so a payload four times over
-`COLUMN_LIMIT` is read four times over and then refused. Bound the size of a payload at the transport
-that delivers it, which is the only layer holding the bytes.
+Rows and the structural read stay unbounded, each for its own reason. **Rows are not budgeted**: a
+table legitimately holds a million of them, and a ceiling here would be product policy wearing a
+constant's name. And the structural **read** at the parse door is not bounded either — `parseTable`
+copies and guards every column that arrived before the audit sees one of them, so a payload four
+times over `COLUMN_LIMIT` is read four times over and then refused. Bound the size of a payload at
+the transport that delivers it, which is the only layer holding the bytes.
 
 ### Auditing a schema
 
-`auditTable` is the semantic pass beyond structural validation. It reports seven domain faults
-and every budget breach above — six the shape alone cannot see, and one, an unownable `meta`,
-that the structural guard also refuses so the three doors stay in agreement:
+`auditTable` is the semantic pass beyond structural validation. It reports the domain faults listed
+following and every budget breach stated earlier. The shape alone cannot see them, except an unownable `meta`,
+which the structural guard also refuses so the doors stay in agreement:
 
 - `key` names no declared column.
 - `key` names a `number` or `flag` column, whose cells can never hold a string identity.
@@ -1211,9 +1214,9 @@ auditTable({ key: 'id', columns: [{ cell: 'text', key: 'id' }] }) // []
 
 ## Methods
 
-The public methods of the seven behavioral interfaces, which the seven classes implement exactly and
-add nothing to. Every readonly data member stays in the `## Surface` rows above and is not repeated
-here: `TableInterface`'s `emitter`, `schema`, six managers, `view`, `count`, and `destroyed`;
+The public methods of the behavioral interfaces, which their classes implement exactly and add
+nothing to. Every readonly data member stays in the `## Surface` rows stated earlier and is not repeated
+here: `TableInterface`'s `emitter`, `schema`, its managers, `view`, `count`, and `destroyed`;
 `SelectionManagerInterface.keys` and `ExpansionManagerInterface.keys`; and
 `PaginationManagerInterface`'s `page`, `limit`, `offset`, and `count`.
 
@@ -1221,8 +1224,8 @@ Every other row in the Surface tables is a data shape, a union, a constant, a fu
 class, so none of them carries a method table. `CellComparator` and `CellMatcher` are callable
 function types with one call signature and no named members.
 
-Where a method takes no argument, one key, or a key list, that is one method with three overloads
-rather than three methods. A list is checked in full before any of it moves, and the call returns
+Where a method takes no argument, one key, or a key list, that is one method with overloads rather
+than several methods. A list is checked in full before any of it moves, and the call returns
 `true` only when every name in it names what its manager addresses: a row the table holds for
 `rows`, `selection`, and `expansion`, and a column the schema declares for `sort` and `filter`. So
 `selection.clear('9')` is `false` for a key no row carries, while `sort.remove('age')` is `true` for
@@ -1293,13 +1296,13 @@ it either way.
 `TableError` carries a machine-readable `code` and an optional structured `context`. Narrow a caught
 value with `isTableError` and branch on `code`; never match on message text.
 
-| Code        | Raised when                                                                                                                                                                                                                                                                                 |
-| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `SCHEMA`    | The schema is not a table schema, or `auditTable` found a domain fault or a budget breach — `createTable` and the `Table` constructor raise those. `serializeTable` and `cloneSchema` raise it at their own door for a `meta` no clone can own, which the guard and the audit refuse first. |
-| `COLUMN`    | A term or a filter names a column the schema does not declare.                                                                                                                                                                                                                              |
-| `KEY`       | A row's identity is missing, unusable, already taken, or repeated inside one batch.                                                                                                                                                                                                         |
-| `CELL`      | A cell is one its column cannot hold, or a filter's operator or operand is one its column cannot take.                                                                                                                                                                                      |
-| `DESTROYED` | A write reached a table that has been torn down.                                                                                                                                                                                                                                            |
+| Code        | Raised when                                                                                                                                                                                                                                                                                                                         |
+| ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `SCHEMA`    | The schema is not a table schema, or `auditTable` found a domain fault or a budget breach — `createTable` and the `Table` constructor raise those. `serializeTable` and `cloneSchema` raise it at their own door for a `meta` no clone can own, which the guard and the audit refuse first for every schema whose reads are stable. |
+| `COLUMN`    | A term or a filter names a column the schema does not declare.                                                                                                                                                                                                                                                                      |
+| `KEY`       | A row's identity is missing, unusable, already taken, or repeated inside one batch.                                                                                                                                                                                                                                                 |
+| `CELL`      | A cell is one its column cannot hold, or a filter's operator or operand is one its column cannot take.                                                                                                                                                                                                                              |
+| `DESTROYED` | A write reached a table that has been torn down.                                                                                                                                                                                                                                                                                    |
 
 ```ts
 import { createTable, isTableError } from '@orkestrel/table'
@@ -1354,10 +1357,11 @@ These invariants hold across [`src/core`](../src/core) and this guide.
 
 1. **Documented surface equals exported surface.** Every row in the `## Surface` tables is a real
    barrel export of `src/core`, and every barrel export is a row — both directions, exhaustively.
-   Nothing in this module is internal, so the parity suite's internal list is empty.
+   The manager classes and the key-set shell are internal, so the parity suite's internal list names
+   them and nothing else.
 2. **Documented methods equal interface methods.** Each `## Methods` table lists exactly its
    interface's call-signature members, and each class implements every one and adds no public
-   behavior beyond them. Seven interfaces, seven tables, seven classes.
+   behavior beyond them. Each interface has one table and one class.
 3. **Identity is a declared column's non-empty string cell.** `TableSchema.key` is required and must
    name a declared column. A row whose cell there is missing, empty, or not a string is refused with
    `KEY`, and so is a key the table already holds or a key repeated inside one batch. There is no
@@ -1366,11 +1370,11 @@ These invariants hold across [`src/core`](../src/core) and this guide.
    admits and each row it hands back, and clones and freezes the schema at construction. An edit to
    the object a caller passed changes nothing inside the table, and no getter returns a live internal
    reference.
-5. **A write is all-or-nothing, and it refuses one of two ways.** `rows.add`, `rows.update`,
-   `rows.remove`, `sort.set`, `sort.remove`, `filter.set`, `filter.remove`, and every 0/1/N verb on
-   selection and expansion check the whole argument before any of it lands. A bad value raises
-   `KEY`, `CELL`, or `COLUMN`. A name that nothing answers to returns `false` and raises nothing —
-   an unheld row key for `rows`, `selection`, and `expansion`, and an undeclared column for
+5. **A write is all-or-nothing, and it refuses by raising or by returning `false`.** `rows.add`,
+   `rows.update`, `rows.remove`, `sort.set`, `sort.remove`, `filter.set`, `filter.remove`, and every
+   0/1/N verb on selection and expansion check the whole argument before any of it lands. A bad
+   value raises `KEY`, `CELL`, or `COLUMN`. A name that nothing answers to returns `false` and raises
+   nothing — an unheld row key for `rows`, `selection`, and `expansion`, and an undeclared column for
    `sort.remove` and `filter.remove`. Either way the table is left exactly as it was.
 6. **`update` merges and cannot move a key.** The cells given replace the cells held and the cells
    left out stay as they are, and the row is found by the key it carries — so no sequence of
@@ -1428,8 +1432,8 @@ These invariants hold across [`src/core`](../src/core) and this guide.
     the page never travel.
 18. **Identity is checked at the parse door.** `parseRows` refuses the whole payload when a row has
     no usable identity, when two rows share one, when a cell's column cannot hold it, or when a key
-    names no declared column. It coerces exactly two things — a numeric string for a `number` column
-    and `'true'` / `'false'` for a `flag` column — and nothing else.
+    names no declared column. It coerces a numeric string for a `number` column and `'true'` /
+    `'false'` for a `flag` column, and nothing else.
 19. **Every retained size is budgeted.** `auditTable` reports a breach of `COLUMN_LIMIT`,
     `CHOICE_LIMIT`, `NAME_LIMIT`, `STRING_LIMIT`, `TEXT_LIMIT`, or `NODE_LIMIT`, so `createTable`
     raises `SCHEMA` and `parseTable` refuses; `matchesCell` refuses a string breaching
@@ -1438,7 +1442,7 @@ These invariants hold across [`src/core`](../src/core) and this guide.
     per-item limits never multiply. Row count is deliberately unbudgeted, and so is the structural
     read at the parse door, which is the transport's to bound.
 20. **`auditTable` returns diagnostics, not a contract.** The list's emptiness is the promise. The
-    wording of its strings is not, and no consumer should parse them.
+    wording of its strings is not. Never parse them.
 21. **Temporal values are ISO text compared lexically, under one spelling.** A date, a time, and a
     timestamp are `text` cells, and lexical order is chronological order only where a column's
     values share one offset — normally UTC `Z` — one precision, and normalized midnight spelling.
@@ -1487,7 +1491,7 @@ this package answers today through a mechanism it already exposes.
 
 ## Tests
 
-- [`tests/guides.test.ts`](../tests/guides.test.ts) — the `## Surface` ↔ barrel bijection, the seven
+- [`tests/guides.test.ts`](../tests/guides.test.ts) — the `## Surface` ↔ barrel bijection, the
   interface ↔ class method bijections, and the worked examples above executed against the real
   source so a documented value that the code contradicts fails.
 - [`tests/src/core/Table.test.ts`](../tests/src/core/Table.test.ts) — construction, schema
@@ -1515,7 +1519,7 @@ this package answers today through a mechanism it already exposes.
 - [`tests/src/core/validators.test.ts`](../tests/src/core/validators.test.ts) — every guard against
   valid, off-shape, and hostile input, plus guard/parser soundness in both directions.
 - [`tests/src/core/parsers.test.ts`](../tests/src/core/parsers.test.ts) — `parseTable`, `parseRows`,
-  the two coercions, identity at the parse door, and the canonical byte-stable round trip.
+  the coercions, identity at the parse door, and the canonical byte-stable round trip.
 - [`tests/src/core/cloners.test.ts`](../tests/src/core/cloners.test.ts) — every clone is owned,
   frozen, and deep enough that no caller reference survives.
 - [`tests/src/core/constants.test.ts`](../tests/src/core/constants.test.ts) — the cell registry and

@@ -749,7 +749,7 @@ describe('table.md fences', () => {
 })
 
 describe('README.md Usage fence', () => {
-	it('executes its three value claims', () => {
+	it('executes the value claims in its comments', () => {
 		const picked: number[] = []
 		const table = createTable(
 			{

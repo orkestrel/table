@@ -68,7 +68,10 @@ export class PaginationManager implements PaginationManagerInterface {
 	/** Shows another page, clamped to the pages that exist. */
 	move(page: number): void {
 		this.#gate()
-		const next = this.#readLimit() === undefined ? 1 : Math.min(this.count, this.#normalize(page))
+		const next =
+			this.#readLimit() === undefined || Number.isNaN(page)
+				? 1
+				: Math.min(this.count, Math.max(1, Math.trunc(page)))
 		if (next === this.#readPage()) return
 		this.#writePage(next)
 		this.#emitter.emit('paginate', next)

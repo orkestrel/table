@@ -139,7 +139,7 @@ export class RowManager implements RowManagerInterface {
 		if (origin === -1) return false
 		const target = Math.min(
 			current.length - 1,
-			Number.isFinite(index) ? Math.max(0, Math.trunc(index)) : 0,
+			Number.isNaN(index) ? 0 : Math.max(0, Math.trunc(index)),
 		)
 		if (origin === target) return true
 

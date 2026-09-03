@@ -110,7 +110,13 @@ describe('RowManager reads and writes', () => {
 		expect(table.rows.rows().map((row) => row.id)).toStrictEqual(['2', '3', '4', '1'])
 		expect(table.rows.move('1', 3)).toBe(true)
 		expect(table.rows.move('missing', 0)).toBe(false)
-		expect(writes.calls).toStrictEqual([['1']])
+		expect(table.rows.move('2', Number.POSITIVE_INFINITY)).toBe(true)
+		expect(table.rows.rows().map((row) => row.id)).toStrictEqual(['3', '4', '1', '2'])
+		expect(table.rows.move('2', Number.NaN)).toBe(true)
+		expect(table.rows.rows().map((row) => row.id)).toStrictEqual(['2', '3', '4', '1'])
+		expect(table.rows.move('2', Number.NEGATIVE_INFINITY)).toBe(true)
+		expect(table.rows.rows().map((row) => row.id)).toStrictEqual(['2', '3', '4', '1'])
+		expect(writes.calls).toStrictEqual([['1'], ['2'], ['2']])
 	})
 
 	it('removes zero, one, or many rows and validates a batch atomically', () => {

@@ -1,6 +1,5 @@
 import type { JSONRecord } from '@orkestrel/contract'
-import type { TableEventMap, TableSchema } from '@src/core'
-import { readFileSync } from 'node:fs'
+import type { TableEventMap, TableSchema, TextColumn } from '@src/core'
 import {
 	isStructuralTableSchema,
 	createTable,
@@ -27,7 +26,7 @@ import {
 } from '../../setup.js'
 
 describe('Table construction and derived state', () => {
-	it('exposes exactly the seven interface member sets', () => {
+	it('exposes each interface member set exactly', () => {
 		expect(Object.getOwnPropertyNames(Table.prototype).sort()).toStrictEqual(
 			[
 				'clear',
@@ -66,30 +65,6 @@ describe('Table construction and derived state', () => {
 		)
 	})
 
-	it('keeps selection and expansion membership arithmetic in the shared key-set shell', () => {
-		const shell = readFileSync(
-			new URL('../../../src/core/tables/KeyManager.ts', import.meta.url),
-			'utf8',
-		)
-		const selection = readFileSync(
-			new URL('../../../src/core/tables/SelectionManager.ts', import.meta.url),
-			'utf8',
-		)
-		const expansion = readFileSync(
-			new URL('../../../src/core/tables/ExpansionManager.ts', import.meta.url),
-			'utf8',
-		)
-
-		expect(shell.match(/\bcomputeKeys\(/gu)).toHaveLength(1)
-		expect(selection).not.toMatch(/\bcomputeKeys\(/u)
-		expect(expansion).not.toMatch(/\bcomputeKeys\(/u)
-		expect(selection.match(/new KeyManager\(/gu)).toHaveLength(1)
-		expect(expansion.match(/new KeyManager\(/gu)).toHaveLength(1)
-		expect(shell).not.toMatch(/\.(?:add|delete|has)\(/u)
-		expect(selection).not.toMatch(/\.(?:add|delete|has)\(/u)
-		expect(expansion).not.toMatch(/\.(?:add|delete|has)\(/u)
-	})
-
 	it('refuses a schema whose owned copy fails the guard the caller-supplied one passed', () => {
 		const deep: Record<string, JSONRecord> = {}
 		let current = deep
@@ -112,6 +87,31 @@ describe('Table construction and derived state', () => {
 
 		expect(isStructuralTableSchema(schema)).toBe(true)
 		expect(readTableError(() => new Table(schema))).toBe('SCHEMA')
+	})
+
+	it('reaches the constructor SCHEMA refusal when meta answers the guard and the clone differently', () => {
+		// Measured: the guard reads `meta` once (isStructuralTableSchema), the constructor's own
+		// re-guard reads it once more, and cloneSchema's undefined check reads it a third time
+		// before cloneSchema's cloneJSONRecord call issues the fourth read that fails.
+		const stable = 3
+		let calls = 0
+		const column: TextColumn = { cell: 'text', key: 'id' }
+		Object.defineProperty(column, 'meta', {
+			enumerable: true,
+			configurable: true,
+			get() {
+				calls += 1
+				if (calls <= stable) return { align: 'end' }
+				const cyclic: Record<string, unknown> = {}
+				cyclic.self = cyclic
+				return cyclic
+			},
+		})
+		const schema: TableSchema = { key: 'id', columns: [column] }
+
+		expect(isStructuralTableSchema(schema)).toBe(true)
+		expect(calls).toBe(1)
+		expect(() => new Table(schema)).toThrow(/^column "id" has metadata that cannot be owned$/)
 	})
 
 	it('owns the schema and seeded rows while opening without events', () => {

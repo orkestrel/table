@@ -52,7 +52,7 @@ export function isTableRow(input: unknown): input is TableRow {
  * Determines whether an unknown value is a declared column cell.
  *
  * @param input - The value to inspect.
- * @returns True if the value is one of the four column cells; false otherwise.
+ * @returns True if the value is a declared column cell; false otherwise.
  */
 export function isColumnCell(input: unknown): input is ColumnCell {
 	return COLUMN_CELLS.some((cell) => cell === input)
