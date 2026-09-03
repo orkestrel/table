@@ -230,7 +230,7 @@ for (const entry of manifest) {
 	})
 }
 
-// Each test below transcribes one runnable fence and asserts every value its comments claim.
+// Each following test transcribes one runnable fence and asserts every value its comments claim.
 describe('table.md fences', () => {
 	it('opens the Surface example', () => {
 		const table = createTable(

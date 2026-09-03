@@ -53,7 +53,7 @@ table.pagination.count // 2 — two pages of two
 table.view.map((row) => row.name) // ['Grace', 'Alan'] — page one, oldest first
 ```
 
-Everything below is exported from `@orkestrel/table` ([`src/core`](../src/core)). The manager
+Everything in this guide is exported from `@orkestrel/table` ([`src/core`](../src/core)). The manager
 classes and the key-set shell they compose are the module's internal declarations: they stay out
 of the barrel, so no consumer can construct one, and each constructor takes the table's emitter
 and closures over state `Table` keeps private, which is why they are internal rather than
@@ -103,7 +103,7 @@ The entity, its managers, its factory, its contract, and the error it raises.
 | API                          | Kind      | Summary                                                                                                                               |
 | ---------------------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------- |
 | `Table`                      | class     | A table — a schema, the rows held against it, and the lens they are read through. Implements `TableInterface` exactly.                |
-| `TableInterface`             | interface | The table contract — the readonly state below plus `clear` and `destroy`.                                                             |
+| `TableInterface`             | interface | The table contract — the readonly state in the `## Surface` rows plus `clear` and `destroy`.                                          |
 | `createTable`                | function  | Open a table against a schema. The schema is copied, and the copy is what the table declares.                                         |
 | `TableOptions`               | interface | How to open a table — `on` listeners, an `error` handler, seeded `rows`, per-column `comparators` and `matchers`, and a page `limit`. |
 | `TableEventMap`              | type      | Everything a table announces — `write` / `remove` / `sort` / `filter` / `select` / `expand` / `paginate` / `clear`.                   |
@@ -192,7 +192,7 @@ lens-list operations, the cell gate, the comparison, the filter tests, the row p
 audit, and the wire projections. `computeKeys`, `matchesTerms`, `filterRows`, and `sortRows`
 propagate exceptions from supplied callbacks; `serializeTable` raises `SCHEMA` for a `meta` no clone
 can own. The other helpers are total over ordinary declared inputs, subject to the core's
-hostile-reflection boundary below.
+hostile-reflection boundary described later.
 
 | API              | Kind     | Summary                                                                                                                    |
 | ---------------- | -------- | -------------------------------------------------------------------------------------------------------------------------- |
@@ -224,7 +224,7 @@ row the table hands back is a live internal reference.
 | `cloneSchema` | function | Own a whole schema, freezing every nested column, choice list, choice, and `meta`; raises `SCHEMA` for a `meta` it cannot own. |
 
 `cloneRow` cannot fail for an ordinary row record, subject to the core's hostile-reflection boundary
-below. `cloneSchema` can also fail when a column's `meta` holds something no clone can own, such as a
+described later. `cloneSchema` can also fail when a column's `meta` holds something no clone can own, such as a
 record that refers back to itself. `meta` is typed as JSON and a cycle satisfies that type, so the
 refusal is a `TableError` coded `SCHEMA` rather than a silent partial copy. `createTable` never reaches
 it for a schema whose reads are stable, because `isTableColumn` admits only bounded, exactly ownable
@@ -485,7 +485,7 @@ when a table declares no primary column. A database row arrives from a store tha
 key, so assuming the usual name saves a declaration and costs nothing. A table's rows arrive from a
 caller who may have joined, projected, or invented them in the browser, so the same assumption picks
 a column that may not exist, or picks one that exists and is not unique. Declaring the key is one
-line, and it is the line every refusal below is measured against.
+line, and it is the line every refusal described later is measured against.
 
 ```ts
 import { createTable, isTableError } from '@orkestrel/table'
@@ -1492,7 +1492,7 @@ this package answers today through a mechanism it already exposes.
 ## Tests
 
 - [`tests/guides.test.ts`](../tests/guides.test.ts) — the `## Surface` ↔ barrel bijection, the
-  interface ↔ class method bijections, and the worked examples above executed against the real
+  interface ↔ class method bijections, and the preceding worked examples executed against the real
   source so a documented value that the code contradicts fails.
 - [`tests/src/core/Table.test.ts`](../tests/src/core/Table.test.ts) — construction, schema
   ownership, seeding, the derived `view` and `count`, emission order, `clear`, `destroy`, and writes
