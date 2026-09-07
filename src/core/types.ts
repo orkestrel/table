@@ -74,8 +74,8 @@ export interface ColumnChoice {
 }
 
 /**
- * Describes what every column carries, whatever its cells hold — `key` / `label` / `help` /
- * `hidden` / `meta`.
+ * Describes what every column carries, whatever its cells hold — the name a row's cell uses, the
+ * text a reader sees, whether a host draws the column, and the metadata a host attaches to it.
  *
  * @remarks
  * `key` names the column, and it is the name a row uses for that column's cell. `label` is the
@@ -145,8 +145,8 @@ export interface ChoiceColumn extends ColumnBase {
 export type TableColumn = TextColumn | NumberColumn | FlagColumn | ChoiceColumn
 
 /**
- * Holds everything a table declares about itself — optional `name` / `label` / `help`, the
- * required `key` naming row identity, and `columns` in order.
+ * Holds everything a table declares about itself — how the table is described, which column
+ * carries row identity, and the columns it declares, in the order it declares them.
  *
  * @remarks
  * The schema is data. It carries no function, so all of it crosses a wire and nothing is dropped
@@ -195,8 +195,7 @@ export interface TableTerm {
 }
 
 /**
- * Names which way a column sorts — `'ascending' | 'descending'`. A column nobody has sorted
- * carries no term at all.
+ * Names which way a column sorts. A column nobody has sorted carries no term at all.
  *
  * @remarks
  * No member of this union stands for unsorted; that state is the missing {@link TableOrder}.
@@ -222,7 +221,7 @@ export interface TableOrder {
 }
 
 /**
- * Names how a filter tests a cell — `'contains' | 'between' | 'equals'`.
+ * Names how a filter tests a cell — the operator each filter carries.
  *
  * @remarks
  * `contains` looks for text inside a `text` or `choice` cell. `between` accepts a cell inside a
@@ -320,8 +319,7 @@ export type CellComparator = (left: TableCell | undefined, right: TableCell | un
 export type CellMatcher = (cell: TableCell | undefined, filter: TableFilter) => boolean
 
 /**
- * Names the reason a {@link TableError} carries — `SCHEMA` / `COLUMN` / `KEY` / `CELL` /
- * `DESTROYED`.
+ * Names the reason a {@link TableError} carries — the machine-readable code a `catch` branches on.
  *
  * @remarks
  * `SCHEMA` rejects a malformed schema, including a `key` naming no declared column. `COLUMN`
@@ -332,8 +330,7 @@ export type CellMatcher = (cell: TableCell | undefined, filter: TableFilter) => 
 export type TableErrorCode = 'SCHEMA' | 'COLUMN' | 'KEY' | 'CELL' | 'DESTROYED'
 
 /**
- * Lists everything a table announces — `write` / `remove` / `sort` / `filter` / `select` /
- * `expand` / `paginate` / `clear`.
+ * Lists everything a table announces, mapping each event to the payload its listeners receive.
  *
  * @remarks
  * Every event fires after the state it reports is committed, and only when something actually
@@ -363,8 +360,9 @@ export type TableEventMap = {
 }
 
 /**
- * Describes how to open a table — `on` listeners, an `error` handler, seeded `rows`, per-column
- * `comparators` and `matchers`, and a page `limit`.
+ * Describes how to open a table — the listeners wired at construction and where a throw from one
+ * goes, the rows seeded into it, the per-column comparison and test replacements, and the page
+ * size.
  *
  * @remarks
  * `on` wires listeners at construction and `error` receives any throw from one of them.

@@ -1,3 +1,7 @@
+// The consumer-side guides-parity drop-in: runs `@orkestrel/guide`'s checks against
+// this repo's own `guides/README.md` manifest. The constants that follow are this
+// package's own, and are the only part a sibling package changes.
+
 import { describe, expect, it } from 'vitest'
 import {
 	computeSymbolKey,
@@ -70,7 +74,14 @@ const MODULES = Object.freeze({
 	'@orkestrel/table': 'src/core',
 	'@src/core': 'src/core',
 })
-/** Declarations deliberately kept out of the barrel, as `computeSymbolKey` strings. */
+/**
+ * Declarations deliberately kept out of the barrel, as `computeSymbolKey` strings.
+ *
+ * A class that one-class-per-file evicted from its single consumer cannot become a
+ * local, so it stays exported without being public. Naming it here is what makes that
+ * intentional rather than forgotten — and the assertion that follows it fails when a name
+ * here stops being stranded, so the list cannot rot.
+ */
 const INTERNAL: readonly string[] = Object.freeze([
 	'class ExpansionManager',
 	'class FilterManager',
@@ -206,7 +217,7 @@ for (const entry of manifest) {
 		for (const group of guide.methods()) {
 			const members = source.methods(group.interface).map((method) => method.name)
 			const documented = group.methods.map((method) => method.name)
-			const entity = group.interface.replace(/Interface$/u, '')
+			const entity = group.interface.replace(/Interface$/, '')
 			describe(`${group.interface}`, () => {
 				it('documents at least one method', () => {
 					expect(group.methods.length).toBeGreaterThan(0)
@@ -267,21 +278,21 @@ for (const entry of manifest) {
 		})
 
 		for (const group of guide.methods()) {
-			const entity = group.interface.replace(/Interface$/u, '')
+			const entity = group.interface.replace(/Interface$/, '')
+			const documented = group.methods.map((method) => method.name)
+			const examples =
+				entity === group.interface
+					? source.examples(group.interface).map((example) => example.name)
+					: source
+							.examples(group.interface)
+							.map((example) => example.name)
+							.concat(source.examples(entity).map((example) => example.name))
 			describe(`${group.interface} examples`, () => {
 				it('documents an example for every method', () => {
 					const fences = guide
 						.fences()
 						.filter((fence) => fence.language === EXAMPLE_LANGUAGE)
 						.map((fence) => fence.code)
-					const documented = group.methods.map((method) => method.name)
-					const examples =
-						entity === group.interface
-							? source.examples(group.interface).map((example) => example.name)
-							: source
-									.examples(group.interface)
-									.map((example) => example.name)
-									.concat(source.examples(entity).map((example) => example.name))
 					expect(findUnexampled(documented, fences, examples)).toEqual([])
 				})
 			})

@@ -67,65 +67,68 @@ table.view.map((row) => row.name) // ['Grace', 'Alan'] — page one, oldest firs
 
 The document itself — what a table declares and what one row of it holds. All data, no behavior.
 
-| API            | Kind      | Summary                                                                                                                                              |
-| -------------- | --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `TableKey`     | type      | Represents a row's identity — a `string`, carried in the cell the schema's `key` names.                                                              |
-| `TableCell`    | type      | Represents every value a cell can hold — a `string`, a `number`, or a `boolean`.                                                                     |
-| `TableRow`     | type      | Represents one row, keyed by column. A column nobody has filled has no key here.                                                                     |
-| `ColumnCell`   | type      | Names what a column's cells hold — the discriminant that fixes the column's options, its comparison, and the filters that apply to it.               |
-| `ColumnChoice` | interface | Represents one value a `choice` column offers — `value` is stored, `label` is read, and `help` explains.                                             |
-| `ColumnBase`   | interface | Describes what every column carries, whatever its cells hold — `key` / `label` / `help` / `hidden` / `meta`.                                         |
-| `TextColumn`   | interface | Represents a column of text, compared lexically. Carries a date, a time, and a timestamp as ISO strings.                                             |
-| `NumberColumn` | interface | Represents a column of numbers, compared by magnitude.                                                                                               |
-| `FlagColumn`   | interface | Represents a column of yes-or-no answers, compared false before true.                                                                                |
-| `ChoiceColumn` | interface | Represents a column drawn from a declared list, compared by the order that list declares. It requires `choices`.                                     |
-| `TableColumn`  | type      | Represents any column a schema can declare — the union discriminated on `cell`.                                                                      |
-| `TableSchema`  | interface | Holds everything a table declares about itself — optional `name` / `label` / `help`, the required `key` naming row identity, and `columns` in order. |
+A `Shape` cell holds an interface's data members as bare names in braces, `?` marking an optional member and `plus` introducing its call-signature members, and a type alias's own type literal with a union's arms escaped as `\|`.
+
+| API            | Kind      | Shape                                                      | Summary                                                                                                                                                                                     |
+| -------------- | --------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `TableKey`     | type      | `string`                                                   | Represents a row's identity — a `string`, carried in the cell the schema's `key` names.                                                                                                     |
+| `TableCell`    | type      | `string \| number \| boolean`                              | Represents every value a cell can hold — a `string`, a `number`, or a `boolean`.                                                                                                            |
+| `TableRow`     | type      | `Readonly<Record<string, TableCell>>`                      | Represents one row, keyed by column. A column nobody has filled has no key here.                                                                                                            |
+| `ColumnCell`   | type      | `'text' \| 'number' \| 'flag' \| 'choice'`                 | Names what a column's cells hold — the discriminant that fixes the column's options, its comparison, and the filters that apply to it.                                                      |
+| `ColumnChoice` | interface | `{ value, label, help? }`                                  | Represents one value a `choice` column offers — `value` is stored, `label` is read, and `help` explains.                                                                                    |
+| `ColumnBase`   | interface | `{ key, label?, help?, hidden?, meta? }`                   | Describes what every column carries, whatever its cells hold — the name a row's cell uses, the text a reader sees, whether a host draws the column, and the metadata a host attaches to it. |
+| `TextColumn`   | interface | `{ cell, key, label?, help?, hidden?, meta? }`             | Represents a column of text, compared lexically. Carries a date, a time, and a timestamp as ISO strings.                                                                                    |
+| `NumberColumn` | interface | `{ cell, key, label?, help?, hidden?, meta? }`             | Represents a column of numbers, compared by magnitude.                                                                                                                                      |
+| `FlagColumn`   | interface | `{ cell, key, label?, help?, hidden?, meta? }`             | Represents a column of yes-or-no answers, compared false before true.                                                                                                                       |
+| `ChoiceColumn` | interface | `{ cell, choices, key, label?, help?, hidden?, meta? }`    | Represents a column drawn from a declared list, compared by the order that list declares. It requires `choices`.                                                                            |
+| `TableColumn`  | type      | `TextColumn \| NumberColumn \| FlagColumn \| ChoiceColumn` | Represents any column a schema can declare — the union discriminated on `cell`.                                                                                                             |
+| `TableSchema`  | interface | `{ name?, label?, help?, key, columns }`                   | Holds everything a table declares about itself — how the table is described, which column carries row identity, and the columns it declares, in the order it declares them.                 |
 
 ### The lens
 
 The axes a table reads its rows through, and the slots that replace what a column's cell fixes.
 
-| API              | Kind      | Summary                                                                                                                                        |
-| ---------------- | --------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| `TableTerm`      | interface | Represents one entry of a lens list — the `column` it names. A sort term and a filter each hold one, which is why the two share a list engine. |
-| `TableDirection` | type      | Names which way a column sorts — `'ascending' \| 'descending'`. A column nobody has sorted carries no term at all.                             |
-| `TableOrder`     | interface | Represents one column's place in the sort — the `column` and its `direction`. The list is read left to right.                                  |
-| `FilterOperator` | type      | Names how a filter tests a cell — `'contains' \| 'between' \| 'equals'`.                                                                       |
-| `ContainsFilter` | interface | Keeps the rows whose cell holds this `text` somewhere inside it.                                                                               |
-| `BetweenFilter`  | interface | Keeps the rows whose cell falls between `minimum` and `maximum`, both included, compared the way the column compares.                          |
-| `EqualsFilter`   | interface | Keeps the rows whose cell holds exactly this `value`.                                                                                          |
-| `TableFilter`    | type      | Represents any filter a table can hold — the union discriminated on `operator`.                                                                |
-| `CellComparator` | type      | Compares two cells of one column, replacing what its `cell` fixes. Always describes ascending order; direction is applied afterwards.          |
-| `CellMatcher`    | type      | Tests one column's cell against a filter, replacing what its `cell` fixes. Receives every filter the table holds against that column.          |
+A `Shape` cell holds an interface's data members as bare names in braces, `?` marking an optional member and `plus` introducing its call-signature members, and a type alias's own type literal with a union's arms escaped as `\|`.
+
+| API              | Kind      | Shape                                                                     | Summary                                                                                                                                        |
+| ---------------- | --------- | ------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `TableTerm`      | interface | `{ column }`                                                              | Represents one entry of a lens list — the `column` it names. A sort term and a filter each hold one, which is why the two share a list engine. |
+| `TableDirection` | type      | `'ascending' \| 'descending'`                                             | Names which way a column sorts. A column nobody has sorted carries no term at all.                                                             |
+| `TableOrder`     | interface | `{ column, direction }`                                                   | Represents one column's place in the sort — the `column` and its `direction`. The list is read left to right.                                  |
+| `FilterOperator` | type      | `'contains' \| 'between' \| 'equals'`                                     | Names how a filter tests a cell — the operator each filter carries.                                                                            |
+| `ContainsFilter` | interface | `{ column, operator, text }`                                              | Keeps the rows whose cell holds this `text` somewhere inside it.                                                                               |
+| `BetweenFilter`  | interface | `{ column, operator, minimum, maximum }`                                  | Keeps the rows whose cell falls between `minimum` and `maximum`, both included, compared the way the column compares.                          |
+| `EqualsFilter`   | interface | `{ column, operator, value }`                                             | Keeps the rows whose cell holds exactly this `value`.                                                                                          |
+| `TableFilter`    | type      | `ContainsFilter \| BetweenFilter \| EqualsFilter`                         | Represents any filter a table can hold — the union discriminated on `operator`.                                                                |
+| `CellComparator` | type      | `(left: TableCell \| undefined, right: TableCell \| undefined) => number` | Compares two cells of one column, replacing what its `cell` fixes. Always describes ascending order; direction is applied afterwards.          |
+| `CellMatcher`    | type      | `(cell: TableCell \| undefined, filter: TableFilter) => boolean`          | Tests one column's cell against a filter, replacing what its `cell` fixes. Receives every filter the table holds against that column.          |
 
 ### The table
 
 The entity, its managers, its factory, its contract, and the error it raises.
 
-| API                          | Kind      | Summary                                                                                                                                         |
-| ---------------------------- | --------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Table`                      | class     | Holds a schema, its rows, and the lens through which they are read, implementing `TableInterface` exactly.                                      |
-| `TableInterface`             | interface | Represents a table: what it declares, the rows it holds, and the lens it reads them through.                                                    |
-| `createTable`                | function  | Opens a table against a schema. The schema is copied, and the copy is what the table declares.                                                  |
-| `TableOptions`               | interface | Describes how to open a table — `on` listeners, an `error` handler, seeded `rows`, per-column `comparators` and `matchers`, and a page `limit`. |
-| `TableEventMap`              | type      | Lists everything a table announces — `write` / `remove` / `sort` / `filter` / `select` / `expand` / `paginate` / `clear`.                       |
-| `RowManagerInterface`        | interface | Manages the rows a table holds, in the order it holds them.                                                                                     |
-| `SortManagerInterface`       | interface | Manages the order a table reads its rows in.                                                                                                    |
-| `FilterManagerInterface`     | interface | Manages which rows a table keeps.                                                                                                               |
-| `SelectionManagerInterface`  | interface | Manages the rows somebody has picked.                                                                                                           |
-| `ExpansionManagerInterface`  | interface | Manages the rows somebody has opened up.                                                                                                        |
-| `PaginationManagerInterface` | interface | Manages which stretch of the filtered rows the view shows.                                                                                      |
-| `TableError`                 | class     | Represents an error raised by the table domain — a machine-readable `code` and optional structured `context`.                                   |
-| `TableErrorCode`             | type      | Names the reason a `TableError` carries — `SCHEMA` / `COLUMN` / `KEY` / `CELL` / `DESTROYED`.                                                   |
-| `isTableError`               | function  | Determines whether a caught value is a table error, so a `catch` branches on `code` without an assertion.                                       |
+A `Shape` cell holds an interface's data members as bare names in braces, `?` marking an optional member and `plus` introducing its call-signature members, and a type alias's own type literal with a union's arms escaped as `\|`.
 
-`TableInterface`'s readonly data members stay here rather than in `## Methods`: `emitter` (the typed
-event surface), `schema` (the owned frozen copy), the managers `rows`, `sort`, `filter`,
-`selection`, `expansion`, and `pagination`, plus `view` (the rows to draw right now), `count` (how
-many rows the filter admits), and `destroyed`. The managers carry readonly members of their own:
-`selection.keys` and `expansion.keys` are the picked and opened key sets, and `pagination` publishes
-`page`, `limit`, `offset`, and `count`.
+| API                          | Kind      | Shape                                                                                                                   | Summary                                                                                                                                                                                           |
+| ---------------------------- | --------- | ----------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Table`                      | class     |                                                                                                                         | Holds a schema, its rows, and the lens through which they are read, implementing `TableInterface` exactly.                                                                                        |
+| `TableInterface`             | interface | `{ emitter, schema, rows, sort, filter, selection, expansion, pagination, view, count, destroyed } plus clear, destroy` | Represents a table: what it declares, the rows it holds, and the lens it reads them through.                                                                                                      |
+| `createTable`                | function  |                                                                                                                         | Opens a table against a schema. The schema is copied, and the copy is what the table declares.                                                                                                    |
+| `TableOptions`               | interface | `{ on?, error?, rows?, comparators?, matchers?, limit? }`                                                               | Describes how to open a table — the listeners wired at construction and where a throw from one goes, the rows seeded into it, the per-column comparison and test replacements, and the page size. |
+| `TableEventMap`              | type      | `{ write, remove, sort, filter, select, expand, paginate, clear }`                                                      | Lists everything a table announces, mapping each event to the payload its listeners receive.                                                                                                      |
+| `RowManagerInterface`        | interface | `{} plus row, rows, add, update, move, remove`                                                                          | Manages the rows a table holds, in the order it holds them.                                                                                                                                       |
+| `SortManagerInterface`       | interface | `{} plus order, orders, set, remove`                                                                                    | Manages the order a table reads its rows in.                                                                                                                                                      |
+| `FilterManagerInterface`     | interface | `{} plus filter, filters, set, remove`                                                                                  | Manages which rows a table keeps.                                                                                                                                                                 |
+| `SelectionManagerInterface`  | interface | `{ keys } plus select, clear, toggle`                                                                                   | Manages the rows somebody has picked.                                                                                                                                                             |
+| `ExpansionManagerInterface`  | interface | `{ keys } plus expand, clear, toggle`                                                                                   | Manages the rows somebody has opened up.                                                                                                                                                          |
+| `PaginationManagerInterface` | interface | `{ page, limit, offset, count } plus move, resize`                                                                      | Manages which stretch of the filtered rows the view shows.                                                                                                                                        |
+| `TableError`                 | class     |                                                                                                                         | Represents an error raised by the table domain — a machine-readable `code` and optional structured `context`.                                                                                     |
+| `TableErrorCode`             | type      | `'SCHEMA' \| 'COLUMN' \| 'KEY' \| 'CELL' \| 'DESTROYED'`                                                                | Names the reason a `TableError` carries — the machine-readable code a `catch` branches on.                                                                                                        |
+| `isTableError`               | function  |                                                                                                                         | Determines whether a caught value is a table error, so a `catch` branches on `code` without an assertion.                                                                                         |
+
+`TableInterface`'s readonly data members stay here, in its `Shape` cell, rather than in
+`## Methods`, and each manager's own readonly members sit in that manager's cell. Every
+call-signature member is documented under [Methods](#methods).
 
 The members spelled `count` answer different questions, because each is the lone tally of the
 entity it belongs to. `table.count` is **rows** — how many the filter admits, before the page narrows them.
@@ -140,17 +143,19 @@ its own managers against the manager interfaces and reads these classes as the w
 ### Constants
 
 The cell registry and the budgets. The registry is frozen, so a shared list cannot be rewritten
-under a consumer. The budgets are numbers.
+under a consumer.
 
-| API            | Kind  | Summary                                                                                       |
-| -------------- | ----- | --------------------------------------------------------------------------------------------- |
-| `COLUMN_CELLS` | const | Lists every column cell, in the order declared by the public contract.                        |
-| `COLUMN_LIMIT` | const | Names the maximum number of columns one schema may declare: 256.                              |
-| `CHOICE_LIMIT` | const | Names the maximum number of choices one `choice` column may offer: 1024.                      |
-| `NAME_LIMIT`   | const | Names the maximum length of a schema name or column key: 128 UTF-16 code units.               |
-| `STRING_LIMIT` | const | Names the maximum length of any single retained string: 65536 UTF-16 code units.              |
-| `TEXT_LIMIT`   | const | Names the maximum total length of every string one schema retains: 1048576 UTF-16 code units. |
-| `NODE_LIMIT`   | const | Names the maximum total number of records, arrays, and leaves one schema retains: 16384.      |
+A `Shape` cell holds the constant's declared type.
+
+| API            | Kind  | Shape                   | Summary                                                                                       |
+| -------------- | ----- | ----------------------- | --------------------------------------------------------------------------------------------- |
+| `COLUMN_CELLS` | const | `readonly ColumnCell[]` | Lists every column cell, in the order declared by the public contract.                        |
+| `COLUMN_LIMIT` | const | `number`                | Names the maximum number of columns one schema may declare: 256.                              |
+| `CHOICE_LIMIT` | const | `number`                | Names the maximum number of choices one `choice` column may offer: 1024.                      |
+| `NAME_LIMIT`   | const | `number`                | Names the maximum length of a schema name or column key: 128 UTF-16 code units.               |
+| `STRING_LIMIT` | const | `number`                | Names the maximum length of any single retained string: 65536 UTF-16 code units.              |
+| `TEXT_LIMIT`   | const | `number`                | Names the maximum total length of every string one schema retains: 1048576 UTF-16 code units. |
+| `NODE_LIMIT`   | const | `number`                | Names the maximum total number of records, arrays, and leaves one schema retains: 16384.      |
 
 ### Guards
 
@@ -1218,10 +1223,8 @@ auditTable({ key: 'id', columns: [{ cell: 'text', key: 'id' }] }) // []
 ## Methods
 
 The public methods of the behavioral interfaces, which their classes implement exactly and add
-nothing to. Every readonly data member stays in the `## Surface` rows stated earlier and is not repeated
-here: `TableInterface`'s `emitter`, `schema`, its managers, `view`, `count`, and `destroyed`;
-`SelectionManagerInterface.keys` and `ExpansionManagerInterface.keys`; and
-`PaginationManagerInterface`'s `page`, `limit`, `offset`, and `count`.
+nothing to. Every readonly data member stays in the `## Surface` rows stated earlier, in each
+interface's `Shape` cell, and is not repeated here.
 
 Every other row in the Surface tables is a data shape, a union, a constant, a function, or an error
 class, so none of them carries a method table. `CellComparator` and `CellMatcher` are callable
