@@ -22,7 +22,8 @@ import { COLUMN_CELLS } from './constants.js'
 import { auditTable } from './helpers.js'
 
 /**
- * Determines whether an unknown value has a table cell shape.
+ * Determines whether an unknown value has a table cell shape — a string, a finite number, or a
+ * boolean.
  *
  * @param input - The value to inspect.
  * @returns True if the value is a string, finite number, or boolean; false otherwise.
@@ -32,7 +33,8 @@ export function isTableCell(input: unknown): input is TableCell {
 }
 
 /**
- * Determines whether an unknown value is a record of table cells.
+ * Determines whether an unknown value is a record whose every own key is a string and every value
+ * a {@link TableCell}.
  *
  * @param input - The value to inspect.
  * @returns True if every own key is a string and every value is a table cell; false otherwise.
@@ -59,7 +61,8 @@ export function isColumnCell(input: unknown): input is ColumnCell {
 }
 
 /**
- * Determines whether an unknown value is one exact column choice record.
+ * Determines whether an unknown value is one exact {@link ColumnChoice} record; an unknown member
+ * refuses it.
  *
  * @param input - The value to inspect.
  * @returns True if the value is a column choice; false otherwise.
@@ -74,7 +77,8 @@ export function isColumnChoice(input: unknown): input is ColumnChoice {
 }
 
 /**
- * Determines whether an unknown value is one exact discriminated table column.
+ * Determines whether an unknown value is one exact discriminated {@link TableColumn}, checked
+ * against its cell's own options.
  *
  * @param input - The value to inspect.
  * @returns True if the value is a structurally valid table column; false otherwise.
@@ -127,7 +131,8 @@ export function isTableColumn(input: unknown): input is TableColumn {
 }
 
 /**
- * Determines whether an unknown value has one exact structural table-schema shape.
+ * Determines whether an unknown value has the exact shape of a {@link TableSchema} — the shape
+ * alone, with no domain check.
  *
  * @param input - The value to inspect.
  * @returns True if the value has the exact structure of a table schema; false otherwise.
@@ -151,7 +156,8 @@ export function isStructuralTableSchema(input: unknown): input is TableSchema {
 }
 
 /**
- * Determines whether an unknown value is one semantically sound table schema.
+ * Determines whether an unknown value is a {@link TableSchema} a table can be opened against —
+ * the exact shape, and an audit that finds nothing.
  *
  * @param input - The value to inspect.
  * @returns True if the value has valid structure, domain relationships, and

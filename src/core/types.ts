@@ -2,12 +2,12 @@ import type { JSONRecord } from '@orkestrel/contract'
 import type { EmitterErrorHandler, EmitterHooks, EmitterInterface } from '@orkestrel/emitter'
 
 /**
- * Represents a row's identity.
+ * Represents a row's identity — a `string`, carried in the cell the schema's `key` names.
  *
  * @remarks
- * Every row carries its own identity in the cell named by {@link TableSchema.key}, as a non-empty
- * string. A column's own identifier is a plain `string`; this names a row. Selection and expansion
- * hold these keys and nothing else, so a row keeps its selection through a re-sort.
+ * The identity must be non-empty. A column's own identifier is a plain `string`; this names a row.
+ * Selection and expansion hold these keys and nothing else, so a row keeps its selection through a
+ * re-sort.
  *
  * @example
  * ```ts
@@ -17,7 +17,7 @@ import type { EmitterErrorHandler, EmitterHooks, EmitterInterface } from '@orkes
 export type TableKey = string
 
 /**
- * Represents every value a cell can hold.
+ * Represents every value a cell can hold — a `string`, a `number`, or a `boolean`.
  *
  * @remarks
  * The variant follows the column: `text` and `choice` hold a `string`, `number` holds a `number`,
@@ -27,12 +27,11 @@ export type TableKey = string
 export type TableCell = string | number | boolean
 
 /**
- * Represents one row, keyed by column.
+ * Represents one row, keyed by column. A column nobody has filled has no key here.
  *
  * @remarks
- * A row declares a cell for the columns it carries and omits the rest. It carries no key the
- * schema does not declare, and the table clones and freezes it at admission, so nothing a caller
- * holds afterwards can move a stored row.
+ * A row carries no key the schema does not declare, and the table clones and freezes it at
+ * admission, so nothing a caller holds afterwards can move a stored row.
  *
  * @example
  * ```ts
@@ -42,11 +41,12 @@ export type TableCell = string | number | boolean
 export type TableRow = Readonly<Record<string, TableCell>>
 
 /**
- * Names what a column's cells hold.
+ * Names what a column's cells hold — the discriminant that fixes the column's options, its
+ * comparison, and the filters that apply to it.
  *
  * @remarks
- * The cell is the discriminant of every {@link TableColumn} variant, so choosing it fixes what the
- * cells hold, how the column compares, and which filter operators apply to it.
+ * Every {@link TableColumn} variant is discriminated by it, so narrowing on the member reaches
+ * that variant's own options.
  *
  * A date, a time, and a timestamp are `text` holding a canonically spelled ISO string. Lexical
  * order is chronological only when a column uses one offset, one precision, and normalized
@@ -60,10 +60,10 @@ export type TableRow = Readonly<Record<string, TableCell>>
 export type ColumnCell = 'text' | 'number' | 'flag' | 'choice'
 
 /**
- * Represents one value a `choice` column offers.
+ * Represents one value a `choice` column offers — `value` is stored, `label` is read, and `help`
+ * explains.
  *
  * @remarks
- * `value` is what the cell holds and `label` is what a reader sees. `help` explains the choice.
  * The order a column declares its choices in is the order that column sorts by, which is what
  * lets a status column sort draft before live before archived rather than alphabetically.
  */
@@ -74,7 +74,8 @@ export interface ColumnChoice {
 }
 
 /**
- * Describes what every column carries, whatever its cells hold.
+ * Describes what every column carries, whatever its cells hold — `key` / `label` / `help` /
+ * `hidden` / `meta`.
  *
  * @remarks
  * `key` names the column, and it is the name a row uses for that column's cell. `label` is the
@@ -98,7 +99,10 @@ export interface ColumnBase {
 	readonly meta?: JSONRecord
 }
 
-/** Represents a column of text, compared lexically. */
+/**
+ * Represents a column of text, compared lexically. Carries a date, a time, and a timestamp as ISO
+ * strings.
+ */
 export interface TextColumn extends ColumnBase {
 	readonly cell: 'text'
 }
@@ -114,7 +118,8 @@ export interface FlagColumn extends ColumnBase {
 }
 
 /**
- * Represents a column drawn from a declared list, compared by the order that list declares.
+ * Represents a column drawn from a declared list, compared by the order that list declares. It
+ * requires `choices`.
  *
  * @remarks
  * A cell holding a value the list does not offer is refused at admission.
@@ -125,11 +130,10 @@ export interface ChoiceColumn extends ColumnBase {
 }
 
 /**
- * Represents any column a schema can declare.
+ * Represents any column a schema can declare — the union discriminated on `cell`.
  *
  * @remarks
- * The union discriminates on `cell`, so narrowing on that member reaches each variant's own
- * members.
+ * Narrowing on `cell` reaches each variant's own members.
  *
  * @example
  * ```ts
@@ -141,7 +145,8 @@ export interface ChoiceColumn extends ColumnBase {
 export type TableColumn = TextColumn | NumberColumn | FlagColumn | ChoiceColumn
 
 /**
- * Holds everything a table declares about itself.
+ * Holds everything a table declares about itself — optional `name` / `label` / `help`, the
+ * required `key` naming row identity, and `columns` in order.
  *
  * @remarks
  * The schema is data. It carries no function, so all of it crosses a wire and nothing is dropped
@@ -177,33 +182,34 @@ export interface TableSchema {
 }
 
 /**
- * Represents one entry of a lens list, held against one declared column.
+ * Represents one entry of a lens list — the `column` it names. A sort term and a filter each hold
+ * one, which is why the two share a list engine.
  *
  * @remarks
  * A table holds at most one sort term and at most one filter per column, so `column` is what
  * places an entry in either list. {@link mergeTerms}, {@link removeTerms}, and
- * {@link matchesTerms} work over this shape alone, which is how sorting and filtering share one
- * list engine while keeping their own operands.
+ * {@link matchesTerms} work over this shape alone, so each list keeps its own operands.
  */
 export interface TableTerm {
 	readonly column: string
 }
 
 /**
- * Names which way a column sorts.
+ * Names which way a column sorts — `'ascending' | 'descending'`. A column nobody has sorted
+ * carries no term at all.
  *
  * @remarks
- * A column nobody has sorted has no {@link TableOrder} at all, so there is no third member
- * standing for unsorted.
+ * No member of this union stands for unsorted; that state is the missing {@link TableOrder}.
  */
 export type TableDirection = 'ascending' | 'descending'
 
 /**
- * Represents one column's place in the sort.
+ * Represents one column's place in the sort — the `column` and its `direction`. The list is read
+ * left to right.
  *
  * @remarks
- * The order list is read left to right: the first term decides, and each later term breaks the
- * tie the terms before it left. Rows no term separates keep the order the table holds them in.
+ * The first term decides, and each later term breaks the tie the terms before it left. Rows no
+ * term separates keep the order the table holds them in.
  *
  * @example
  * ```ts
@@ -216,7 +222,7 @@ export interface TableOrder {
 }
 
 /**
- * Names how a filter tests a cell.
+ * Names how a filter tests a cell — `'contains' | 'between' | 'equals'`.
  *
  * @remarks
  * `contains` looks for text inside a `text` or `choice` cell. `between` accepts a cell inside a
@@ -228,7 +234,7 @@ export interface TableOrder {
  */
 export type FilterOperator = 'contains' | 'between' | 'equals'
 
-/** Keeps the rows whose cell holds this text somewhere inside it. */
+/** Keeps the rows whose cell holds this `text` somewhere inside it. */
 export interface ContainsFilter {
 	readonly column: string
 	readonly operator: 'contains'
@@ -236,11 +242,12 @@ export interface ContainsFilter {
 }
 
 /**
- * Keeps the rows whose cell falls between these bounds, both included.
+ * Keeps the rows whose cell falls between `minimum` and `maximum`, both included, compared the
+ * way the column compares.
  *
  * @remarks
- * The bounds compare the way the column compares, so a `text` column holding ISO strings takes a
- * pair of ISO strings and reads as a date range.
+ * A `text` column holding ISO strings therefore takes a pair of ISO strings and reads as a date
+ * range.
  */
 export interface BetweenFilter {
 	readonly column: string
@@ -249,7 +256,7 @@ export interface BetweenFilter {
 	readonly maximum: string | number
 }
 
-/** Keeps the rows whose cell holds exactly this value. */
+/** Keeps the rows whose cell holds exactly this `value`. */
 export interface EqualsFilter {
 	readonly column: string
 	readonly operator: 'equals'
@@ -257,11 +264,11 @@ export interface EqualsFilter {
 }
 
 /**
- * Represents any filter a table can hold.
+ * Represents any filter a table can hold — the union discriminated on `operator`.
  *
  * @remarks
- * The union discriminates on `operator`, so each operator carries only the operands it uses and a
- * `between` missing a bound cannot be written down.
+ * Each operator carries only the operands it uses, so a `between` missing a bound cannot be
+ * written down.
  *
  * A table holds at most one filter per column and keeps every row all of them accept. There is no
  * either-or composition in this version.
@@ -274,13 +281,13 @@ export interface EqualsFilter {
 export type TableFilter = ContainsFilter | BetweenFilter | EqualsFilter
 
 /**
- * Compares two cells of one column.
+ * Compares two cells of one column, replacing what its `cell` fixes. Always describes ascending
+ * order; direction is applied afterwards.
  *
  * @remarks
- * It replaces the comparison the column's {@link ColumnCell} fixes, for that column alone, and it
- * receives `undefined` for a row carrying no cell there. Sorting reads the result the way
- * `Array.prototype.sort` does and applies {@link TableDirection} afterwards, so a comparator
- * always describes ascending order.
+ * The replacement covers that column alone, and it receives `undefined` for a row carrying no
+ * cell there. Sorting reads the result the way `Array.prototype.sort` does and applies
+ * {@link TableDirection} to it.
  *
  * @param left - The first row's cell, or `undefined` when it carries none.
  * @param right - The second row's cell, or `undefined` when it carries none.
@@ -294,11 +301,12 @@ export type TableFilter = ContainsFilter | BetweenFilter | EqualsFilter
 export type CellComparator = (left: TableCell | undefined, right: TableCell | undefined) => number
 
 /**
- * Tests one column's cell against a filter.
+ * Tests one column's cell against a filter, replacing what its `cell` fixes. Receives every
+ * filter the table holds against that column.
  *
  * @remarks
- * It replaces the test the column's {@link ColumnCell} fixes, for that column alone, and it
- * receives every filter the table holds against that column.
+ * The replacement covers that column alone, and it receives `undefined` for a row carrying no
+ * cell there.
  *
  * @param cell - The row's cell, or `undefined` when it carries none.
  * @param filter - The filter the table is applying.
@@ -312,7 +320,8 @@ export type CellComparator = (left: TableCell | undefined, right: TableCell | un
 export type CellMatcher = (cell: TableCell | undefined, filter: TableFilter) => boolean
 
 /**
- * Names the machine-readable code a table error carries.
+ * Names the reason a {@link TableError} carries — `SCHEMA` / `COLUMN` / `KEY` / `CELL` /
+ * `DESTROYED`.
  *
  * @remarks
  * `SCHEMA` rejects a malformed schema, including a `key` naming no declared column. `COLUMN`
@@ -323,7 +332,8 @@ export type CellMatcher = (cell: TableCell | undefined, filter: TableFilter) => 
 export type TableErrorCode = 'SCHEMA' | 'COLUMN' | 'KEY' | 'CELL' | 'DESTROYED'
 
 /**
- * Lists everything a table announces.
+ * Lists everything a table announces — `write` / `remove` / `sort` / `filter` / `select` /
+ * `expand` / `paginate` / `clear`.
  *
  * @remarks
  * Every event fires after the state it reports is committed, and only when something actually
@@ -353,7 +363,8 @@ export type TableEventMap = {
 }
 
 /**
- * Describes how to open a table.
+ * Describes how to open a table — `on` listeners, an `error` handler, seeded `rows`, per-column
+ * `comparators` and `matchers`, and a page `limit`.
  *
  * @remarks
  * `on` wires listeners at construction and `error` receives any throw from one of them.
@@ -401,20 +412,21 @@ export interface TableOptions {
  */
 export interface RowManagerInterface {
 	/**
-	 * Finds one row by key.
+	 * Finds one row by key; `undefined` when the table holds no such key.
 	 *
 	 * @param key - The row's key.
 	 * @returns The row, or `undefined` when the table holds no such key.
 	 */
 	row(key: TableKey): TableRow | undefined
 	/**
-	 * Reads every row the table holds, in its own order.
+	 * Reads every row the table holds, in its own order — unfiltered, unsorted, and unpaged.
 	 *
-	 * @returns The rows, unfiltered, unsorted, and unpaged.
+	 * @returns The rows, in the order the table holds them.
 	 */
 	rows(): readonly TableRow[]
 	/**
-	 * Takes in several rows, appending them in the order given.
+	 * Takes in one row or several, appending them in the order given. Every row is checked before
+	 * any is admitted.
 	 *
 	 * @param rows - The rows to admit.
 	 * @throws A {@link TableError} coded `KEY` when a row's key is missing, unusable, already
@@ -431,7 +443,8 @@ export interface RowManagerInterface {
 	 */
 	add(row: TableRow): void
 	/**
-	 * Writes over several rows, each found by the key it carries.
+	 * Writes over one row or several, each found by the key it carries. The cells given replace;
+	 * the cells left out stay.
 	 *
 	 * @param rows - The rows to write, each carrying the key of the row it writes over.
 	 * @returns True if every key named a row the table holds; false otherwise.
@@ -452,7 +465,8 @@ export interface RowManagerInterface {
 	 */
 	update(row: TableRow): boolean
 	/**
-	 * Moves one row to another place in the table's own order.
+	 * Moves one row to another place in the table's own order, counted from zero and clamped to the
+	 * rows that exist.
 	 *
 	 * @param key - The row's key.
 	 * @param index - Where to put it, counted from zero and clamped to the rows that exist. `NaN`
@@ -461,10 +475,8 @@ export interface RowManagerInterface {
 	 */
 	move(key: TableKey, index: number): boolean
 	/**
-	 * Takes out every row.
-	 *
-	 * @remarks
-	 * Selection and expansion drop the keys they held, because those rows are gone.
+	 * Takes out every row, one row, or several. Selection and expansion drop the keys of the rows
+	 * that went.
 	 */
 	remove(): void
 	/**
@@ -500,20 +512,21 @@ export interface RowManagerInterface {
  */
 export interface SortManagerInterface {
 	/**
-	 * Finds one column's term.
+	 * Finds one column's term; `undefined` when nothing sorts that column.
 	 *
 	 * @param column - The column's key.
 	 * @returns The term, or `undefined` when nothing sorts that column.
 	 */
 	order(column: string): TableOrder | undefined
 	/**
-	 * Reads every term the table sorts by.
+	 * Reads every term the table sorts by, first to last, in the order they decide.
 	 *
-	 * @returns The terms, first to last, in the order they decide.
+	 * @returns The terms the table sorts by.
 	 */
 	orders(): readonly TableOrder[]
 	/**
-	 * Sorts by several columns.
+	 * Sorts by one column or several. A term for a column already sorted replaces its direction in
+	 * place; every other term joins the end. An undeclared column raises `COLUMN`.
 	 *
 	 * @param orders - The terms to set. A term for a column already sorted replaces that column's
 	 *   direction in place; every other term joins the end of the list.
@@ -529,7 +542,10 @@ export interface SortManagerInterface {
 	 *   declare.
 	 */
 	set(order: TableOrder): void
-	/** Stops sorting by anything. */
+	/**
+	 * Stops sorting by everything, by one column, or by several. An undeclared column returns
+	 * `false` and stops nothing.
+	 */
 	remove(): void
 	/**
 	 * Stops sorting by one column.
@@ -562,20 +578,22 @@ export interface SortManagerInterface {
  */
 export interface FilterManagerInterface {
 	/**
-	 * Finds one column's filter.
+	 * Finds one column's filter; `undefined` when nothing filters that column.
 	 *
 	 * @param column - The column's key.
 	 * @returns The filter, or `undefined` when nothing filters that column.
 	 */
 	filter(column: string): TableFilter | undefined
 	/**
-	 * Reads every filter the table keeps rows by.
+	 * Reads every filter the table keeps rows by, in the order they were set.
 	 *
-	 * @returns The filters, in the order they were set.
+	 * @returns The filters the table keeps rows by.
 	 */
 	filters(): readonly TableFilter[]
 	/**
-	 * Filters several columns.
+	 * Filters one column or several. A filter for a column already filtered replaces it; every
+	 * other one joins the end. An undeclared column raises `COLUMN`, and a filter the column does
+	 * not admit raises `CELL`.
 	 *
 	 * @param filters - The filters to set. A filter for a column already filtered replaces that
 	 *   column's filter; every other one joins the end of the list.
@@ -592,7 +610,10 @@ export interface FilterManagerInterface {
 	 *   not declare, and `CELL` when an operand is one the column cannot hold.
 	 */
 	set(filter: TableFilter): void
-	/** Stops filtering by anything. */
+	/**
+	 * Stops filtering everything, one column, or several. An undeclared column returns `false` and
+	 * stops nothing.
+	 */
 	remove(): void
 	/**
 	 * Stops filtering one column.
@@ -628,11 +649,10 @@ export interface SelectionManagerInterface {
 	/** Holds the keys of the rows picked right now. */
 	readonly keys: ReadonlySet<TableKey>
 	/**
-	 * Picks every row the table holds.
+	 * Picks every row the table holds, one row, or several. Every row, not every visible one.
 	 *
 	 * @remarks
-	 * Every row, not every visible one. A host picking one page hands that page's keys over
-	 * instead.
+	 * A host picking one page hands that page's keys over instead.
 	 */
 	select(): void
 	/**
@@ -650,7 +670,9 @@ export interface SelectionManagerInterface {
 	 *   checked before any row is picked.
 	 */
 	select(keys: readonly TableKey[]): boolean
-	/** Drops every pick. */
+	/**
+	 * Drops every pick, one pick, or several. A known key that was not picked still answers `true`.
+	 */
 	clear(): void
 	/**
 	 * Drops one pick.
@@ -669,7 +691,8 @@ export interface SelectionManagerInterface {
 	 */
 	clear(keys: readonly TableKey[]): boolean
 	/**
-	 * Picks one row, or drops it when it is already picked.
+	 * Picks one row, or drops it when it is already picked; over a list, turns each row around on
+	 * its own.
 	 *
 	 * @param key - The row's key.
 	 * @returns True if the key named a row the table holds; false otherwise.
@@ -701,7 +724,7 @@ export interface SelectionManagerInterface {
 export interface ExpansionManagerInterface {
 	/** Holds the keys of the rows opened right now. */
 	readonly keys: ReadonlySet<TableKey>
-	/** Opens every row the table holds. */
+	/** Opens every row the table holds, one row, or several. */
 	expand(): void
 	/**
 	 * Opens one row.
@@ -718,7 +741,9 @@ export interface ExpansionManagerInterface {
 	 *   checked before any row opens.
 	 */
 	expand(keys: readonly TableKey[]): boolean
-	/** Closes every row. */
+	/**
+	 * Closes every row, one row, or several. A known key that was not open still answers `true`.
+	 */
 	clear(): void
 	/**
 	 * Closes one row.
@@ -737,7 +762,8 @@ export interface ExpansionManagerInterface {
 	 */
 	clear(keys: readonly TableKey[]): boolean
 	/**
-	 * Opens one row, or closes it when it is already open.
+	 * Opens one row, or closes it when it is already open; over a list, turns each row around on
+	 * its own.
 	 *
 	 * @param key - The row's key.
 	 * @returns True if the key named a row the table holds; false otherwise.
@@ -780,18 +806,18 @@ export interface PaginationManagerInterface {
 	/** Counts the pages the rows admitted by the filter fill, and `1` when the table is not paged. */
 	readonly count: number
 	/**
-	 * Shows another page.
+	 * Shows another page, counted from one and clamped to the pages that exist.
 	 *
 	 * @param page - The page to show, counted from one and clamped to the pages that exist. `NaN`
 	 *   shows the first page.
 	 */
 	move(page: number): void
 	/**
-	 * Sets how many rows a page holds.
+	 * Sets how many rows a page holds, keeping the first row the view was showing. Leave the
+	 * argument out to stop paging.
 	 *
 	 * @remarks
-	 * The view keeps showing the first of the rows it was showing, so the page moves to wherever
-	 * that row now falls.
+	 * The page moves to wherever that first row now falls.
 	 *
 	 * @param limit - How many rows a page holds. Leave it out to stop paging, and the view shows
 	 *   every row the filter admits.
@@ -848,20 +874,21 @@ export interface TableInterface {
 	/** Reports whether the table has been torn down. */
 	readonly destroyed: boolean
 	/**
-	 * Puts the table back the way it opened, holding nothing.
+	 * Puts the table back the way it opened, holding nothing. Rows, sort, filter, selection,
+	 * expansion, and the page all reset.
 	 *
 	 * @remarks
-	 * Every row goes, and sort, filter, selection, expansion, and the page all reset. The table
-	 * emits `clear` and nothing else, so a reset of ten thousand rows is one announcement.
+	 * The table emits `clear` and nothing else, so a reset of ten thousand rows is one
+	 * announcement.
 	 */
 	clear(): void
 	/**
-	 * Tears the table down.
+	 * Tears the table down. Idempotent; afterwards every write raises `DESTROYED` and every getter
+	 * still answers.
 	 *
 	 * @remarks
-	 * Calling it twice does what calling it once did. Afterwards every write throws a
-	 * {@link TableError} coded `DESTROYED`, while every getter still answers what the table last
-	 * held, so a host can read its way out of teardown without catching anything.
+	 * The write throws a {@link TableError} carrying that code, and what a getter answers is what
+	 * the table last held, so a host can read its way out of teardown without catching anything.
 	 */
 	destroy(): void
 }

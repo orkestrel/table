@@ -1,14 +1,14 @@
 # @orkestrel/table
 
-The environment-agnostic tabular document for the `@orkestrel` line — a schema of typed column cells,
-the rows held against it, and one lens of sort, filter, and page that decides which of them the view
-shows. A grid, a report, a terminal listing, and a CSV export hold the same thing in different
-places, so this package ships what they share and draws none of it. Every row carries its own
-identity in a column the schema names, so a pick survives a re-sort; `view` and every tally are
-worked out on read, so no second copy of an answer can go stale; and budgets bound what one
-schema may retain, so a document that arrives from a wire costs a known maximum before anything
-decides to trust it.
-Built on `@orkestrel/contract` and `@orkestrel/emitter`.
+> The environment-agnostic tabular document: a `TableSchema` declaring the columns, a `Table`
+> holding the rows given against it, and one lens of sort, filter, and page deciding which of them
+> the view shows.
+
+Open a table with the `createTable` function, seed or add its rows through `table.rows`, and read
+`table.view` for the rows to draw. Every row carries its own identity in a column the schema names,
+so a pick survives a re-sort, and budgets bound what one schema may retain, so a document that
+arrives from a wire costs a known maximum before anything decides to trust it. Built on
+`@orkestrel/contract` and `@orkestrel/emitter`, and part of the `@orkestrel` line.
 
 ## Install
 

@@ -14,7 +14,8 @@ export function cloneRow(row: TableRow): TableRow {
 }
 
 /**
- * Clones a table schema into an owned frozen snapshot.
+ * Clones a whole schema into an owned frozen snapshot, freezing every nested column, choice list,
+ * choice, and `meta`; raises `SCHEMA` for a `meta` it cannot own.
  *
  * @param schema - The schema to own.
  * @returns A frozen schema with every nested column, choice, list, and metadata record owned.

@@ -30,7 +30,10 @@ import { SelectionManager } from './tables/SelectionManager.js'
 import { SortManager } from './tables/SortManager.js'
 import { isStructuralTableSchema } from './validators.js'
 
-/** Holds a schema, its rows, and the lens through which they are read. */
+/**
+ * Holds a schema, its rows, and the lens through which they are read, implementing
+ * {@link TableInterface} exactly.
+ */
 export class Table implements TableInterface {
 	readonly #emitter: Emitter<TableEventMap>
 	readonly #schema: TableSchema

@@ -33,7 +33,7 @@ import {
 import { TableError } from './errors.js'
 
 /**
- * Finds one column by key.
+ * Finds one column by key; `undefined` when the schema declares no such column.
  *
  * @param schema - The schema whose columns to search.
  * @param key - The column key to find.
@@ -44,7 +44,8 @@ export function extractColumn(schema: TableSchema, key: string): TableColumn | u
 }
 
 /**
- * Reads one row's declared identity.
+ * Reads one row's declared identity; `undefined` when its key cell is missing, empty, or not a
+ * string.
  *
  * @param schema - The schema that names the identity column.
  * @param row - The row whose identity to read.
@@ -57,7 +58,8 @@ export function extractKey(schema: TableSchema, row: TableRow): TableKey | undef
 }
 
 /**
- * Computes one atomic 0/1/N membership change over known keys.
+ * Computes one atomic 0/1/N membership change over the keys a caller may address — the engine
+ * selection and expansion share.
  *
  * @param known - Every key the caller may change.
  * @param current - The current key set.
@@ -87,7 +89,8 @@ export function computeKeys(
 }
 
 /**
- * Merges lens terms into a column-keyed list, replacing the entry that names the same column.
+ * Merges lens terms into a column-keyed list, replacing the entry that names the same column —
+ * the `set` write.
  *
  * @param current - The list as it stands.
  * @param requested - The terms to write, in the order they are written.
@@ -110,7 +113,8 @@ export function mergeTerms<Term extends TableTerm>(
 }
 
 /**
- * Removes every lens term naming one of the given columns.
+ * Removes every lens term naming one of the given columns — the drop `sort.remove` and
+ * `filter.remove` share.
  *
  * @param current - The list as it stands.
  * @param columns - The column keys to drop.
@@ -125,7 +129,8 @@ export function removeTerms<Term extends TableTerm>(
 }
 
 /**
- * Checks whether two lens lists hold the same terms in the same order.
+ * Checks whether two lens lists hold the same terms in the same order, with the supplied test
+ * deciding the operands.
  *
  * @param left - The first list.
  * @param right - The second list.
@@ -148,7 +153,8 @@ export function matchesTerms<Term extends TableTerm>(
 }
 
 /**
- * Checks whether a value has the shape required by one column cell.
+ * Checks whether one column can hold a value — the shape gate every write and every seed passes
+ * through.
  *
  * @param column - The column that owns the cell.
  * @param value - The unknown value to inspect.
@@ -170,7 +176,7 @@ export function matchesCell(column: TableColumn, value: unknown): value is Table
 }
 
 /**
- * Compares two cells in ascending order according to one column.
+ * Compares two of one column's cells the way its `cell` fixes, describing ascending order.
  *
  * @param column - The column that fixes the comparison.
  * @param left - The first cell, or absence.
@@ -205,7 +211,8 @@ export function compareCells(
 }
 
 /**
- * Checks whether one column admits a filter and all its operands.
+ * Checks whether one column admits a filter and every operand it carries — the gate `filter.set`
+ * and {@link matchesFilter} share.
  *
  * @param column - The column that fixes the accepted operators and cell shapes.
  * @param filter - The filter to inspect.
@@ -231,7 +238,7 @@ export function admitsFilter(column: TableColumn, filter: TableFilter): boolean 
 }
 
 /**
- * Tests one cell against a filter according to its column.
+ * Tests one of a column's cells against one filter the way its `cell` fixes.
  *
  * @param column - The column that fixes the accepted operators.
  * @param cell - The cell to test, or absence.
@@ -260,7 +267,8 @@ export function matchesFilter(
 }
 
 /**
- * Keeps the rows accepted by every filter.
+ * Keeps the rows every filter accepts, in the order given; a supplied {@link CellMatcher}
+ * replaces the default per column.
  *
  * @param schema - The schema that declares the filtered columns.
  * @param rows - The rows to filter.
@@ -291,7 +299,8 @@ export function filterRows(
 }
 
 /**
- * Orders rows stably by a sequence of terms.
+ * Orders rows by the terms given, stably; a supplied {@link CellComparator} replaces the default
+ * per column.
  *
  * @param schema - The schema that declares the sorted columns.
  * @param rows - The rows to order.
@@ -333,7 +342,8 @@ export function sortRows(
 }
 
 /**
- * Audits a structurally valid schema for domain and budget faults.
+ * Audits a structurally valid schema for domain faults and budget breaches, returning human
+ * diagnostics.
  *
  * @param schema - The table schema to audit.
  * @returns Frozen human-readable diagnostics, or an empty list when the schema is sound.
@@ -470,7 +480,8 @@ export function auditTable(schema: TableSchema): readonly string[] {
 }
 
 /**
- * Projects a schema into declaration-ordered JSON.
+ * Projects a schema into JSON in declaration order, dropping every absent member; raises `SCHEMA`
+ * for a `meta` it cannot own.
  *
  * @param schema - The schema to project.
  * @returns A deeply owned JSON record with absent members omitted.
@@ -510,7 +521,8 @@ export function serializeTable(schema: TableSchema): JSONRecord {
 }
 
 /**
- * Projects rows into schema-column-ordered JSON.
+ * Projects rows into JSON with each row's cells in the schema's column order, dropping every
+ * absent cell.
  *
  * @param schema - The schema that fixes cell order.
  * @param rows - The rows to project.

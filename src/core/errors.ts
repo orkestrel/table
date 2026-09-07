@@ -1,7 +1,10 @@
 import type { JSONRecord } from '@orkestrel/contract'
 import type { TableErrorCode } from './types.js'
 
-/** Represents an error raised by the table domain. */
+/**
+ * Represents an error raised by the table domain — a machine-readable `code` and optional
+ * structured `context`.
+ */
 export class TableError extends Error {
 	/** Holds the machine-readable reason for this failure. */
 	readonly code: TableErrorCode
@@ -25,7 +28,8 @@ export class TableError extends Error {
 }
 
 /**
- * Determines whether an unknown value is a table error.
+ * Determines whether a caught value is a table error, so a `catch` branches on `code` without an
+ * assertion.
  *
  * @param input - The value to inspect.
  * @returns True if the value is a {@link TableError} instance; false otherwise.
