@@ -11,7 +11,7 @@ import type {
 } from '@src/core'
 import { createTable, isTableError, STRING_LIMIT, TEXT_LIMIT } from '@src/core'
 
-/** Compare text with numeric segments in natural lexical order. */
+/** Compares text with numeric segments in natural lexical order. */
 export function compareTextNaturally(
 	left: TableCell | undefined,
 	right: TableCell | undefined,
@@ -19,7 +19,7 @@ export function compareTextNaturally(
 	return String(left ?? '').localeCompare(String(right ?? ''), undefined, { numeric: true })
 }
 
-/** Match a contains filter after folding text to lowercase. */
+/** Matches a contains filter after folding text to lowercase. */
 export function matchTextLoosely(cell: TableCell | undefined, filter: TableFilter): boolean {
 	return (
 		filter.operator === 'contains' &&
@@ -29,7 +29,7 @@ export function matchTextLoosely(cell: TableCell | undefined, filter: TableFilte
 	)
 }
 
-/** Compare text by its string length. */
+/** Compares text by its string length. */
 export function compareTextByLength(
 	left: TableCell | undefined,
 	right: TableCell | undefined,
@@ -38,7 +38,7 @@ export function compareTextByLength(
 }
 
 /**
- * Build the shared filter-admissibility behavior matrix.
+ * Builds the shared filter-admissibility behavior matrix.
  *
  * @returns Matching cells and filters spanning admitted and refused combinations.
  */
@@ -115,7 +115,7 @@ export function createFilterAdmissibilityVectors(): ReadonlyArray<{
 	]
 }
 
-/** Build a fresh schema spanning every column cell. */
+/** Builds a fresh schema spanning every column cell. */
 export function createTableSchema(): TableSchema {
 	return {
 		name: 'people',
@@ -141,7 +141,7 @@ export function createTableSchema(): TableSchema {
 	}
 }
 
-/** Build fresh rows spanning present and absent cells. */
+/** Builds fresh rows spanning present and absent cells. */
 export function createTableRows(): readonly TableRow[] {
 	return [
 		{ id: '1', name: 'Ada', age: 36, active: true, status: 'live' },
@@ -151,7 +151,7 @@ export function createTableRows(): readonly TableRow[] {
 	]
 }
 
-/** Open a table over the shared schema and row population. */
+/** Opens a table over the shared schema and row population. */
 export function createTableFixture(options?: TableOptions): TableInterface {
 	const rows = options?.rows ?? createTableRows()
 	return createTable(createTableSchema(), options === undefined ? { rows } : { ...options, rows })
@@ -171,7 +171,7 @@ export function readTableError(
 	}
 }
 
-/** Exercise every public table write after teardown. */
+/** Exercises every public table write after teardown. */
 export function readDestroyedWrites(
 	table: TableInterface,
 ): ReadonlyArray<TableErrorCode | 'NOT_TABLE_ERROR' | 'NO_THROW'> {
@@ -196,7 +196,7 @@ export function readDestroyedWrites(
 	]
 }
 
-/** Build a schema with an exact column population. */
+/** Builds a schema with an exact column population. */
 export function createColumnBudgetSchema(count: number): TableSchema {
 	const columns: TableColumn[] = []
 	for (let index = 0; index < count; index += 1) {
@@ -205,7 +205,7 @@ export function createColumnBudgetSchema(count: number): TableSchema {
 	return { key: 'id', columns }
 }
 
-/** Build a schema with an exact choice population. */
+/** Builds a schema with an exact choice population. */
 export function createChoiceBudgetSchema(count: number): TableSchema {
 	return {
 		key: 'id',
@@ -223,7 +223,7 @@ export function createChoiceBudgetSchema(count: number): TableSchema {
 	}
 }
 
-/** Build a schema at the whole-text budget plus an optional delta. */
+/** Builds a schema at the whole-text budget plus an optional delta. */
 export function createTextBudgetSchema(extra = 0): TableSchema {
 	const meta: Record<string, JSONValue> = {}
 	let remaining = TEXT_LIMIT - 46 + extra
@@ -235,7 +235,7 @@ export function createTextBudgetSchema(extra = 0): TableSchema {
 	return { key: 'id', columns: [{ cell: 'text', key: 'id', meta }] }
 }
 
-/** Build a schema at the whole-node budget plus an optional delta. */
+/** Builds a schema at the whole-node budget plus an optional delta. */
 export function createNodeBudgetSchema(extra = 0): TableSchema {
 	return {
 		key: 'id',

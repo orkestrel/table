@@ -1,6 +1,6 @@
 {
 	"name": "@orkestrel/table",
-	"version": "0.0.4",
+	"version": "0.0.5",
 	"description": "The @orkestrel/table package.",
 	"keywords": [],
 	"homepage": "https://github.com/orkestrel/table#readme",
@@ -59,7 +59,8 @@
 		"test:distribution": "vitest run --config vite.config.ts --no-cache --reporter=dot --project distribution",
 		"test:bench": "vitest bench --config vite.config.ts --no-cache --project probe",
 		"prepack": "npm run build",
-		"test:setup": "vitest run --config vite.config.ts --no-cache --reporter=dot --project setup"
+		"test:setup": "vitest run --config vite.config.ts --no-cache --reporter=dot --project setup",
+		"docs": "node --experimental-strip-types scripts/docs.ts"
 	},
 	"dependencies": {
 		"@orkestrel/contract": "^0.0.16",
