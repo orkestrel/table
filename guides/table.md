@@ -67,7 +67,7 @@ table.view.map((row) => row.name) // ['Grace', 'Alan'] — page one, oldest firs
 
 The document itself — what a table declares and what one row of it holds. All data, no behavior.
 
-A `Shape` cell holds an interface's data members as bare names in braces, `?` marking an optional member and `plus` introducing its call-signature members, and a type alias's own type literal with a union's arms escaped as `\|`.
+A `Shape` cell holds an interface's data members as bare names in braces, `?` marking an optional member and `plus` introducing its call-signature members, and a type alias's own type literal with a union's arms escaped as `\|`. An extended interface's name comes before `plus`, with the members it adds after.
 
 | API            | Kind      | Shape                                                      | Summary                                                                                                                                                                                     |
 | -------------- | --------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -77,10 +77,10 @@ A `Shape` cell holds an interface's data members as bare names in braces, `?` ma
 | `ColumnCell`   | type      | `'text' \| 'number' \| 'flag' \| 'choice'`                 | Names what a column's cells hold — the discriminant that fixes the column's options, its comparison, and the filters that apply to it.                                                      |
 | `ColumnChoice` | interface | `{ value, label, help? }`                                  | Represents one value a `choice` column offers — `value` is stored, `label` is read, and `help` explains.                                                                                    |
 | `ColumnBase`   | interface | `{ key, label?, help?, hidden?, meta? }`                   | Describes what every column carries, whatever its cells hold — the name a row's cell uses, the text a reader sees, whether a host draws the column, and the metadata a host attaches to it. |
-| `TextColumn`   | interface | `{ cell, key, label?, help?, hidden?, meta? }`             | Represents a column of text, compared lexically. Carries a date, a time, and a timestamp as ISO strings.                                                                                    |
-| `NumberColumn` | interface | `{ cell, key, label?, help?, hidden?, meta? }`             | Represents a column of numbers, compared by magnitude.                                                                                                                                      |
-| `FlagColumn`   | interface | `{ cell, key, label?, help?, hidden?, meta? }`             | Represents a column of yes-or-no answers, compared false before true.                                                                                                                       |
-| `ChoiceColumn` | interface | `{ cell, choices, key, label?, help?, hidden?, meta? }`    | Represents a column drawn from a declared list, compared by the order that list declares. It requires `choices`.                                                                            |
+| `TextColumn`   | interface | `ColumnBase plus { cell }`                                 | Represents a column of text, compared lexically. Carries a date, a time, and a timestamp as ISO strings.                                                                                    |
+| `NumberColumn` | interface | `ColumnBase plus { cell }`                                 | Represents a column of numbers, compared by magnitude.                                                                                                                                      |
+| `FlagColumn`   | interface | `ColumnBase plus { cell }`                                 | Represents a column of yes-or-no answers, compared false before true.                                                                                                                       |
+| `ChoiceColumn` | interface | `ColumnBase plus { cell, choices }`                        | Represents a column drawn from a declared list, compared by the order that list declares. It requires `choices`.                                                                            |
 | `TableColumn`  | type      | `TextColumn \| NumberColumn \| FlagColumn \| ChoiceColumn` | Represents any column a schema can declare — the union discriminated on `cell`.                                                                                                             |
 | `TableSchema`  | interface | `{ name?, label?, help?, key, columns }`                   | Holds everything a table declares about itself — how the table is described, which column carries row identity, and the columns it declares, in the order it declares them.                 |
 
@@ -162,15 +162,17 @@ A `Shape` cell holds the constant's declared type.
 Total `is*` guards over unknown input. None throws, none coerces, and each returns `false` for
 anything off-shape — including a hostile prototype, a symbol key, or a cyclic value.
 
-| API                       | Kind     | Summary                                                                                                                                  |
-| ------------------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| `isTableCell`             | function | Determines whether an unknown value has a table cell shape — a string, a finite number, or a boolean.                                    |
-| `isTableRow`              | function | Determines whether an unknown value is a record whose every own key is a string and every value a `TableCell`.                           |
-| `isColumnCell`            | function | Determines whether an unknown value is a declared column cell.                                                                           |
-| `isColumnChoice`          | function | Determines whether an unknown value is one exact `ColumnChoice` record; an unknown member refuses it.                                    |
-| `isTableColumn`           | function | Determines whether an unknown value is one exact discriminated `TableColumn`, checked against its cell's own options.                    |
-| `isStructuralTableSchema` | function | Determines whether an unknown value has the exact shape of a `TableSchema` — the shape alone, with no domain check.                      |
-| `isTableSchema`           | function | Determines whether an unknown value is a `TableSchema` a table can be opened against — the exact shape, and an audit that finds nothing. |
+In a guard table a `Shape` cell holds the type the guard narrows to.
+
+| API                       | Kind     | Shape          | Summary                                                                                                                                  |
+| ------------------------- | -------- | -------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `isTableCell`             | function | `TableCell`    | Determines whether an unknown value has a table cell shape — a string, a finite number, or a boolean.                                    |
+| `isTableRow`              | function | `TableRow`     | Determines whether an unknown value is a record whose every own key is a string and every value a `TableCell`.                           |
+| `isColumnCell`            | function | `ColumnCell`   | Determines whether an unknown value is a declared column cell.                                                                           |
+| `isColumnChoice`          | function | `ColumnChoice` | Determines whether an unknown value is one exact `ColumnChoice` record; an unknown member refuses it.                                    |
+| `isTableColumn`           | function | `TableColumn`  | Determines whether an unknown value is one exact discriminated `TableColumn`, checked against its cell's own options.                    |
+| `isStructuralTableSchema` | function | `TableSchema`  | Determines whether an unknown value has the exact shape of a `TableSchema` — the shape alone, with no domain check.                      |
+| `isTableSchema`           | function | `TableSchema`  | Determines whether an unknown value is a `TableSchema` a table can be opened against — the exact shape, and an audit that finds nothing. |
 
 The schema guards answer about a schema, and which one to reach for is which question you are asking.
 `isStructuralTableSchema` asks whether the shape is exact: every declared member present and typed,
@@ -275,6 +277,8 @@ accepts.
 
 ### text
 
+This fence declares a `text` column.
+
 ```ts
 import type { TextColumn } from '@orkestrel/table'
 
@@ -288,6 +292,8 @@ own string order, not a locale-aware collator.
 
 ### number
 
+This fence declares a `number` column.
+
 ```ts
 import type { NumberColumn } from '@orkestrel/table'
 
@@ -298,6 +304,8 @@ A cell must be a finite number. `NaN` and either infinity are values a column ca
 write carrying one raises `TableError` coded `CELL`.
 
 ### flag
+
+This fence declares a `flag` column.
 
 ```ts
 import type { FlagColumn } from '@orkestrel/table'
@@ -310,6 +318,8 @@ carries bounds it could not order usefully, so a filter carrying either against 
 raises `TableError` coded `CELL`.
 
 ### choice
+
+This fence declares a `choice` column with its ordered choices.
 
 ```ts
 import type { ChoiceColumn } from '@orkestrel/table'

@@ -1,6 +1,6 @@
 // The consumer-side guides-parity drop-in: runs `@orkestrel/guide`'s checks against
 // this repo's own `guides/README.md` manifest. The constants that follow are this
-// package's own, and are the only part a sibling package changes.
+// package's own, as is the executed section that closes the file.
 
 import { describe, expect, it } from 'vitest'
 import {
@@ -19,7 +19,7 @@ import {
 	resolveLink,
 } from '@orkestrel/guide'
 import { readFileSync } from 'node:fs'
-import { requireValue, resolveRoot } from '@orkestrel/test'
+import { requireValue } from '@orkestrel/test'
 import { readInventory } from '@orkestrel/test/server'
 import type {
 	BetweenFilter,
@@ -94,7 +94,7 @@ const INTERNAL: readonly string[] = Object.freeze([
 /** Root-level files these checks read. `readInventory` walks directories only. */
 const ROOT_FILES = Object.freeze(['AGENTS.md', 'README.md'])
 
-const root = resolveRoot(import.meta)
+const root = new URL('../', import.meta.url)
 const files: Record<string, string> = {
 	...readInventory(root, ['src', 'guides', 'tests'], { extensions: ['.ts', '.md'] }),
 }
