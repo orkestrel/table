@@ -23,8 +23,6 @@ npm install @orkestrel/table
 
 ## Usage
 
-Declare the columns, hold the rows, and read the ones to draw:
-
 ```ts
 import { createTable } from '@orkestrel/table'
 

@@ -108,7 +108,10 @@ const own = requireValue(
 	manifest.find((entry) => entry.spec === GUIDE_SPEC),
 	`Missing manifest row: ${GUIDE_SPEC}`,
 )
-const readme = createGuide(requireValue(files['README.md'], 'Missing file: README.md'))
+
+it('manifest lists at least one guide', () => {
+	expect(manifest.length).toBeGreaterThan(0)
+})
 
 // The example half of the equality case is silent over an empty population: with no
 // title on both sides `findDrift` compares no pair and the case passes on the summaries
@@ -146,7 +149,7 @@ it('pairs at least one example title across the guide and the source', () => {
 // against `undefined` first, so a file that lost its blockquote reports that rather
 // than reporting two absences as agreement.
 it('opens the README with the guide tagline', () => {
-	const pitch = readme.tagline()
+	const pitch = createGuide(requireValue(files['README.md'], 'Missing file: README.md')).tagline()
 	const tagline = createGuide(
 		requireValue(files[GUIDE_SPEC], `Missing file: ${GUIDE_SPEC}`),
 	).tagline()
@@ -157,6 +160,7 @@ it('opens the README with the guide tagline', () => {
 })
 
 it('imports only real exports in every root README ```ts fence', () => {
+	const readme = createGuide(requireValue(files['README.md'], 'Missing file: README.md'))
 	const fences = readme.fences().filter((fence) => fence.language === EXAMPLE_LANGUAGE)
 	for (const fence of fences) {
 		for (const { specifier, names } of extractFenceImports(fence.code)) {
@@ -169,7 +173,6 @@ it('imports only real exports in every root README ```ts fence', () => {
 })
 
 it('parses manifest rows that point at real files', () => {
-	expect(manifest.length).toBeGreaterThan(0)
 	for (const entry of manifest) {
 		expect(files[entry.spec]).toBeDefined()
 		const modules = typeof entry.source === 'string' ? [entry.source] : entry.source
