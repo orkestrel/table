@@ -1,5 +1,6 @@
 import type { Emitter } from '@orkestrel/emitter'
 import type { FilterManagerInterface, TableEventMap, TableFilter, TableSchema } from '../types.js'
+import { isArray } from '@orkestrel/contract'
 import { TableError } from '../errors.js'
 import { admitsFilter, extractColumn, matchesTerms, mergeTerms, removeTerms } from '../helpers.js'
 
@@ -56,7 +57,7 @@ export class FilterManager implements FilterManagerInterface {
 	/** Filters one column or several. */
 	set(input: TableFilter | readonly TableFilter[]): void {
 		this.#gate()
-		const requested = Array.isArray(input) ? input : [input]
+		const requested = isArray(input) ? input : [input]
 		for (const filter of requested) this.#validate(filter)
 
 		const next = mergeTerms(this.#read(), requested)
@@ -79,7 +80,7 @@ export class FilterManager implements FilterManagerInterface {
 		const columns =
 			input === undefined
 				? this.#schema.columns.map((column) => column.key)
-				: Array.isArray(input)
+				: isArray(input)
 					? input
 					: [input]
 		for (const column of columns) {

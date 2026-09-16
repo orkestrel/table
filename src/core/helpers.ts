@@ -74,7 +74,7 @@ export function computeKeys(
 	input: TableKey | readonly TableKey[] | undefined,
 	include: (included: boolean) => boolean,
 ): ReadonlySet<TableKey> | undefined {
-	const requested = input === undefined ? known : Array.isArray(input) ? input : [input]
+	const requested = input === undefined ? known : isArray(input) ? input : [input]
 	const population = new Set(known)
 	if (requested.some((key) => !population.has(key))) return undefined
 

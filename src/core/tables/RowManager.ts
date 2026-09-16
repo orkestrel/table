@@ -6,6 +6,7 @@ import type {
 	TableRow,
 	TableSchema,
 } from '../types.js'
+import { isArray } from '@orkestrel/contract'
 import { cloneRow } from '../cloners.js'
 import { TableError } from '../errors.js'
 import { extractColumn, extractKey, matchesCell } from '../helpers.js'
@@ -69,7 +70,7 @@ export class RowManager implements RowManagerInterface {
 	/** Appends one row or several. */
 	add(input: TableRow | readonly TableRow[]): void {
 		this.#gate()
-		const rows = Array.isArray(input) ? input : [input]
+		const rows = isArray(input) ? input : [input]
 		const keys = new Set<TableKey>()
 		for (const row of this.#read()) {
 			const key = extractKey(this.#schema, row)
@@ -94,7 +95,7 @@ export class RowManager implements RowManagerInterface {
 	/** Merges one row or several into the rows their keys name. */
 	update(input: TableRow | readonly TableRow[]): boolean {
 		this.#gate()
-		const updates = (Array.isArray(input) ? input : [input]).map((row) => cloneRow(row))
+		const updates = (isArray(input) ? input : [input]).map((row) => cloneRow(row))
 		const current = this.#read()
 		const locations: number[] = []
 
@@ -169,7 +170,7 @@ export class RowManager implements RowManagerInterface {
 						const key = extractKey(this.#schema, row)
 						return key === undefined ? [] : [key]
 					})
-				: Array.isArray(input)
+				: isArray(input)
 					? input
 					: [input]
 		const keys = new Set(requested)

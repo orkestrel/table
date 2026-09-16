@@ -1,5 +1,6 @@
 import type { Emitter } from '@orkestrel/emitter'
 import type { SortManagerInterface, TableEventMap, TableOrder, TableSchema } from '../types.js'
+import { isArray } from '@orkestrel/contract'
 import { TableError } from '../errors.js'
 import { extractColumn, matchesTerms, mergeTerms, removeTerms } from '../helpers.js'
 
@@ -52,7 +53,7 @@ export class SortManager implements SortManagerInterface {
 	/** Sorts by one column or several. */
 	set(input: TableOrder | readonly TableOrder[]): void {
 		this.#gate()
-		const requested = Array.isArray(input) ? input : [input]
+		const requested = isArray(input) ? input : [input]
 		for (const order of requested) this.#require(order.column)
 
 		const next = mergeTerms(this.#read(), requested)
@@ -76,7 +77,7 @@ export class SortManager implements SortManagerInterface {
 		const columns =
 			input === undefined
 				? this.#schema.columns.map((column) => column.key)
-				: Array.isArray(input)
+				: isArray(input)
 					? input
 					: [input]
 		for (const column of columns) {

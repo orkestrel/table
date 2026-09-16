@@ -1,3 +1,4 @@
+import { isFiniteNumber } from '@orkestrel/contract'
 import type { Emitter } from '@orkestrel/emitter'
 import type { PaginationManagerInterface, TableEventMap } from '../types.js'
 
@@ -95,6 +96,6 @@ export class PaginationManager implements PaginationManagerInterface {
 	}
 
 	#normalize(value: number): number {
-		return Number.isFinite(value) ? Math.max(1, Math.trunc(value)) : 1
+		return isFiniteNumber(value) ? Math.max(1, Math.trunc(value)) : 1
 	}
 }

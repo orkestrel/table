@@ -1,4 +1,5 @@
 import type { JSONRecord } from '@orkestrel/contract'
+import { isInstance } from '@orkestrel/contract'
 import type { TableErrorCode } from './types.js'
 
 /**
@@ -35,5 +36,5 @@ export class TableError extends Error {
  * @returns True if the value is a {@link TableError} instance; false otherwise.
  */
 export function isTableError(input: unknown): input is TableError {
-	return input instanceof TableError
+	return isInstance(input, TableError)
 }
