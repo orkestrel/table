@@ -22,6 +22,8 @@
 		"noEmit": true,
 		"paths": {
 			"@src/core": ["./src/core/index.ts"],
+			"@src/browser": ["./src/browser/index.ts"],
+			"@orkestrel/table/browser": ["./src/browser/index.ts"],
 			"@orkestrel/table": ["./src/core/index.ts"]
 		}
 	},

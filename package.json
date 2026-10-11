@@ -30,7 +30,13 @@
 				"default": "./dist/src/core/index.cjs"
 			}
 		},
-		"./package.json": "./package.json"
+		"./package.json": "./package.json",
+		"./browser": {
+			"import": {
+				"types": "./dist/src/browser/index.d.ts",
+				"default": "./dist/src/browser/index.js"
+			}
+		}
 	},
 	"publishConfig": {
 		"access": "public"
@@ -43,23 +49,26 @@
 		"lint": "oxlint --config .oxlintrc.json --fix .",
 		"lint:check": "oxlint --config .oxlintrc.json --deny-warnings .",
 		"check": "tsc --noEmit --project tsconfig.json && npm run check:src",
-		"check:src": "npm run check:src:core",
+		"check:src": "npm run check:src:core && npm run check:src:browser",
 		"check:src:core": "tsc --noEmit -p configs/src/tsconfig.core.json",
 		"test": "npm run test:src && npm run test:policy && npm run test:config && npm run test:setup && npm run test:guides",
-		"test:src": "vitest run --config vite.config.ts --no-cache --reporter=dot --project src:core",
+		"test:src": "npm run test:src:core && npm run test:src:browser",
 		"test:src:core": "vitest run --config vite.config.ts --no-cache --reporter=dot --project src:core",
 		"test:policy": "vitest run --config vite.config.ts --no-cache --reporter=dot --project policy",
 		"test:config": "vitest run --config vite.config.ts --no-cache --reporter=dot --project config",
 		"test:guides": "node --experimental-strip-types tests/guides.test.ts",
 		"test:probe": "vitest run --config vite.config.ts --no-cache --reporter=verbose --project probe",
 		"build": "npm run clean && npm run build:src",
-		"build:src": "npm run build:src:core",
+		"build:src": "npm run build:src:core && npm run build:src:browser",
 		"build:src:core": "vite build --config configs/src/vite.core.config.ts && npm run copy dist/src/core/index.d.ts dist/src/core/index.d.cts",
 		"prepublishOnly": "npm run format:check && npm run lint:check && npm run check && npm run build && npm test && npm run test:distribution -- --mode release",
 		"test:distribution": "vitest run --config vite.config.ts --no-cache --reporter=dot --project distribution",
 		"test:bench": "vitest bench --config vite.config.ts --no-cache --project probe",
 		"prepack": "npm run build",
-		"test:setup": "vitest run --config vite.config.ts --no-cache --reporter=dot --project setup"
+		"test:setup": "vitest run --config vite.config.ts --no-cache --reporter=dot --project setup",
+		"check:src:browser": "tsc --noEmit -p configs/src/tsconfig.browser.json",
+		"test:src:browser": "vitest run --config vite.config.ts --no-cache --reporter=dot --project src:browser",
+		"build:src:browser": "vite build --config configs/src/vite.browser.config.ts"
 	},
 	"dependencies": {
 		"@orkestrel/contract": "^0.0.19",
@@ -67,13 +76,16 @@
 	},
 	"devDependencies": {
 		"@microsoft/api-extractor": "^7.59.4",
+		"@orkestrel/browser": "^0.0.28",
 		"@orkestrel/guide": "^0.0.24",
 		"@orkestrel/probe": "^0.0.23",
-		"@orkestrel/scaffold": "^0.0.97",
+		"@orkestrel/scaffold": "^0.0.100",
 		"@orkestrel/test": "^0.0.25",
 		"@types/node": "^26.6.4",
+		"@vitest/browser-playwright": "^4.1.11",
 		"oxfmt": "^0.72.0",
 		"oxlint": "^1.87.0",
+		"playwright": "^1.63.0",
 		"typescript": "^6.0.3",
 		"vite": "^8.3.3",
 		"vitest": "^4.1.11"

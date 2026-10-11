@@ -1,10 +1,28 @@
 import type { PluginOption, UserConfig } from 'vite'
 import { mergeConfig } from 'vite'
+import { playwright } from '@vitest/browser-playwright'
 import { defineConfig } from 'vitest/config'
 import manifest from './package.json' with { type: 'json' }
 import tsconfig from './tsconfig.json' with { type: 'json' }
-import { enforceBuildLog } from './configs/helpers.js'
+import {
+	enforceBuildLog,
+	environmentBoundary,
+	outputBoundary,
+	resolveExternal,
+} from './configs/helpers.js'
+import { resolveBrowser, resolvePinnedBrowser } from './configs/browsers.js'
 import { fileURLToPath, URL } from 'node:url'
+
+const browserOptions = resolveBrowser(resolvePinnedBrowser(), process.platform, process.env)
+
+const optimizeDeps = {
+	include: [
+		'@orkestrel/test',
+		'@orkestrel/test/browser',
+		'@orkestrel/contract',
+		'@orkestrel/emitter',
+	],
+}
 
 export function resolveWorkspacePath(relativePath: string): string {
 	return fileURLToPath(new URL(relativePath, import.meta.url))
@@ -116,6 +134,17 @@ function isNamedPlugin(plugin: PluginOption): plugin is { name: string } {
 	)
 }
 
+function resolveSourceExternal(id: string): boolean {
+	return (
+		id === '@src/core' ||
+		resolveExternal(id, {
+			peers,
+			refused: [],
+			siblings: [resolveWorkspacePath('src/core/index.ts')],
+		})
+	)
+}
+
 export function srcCore(override?: UserConfig): UserConfig {
 	const project: UserConfig = {
 		resolve,
@@ -132,6 +161,50 @@ export function srcCore(override?: UserConfig): UserConfig {
 			setupFiles: ['./tests/setup.ts'],
 			environment: 'node',
 			browser: { enabled: false },
+		},
+	}
+	return mergeOverride(project, override)
+}
+
+function resolveBrowserFilename(): string {
+	return 'index.js'
+}
+
+export function srcBrowser(override?: UserConfig): UserConfig {
+	const project: UserConfig = {
+		resolve,
+		optimizeDeps,
+		publicDir: false,
+		plugins: [outputBoundary('dist/src/browser'), environmentBoundary('src/browser')],
+		build: {
+			emptyOutDir: true,
+			sourcemap: true,
+			minify: false,
+			lib: {
+				entry: resolveWorkspacePath('src/browser/index.ts'),
+				formats: ['es'],
+				fileName: resolveBrowserFilename,
+			},
+			outDir: 'dist/src/browser',
+			rolldownOptions: {
+				onLog: enforceBuildLog,
+				external: resolveSourceExternal,
+				output: { paths: { '@src/core': '../core/index.js' } },
+			},
+		},
+		test: {
+			name: { label: 'src:browser', color: 'yellow' },
+			include: ['tests/src/browser/**/*.test.ts'],
+			exclude: ['tests/src/core/**/*.test.ts'],
+			setupFiles: ['./tests/setup.ts', './tests/setupBrowser.ts'],
+
+			browser: {
+				enabled: true,
+				provider: playwright(browserOptions),
+				instances: [{ browser: 'chromium', headless: true }],
+			},
+			fileParallelism: false,
+			sequence: { groupOrder: 1 },
 		},
 	}
 	return mergeOverride(project, override)
@@ -244,6 +317,6 @@ export function probe(override?: UserConfig): UserConfig {
 export default defineConfig({
 	resolve,
 	test: {
-		projects: [srcCore, policy, config, setup, guides, distribution, probe],
+		projects: [srcCore, srcBrowser, policy, config, setup, guides, distribution, probe],
 	},
 })
