@@ -4,11 +4,10 @@
 > holding the rows given against it, and one lens of sort, filter, and page deciding which of them
 > the view shows.
 
-Nothing here renders, measures a pixel, reads a keyboard, or names a host type. **A grid, a report,
+The core renders nothing and names no host type. **A grid, a report,
 a terminal listing, and a CSV export are the same abstraction.** They all hold a set of records,
 order them, narrow them, and show a stretch of them. What differs is who draws the result, and
-drawing is the one part this package leaves out. The table owns values; the host owns everything a
-person looks at.
+drawing belongs to each host. The browser face binds native table elements to that same document.
 
 The row store is the source of truth, and it is the whole of it. Sort terms, filters, the picked
 keys, the opened keys, and the page are held; `view` and every tally are worked out on read, so no
@@ -21,7 +20,8 @@ copy. Table-owned refusals raise `TableError`, and each one names a caller mista
 
 ## Surface
 
-Everything in this guide is exported from `@orkestrel/table` ([`src/core`](../src/core)). The manager
+The core surface is exported from `@orkestrel/table` ([`src/core`](../src/core)); the native binding
+surface comes from `@orkestrel/table/browser` ([`src/browser`](../src/browser)). The manager
 classes and the key-set shell they compose are the module's internal declarations: they stay out
 of the barrel, so no consumer can construct one, and each constructor takes the table's emitter
 and closures over state `Table` keeps private, which is why they are internal rather than
@@ -62,6 +62,144 @@ table.count // 3 — every name holds a lowercase 'a'
 table.pagination.count // 2 — two pages of two
 table.view.map((row) => row.name) // ['Grace', 'Alan'] — page one, oldest first
 ```
+
+### Native binding
+
+These declarations belong to the browser entry.
+
+| API                     | Kind      | Shape                                                                                                                   | Summary                                                                                |
+| ----------------------- | --------- | ----------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| `TableBinding`          | class     | `TableBindingInterface`                                                                                                 | Retains keyed native rows while projecting every core table manager.                   |
+| `TableBindingInterface` | interface | `{ element, document, destroyed, emitter } plus refresh, destroy`                                                       | Binds native table elements to a borrowed core document.                               |
+| `TableBindingOptions`   | interface | `{ row?, detail?, scope?, on?, error? }`                                                                                | Configures row ownership, detail presentation, scoped controls, and event listeners.   |
+| `TableBindingEventMap`  | type      | `{ sort: readonly [event: CustomEvent<readonly TableOrder[]>]; render: readonly []; error: readonly [error: unknown] }` | Announces cancelable sorting, completed rendering, and failed DOM operations.          |
+| `TableRenderHandler`    | type      | `(element: HTMLTableRowElement, row: TableRow) => void`                                                                 | Patches the contents of a retained row without moving or replacing that row.           |
+| `TableProjection`       | interface | `{ schema, rows }`                                                                                                      | Holds a validated native table projection for constructing a core document.            |
+| `TableBindingErrorCode` | type      | `'STRUCTURE'`                                                                                                           | Names a native binding failure at its structure, rendering, or lifecycle boundary.     |
+| `TableBindingError`     | class     | `new (code: TableBindingErrorCode, message: string) => TableBindingError`                                               | Represents a native table binding failure with a machine-readable code.                |
+| `isTableBindingError`   | function  | `(value: unknown) => value is TableBindingError`                                                                        | Checks whether a caught value is a native table binding error.                         |
+| `createTableBinding`    | function  | `(element: HTMLTableElement, document: TableInterface, options?: TableBindingOptions) => TableBindingInterface`         | Creates a native table binding with one retained row owner.                            |
+| `readTable`             | function  | `(element: HTMLTableElement) => TableProjection`                                                                        | Reads declared header metadata and explicit row keys into a validated core projection. |
+| `readTableSchema`       | function  | `(element: HTMLTableElement) => TableSchema`                                                                            | Reads and validates explicit native header metadata.                                   |
+| `readTableRows`         | function  | `(schema: TableSchema, elements: readonly HTMLTableRowElement[]) => readonly TableRow[]`                                | Reads explicit keys and declared direct cells against a core schema.                   |
+
+### Enhance authored rows
+
+Declare one body, a table identity-column name, explicit header column keys and cell kinds, and a
+stable key on every data row. Direct cells declare their columns; omitted cells stay absent. Text
+is preserved verbatim. Numbers and flags use the core parser. A native data element's value or a
+time element's datetime takes precedence over cell text. Choice headers carry their explicit
+choice array as JSON in data-table-choices. Nested tables supply no headers or controls to their parent.
+
+This browser example constructs the document before binding it.
+
+```ts
+import { createTable } from '@orkestrel/table'
+import { createTableBinding, readTable } from '@orkestrel/table/browser'
+
+const element = document.createElement('table')
+element.setAttribute('data-table-key', 'id')
+element.innerHTML =
+	'<caption>People</caption><thead><tr><th data-table-column="id" data-table-cell="text">Reference</th><th data-table-column="name" data-table-cell="text"><button data-table-sort="name">Name</button></th></tr></thead><tbody><tr data-table-key="ash"><td data-table-column="name">Ash</td></tr><tr data-table-key="cedar"><td data-table-column="name">Cedar</td></tr></tbody>'
+document.body.append(element)
+const projection = readTable(element)
+const table = createTable(projection.schema, { rows: projection.rows })
+const binding = createTableBinding(element, table)
+table.filter.set({ column: 'name', operator: 'contains', text: 'Ash' })
+binding.refresh()
+element.tBodies[0]?.rows.length // 1
+binding.destroy()
+element.tBodies[0]?.rows.length // 2: restored in core store order
+table.destroyed // false
+element.remove()
+```
+
+The binding validates the entire authored read before changing core rows. External inserts,
+removals, and cell edits reach the document; an invalid read emits error and writes nothing.
+Detached rows remain observed while their keys live. Authored mode owns cell values in the DOM;
+use the core managers for the view, and edit authored cells to change values. Model mode owns
+values in the document and requires an empty body and a row callback. That callback receives
+the retained row first and its value second. It only patches contents, and runs on creation or
+value change. Sort, selection, filtering, expansion, and pagination do not rerun it.
+
+A detail callback receives a generated row containing one spanning cell. Patch that cell's
+contents; the binding owns its placement and identity. Collapsed and off-view details are retained
+until their data key leaves the store. Render callbacks must return synchronously. A throw emits
+error without render success; refresh retries. Arbitrary callback effects are not rolled back.
+
+Native hooks use real controls: a header button with data-table-sort naming the column, a row
+checkbox with data-table-select, a row button with data-table-expand, and a scope checkbox with
+data-table-page. Scope defaults to the table. Use a scope dedicated to that table for an external
+page checkbox. It selects or clears only current view keys; off-page selection stays selected.
+Sort clicks cycle ascending, descending, and absent, replacing the primary order. Programmatic
+multi-sort remains intact and is described on each sorted header button. The sort event carries
+a cancelable CustomEvent whose detail is the proposed order array; preventDefault vetoes before
+the document changes. The core managers remain the only owners of filters and paging.
+
+Rendering coalesces on a later task, including writes during callbacks. Rows and child controls
+retain identity across the view. Reorders use native state-preserving movement when available;
+focus is restored on fallback moves. When a focused row leaves the view, focus moves to the named
+table. An already focused external control keeps focus. Destroy disconnects scheduling, observers,
+and listeners, restores attributes still carrying the binding's values, removes details, and
+returns retained authored rows in core order. Model rows remain an inert final snapshot. The
+borrowed document stays live.
+
+The lower-level readers share the same validation boundary, and the row comparison ignores
+snapshot identity.
+
+```ts
+import {
+	TableBinding,
+	TableBindingError,
+	isTableBindingError,
+	readTableRows,
+	readTableSchema,
+} from '@orkestrel/table/browser'
+import { createTable, matchesTableRow } from '@orkestrel/table'
+
+const element = document.createElement('table')
+element.setAttribute('data-table-key', 'id')
+element.innerHTML =
+	'<thead><tr><th data-table-column="id" data-table-cell="text">Reference</th></tr></thead><tbody></tbody>'
+const schema = readTableSchema(element)
+const rows = readTableRows(schema, []) // []
+const table = createTable(schema, { rows })
+const binding = new TableBinding(element, table)
+binding.destroy()
+matchesTableRow({ id: 'ash' }, { id: 'ash' }) // true
+isTableBindingError(new TableBindingError('STRUCTURE', 'Missing identity')) // true
+```
+
+### Replace complete rows
+
+Replacement removes omitted optional cells while preserving the identity and its manager state.
+
+```ts
+import { createTable } from '@orkestrel/table'
+
+const table = createTable(
+	{
+		key: 'id',
+		columns: [
+			{ key: 'id', cell: 'text' },
+			{ key: 'name', cell: 'text' },
+		],
+	},
+	{ rows: [{ id: 'ash', name: 'Ash' }] },
+)
+table.selection.select('ash')
+table.rows.replace({ id: 'ash' }) // true
+table.rows.row('ash') // { id: 'ash' }
+table.selection.keys.has('ash') // true
+```
+
+### Row equality
+
+This helper belongs to the core entry.
+
+| API               | Kind     | Shape                                                       | Summary                                                                  |
+| ----------------- | -------- | ----------------------------------------------------------- | ------------------------------------------------------------------------ |
+| `matchesTableRow` | function | `(left: TableRow \| undefined, right: TableRow) => boolean` | Compares complete row values independently of their snapshot identities. |
 
 ### Rows, cells, and columns
 
@@ -116,7 +254,7 @@ A `Shape` cell holds an interface's data members as bare names in braces, `?` ma
 | `createTable`                | function  | `(schema: TableSchema, options?: TableOptions) => TableInterface`                                                       | Opens a table against a schema. The schema is copied, and the copy is what the table declares.                                                                                                    |
 | `TableOptions`               | interface | `{ on?, error?, rows?, comparators?, matchers?, limit? }`                                                               | Describes how to open a table — the listeners wired at construction and where a throw from one goes, the rows seeded into it, the per-column comparison and test replacements, and the page size. |
 | `TableEventMap`              | type      | `{ write, remove, sort, filter, select, expand, paginate, clear }`                                                      | Lists everything a table announces, mapping each event to the payload its listeners receive.                                                                                                      |
-| `RowManagerInterface`        | interface | `{} plus row, rows, add, update, move, remove`                                                                          | Manages the rows a table holds, in the order it holds them.                                                                                                                                       |
+| `RowManagerInterface`        | interface | `{} plus row, rows, add, update, replace, move, remove`                                                                 | Manages the rows a table holds, in the order it holds them.                                                                                                                                       |
 | `SortManagerInterface`       | interface | `{} plus order, orders, set, remove`                                                                                    | Manages the order a table reads its rows in.                                                                                                                                                      |
 | `FilterManagerInterface`     | interface | `{} plus filter, filters, set, remove`                                                                                  | Manages which rows a table keeps.                                                                                                                                                                 |
 | `SelectionManagerInterface`  | interface | `{ keys } plus select, clear, toggle`                                                                                   | Manages the rows somebody has picked.                                                                                                                                                             |
@@ -1257,14 +1395,22 @@ it either way.
 
 #### `RowManagerInterface`
 
-| Method   | Returns                   | Summary                                                                                                             |
-| -------- | ------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| `row`    | `TableRow` or `undefined` | Finds one row by key; `undefined` when the table holds no such key.                                                 |
-| `rows`   | `readonly TableRow[]`     | Reads every row the table holds, in its own order — unfiltered, unsorted, and unpaged.                              |
-| `add`    | `void`                    | Takes in one row or several, appending them in the order given. Every row is checked before any is admitted.        |
-| `update` | `boolean`                 | Writes over one row or several, each found by the key it carries. The cells given replace; the cells left out stay. |
-| `move`   | `boolean`                 | Moves one row to another place in the table's own order, counted from zero and clamped to the rows that exist.      |
-| `remove` | `void` or `boolean`       | Takes out every row, one row, or several. Selection and expansion drop the keys of the rows that went.              |
+| Method    | Returns                   | Summary                                                                                                             |
+| --------- | ------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `row`     | `TableRow` or `undefined` | Finds one row by key; `undefined` when the table holds no such key.                                                 |
+| `rows`    | `readonly TableRow[]`     | Reads every row the table holds, in its own order — unfiltered, unsorted, and unpaged.                              |
+| `add`     | `void`                    | Takes in one row or several, appending them in the order given. Every row is checked before any is admitted.        |
+| `update`  | `boolean`                 | Writes over one row or several, each found by the key it carries. The cells given replace; the cells left out stay. |
+| `replace` | `boolean`                 | Replaces complete rows under existing keys, removing omitted cells without moving identities.                       |
+| `move`    | `boolean`                 | Moves one row to another place in the table's own order, counted from zero and clamped to the rows that exist.      |
+| `remove`  | `void` or `boolean`       | Takes out every row, one row, or several. Selection and expansion drop the keys of the rows that went.              |
+
+#### `TableBindingInterface`
+
+| Method    | Returns | Summary                                                                           |
+| --------- | ------- | --------------------------------------------------------------------------------- |
+| `refresh` | `void`  | Reconciles and renders the document, retrying a failed renderer.                  |
+| `destroy` | `void`  | Releases listeners and restores owned attributes without destroying the document. |
 
 #### `SortManagerInterface`
 
@@ -1372,7 +1518,7 @@ table.count // 1
 These invariants hold across [`src/core`](../src/core) and this guide.
 
 1. **Documented surface equals exported surface.** Every row in the `## Surface` tables is a real
-   barrel export of `src/core`, and every barrel export is a row — both directions, exhaustively.
+   barrel export of `src/core` or `src/browser`, and every barrel export is a row — both directions, exhaustively.
    The manager classes and the key-set shell are internal, so the parity suite's internal list names
    them and nothing else.
 2. **Documented methods equal interface methods.** Each `## Methods` table lists exactly its
@@ -1503,7 +1649,7 @@ this package answers today through a mechanism it already exposes.
 | CSV and spreadsheet export   | host          | `view` or `rows()` plus `schema.columns` is the whole input an exporter needs, and the file format, encoding, and download belong to the host that has a filesystem or a browser.                                                                                                                                                                                                                                             |
 | Cell-level selection         | out           | Selection holds row keys. A rectangular cell range is a second selection model with its own vocabulary, and no consumer has asked for one.                                                                                                                                                                                                                                                                                    |
 | Choice `meta`                | out           | `meta` is on `ColumnBase` alone, because a column carrier is what the first consumer asked for. The exact guard refuses it on `ColumnChoice` until one asks.                                                                                                                                                                                                                                                                  |
-| Browser binding              | `src/browser` | Binding a table to real elements — a grid, its headings, its scroll container — belongs in a future `src/browser`, taking a table and an element. Nothing renders in this round.                                                                                                                                                                                                                                              |
+| Browser binding              | `src/browser` | The browser entry binds native table rows and controls to a borrowed core document; the core remains host-independent.                                                                                                                                                                                                                                                                                                        |
 
 ## Tests
 

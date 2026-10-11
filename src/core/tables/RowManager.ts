@@ -9,7 +9,7 @@ import type {
 import { isArray } from '@orkestrel/contract'
 import { cloneRow } from '../cloners.js'
 import { TableError } from '../errors.js'
-import { extractColumn, extractKey, matchesCell } from '../helpers.js'
+import { extractColumn, extractKey, matchesCell, matchesTableRow } from '../helpers.js'
 import { isTableRow } from '../validators.js'
 
 /** Manages the rows one table holds in its own order. */
@@ -117,7 +117,7 @@ export class RowManager implements RowManagerInterface {
 			const previous = next[location]
 			if (previous === undefined) continue
 			const merged = cloneRow({ ...previous, ...update })
-			if (!this.#same(previous, merged)) {
+			if (!matchesTableRow(previous, merged)) {
 				next[location] = merged
 				const key = extractKey(this.#schema, merged)
 				if (key !== undefined) moved.push(key)
@@ -128,6 +128,46 @@ export class RowManager implements RowManagerInterface {
 		this.#write(Object.freeze(next))
 		this.#settle([], () => {
 			for (const key of moved) this.#emitter.emit('write', key)
+		})
+		return true
+	}
+
+	/** Replaces several complete rows. */
+	replace(rows: readonly TableRow[]): boolean
+	/** Replaces one complete row. */
+	replace(row: TableRow): boolean
+	/** Replaces complete rows atomically without removing their identities. */
+	replace(input: TableRow | readonly TableRow[]): boolean {
+		this.#gate()
+		const replacements = (isArray(input) ? input : [input]).map((row) => cloneRow(row))
+		const current = this.#read()
+		const locations: number[] = []
+		for (const row of replacements) {
+			this.#validate(row)
+			const location = current.findIndex(
+				(candidate) => extractKey(this.#schema, candidate) === extractKey(this.#schema, row),
+			)
+			if (location === -1) return false
+			locations.push(location)
+		}
+		const next = [...current]
+		const changed = new Set<TableKey>()
+		for (const [index, row] of replacements.entries()) {
+			const location = locations[index]
+			if (location === undefined) continue
+			next[location] = row
+		}
+		for (const location of locations) {
+			const previous = current[location]
+			const row = next[location]
+			if (previous === undefined || row === undefined) continue
+			const key = extractKey(this.#schema, row)
+			if (key !== undefined && !matchesTableRow(previous, row)) changed.add(key)
+		}
+		if (changed.size === 0) return true
+		this.#write(Object.freeze(next))
+		this.#settle([], () => {
+			for (const key of changed) this.#emitter.emit('write', key)
 		})
 		return true
 	}
@@ -231,14 +271,5 @@ export class RowManager implements RowManagerInterface {
 	#failKey(message: string, key?: TableKey): never {
 		if (key === undefined) throw new TableError('KEY', message)
 		throw new TableError('KEY', message, { key })
-	}
-
-	#same(left: TableRow, right: TableRow): boolean {
-		const leftKeys = Object.keys(left)
-		const rightKeys = Object.keys(right)
-		return (
-			leftKeys.length === rightKeys.length &&
-			leftKeys.every((key) => Object.hasOwn(right, key) && left[key] === right[key])
-		)
 	}
 }

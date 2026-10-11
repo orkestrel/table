@@ -4,15 +4,16 @@ A dual-axis index into this repository's guides — by concept, and by directory
 
 ## By concept
 
-| Concept | Spec                   | Source                    | Tests                                 |
-| ------- | ---------------------- | ------------------------- | ------------------------------------- |
-| Table   | [`table.md`](table.md) | [`src/core`](../src/core) | [`tests/src/core`](../tests/src/core) |
+| Concept | Spec                   | Source                                                     | Tests                       |
+| ------- | ---------------------- | ---------------------------------------------------------- | --------------------------- |
+| Table   | [`table.md`](table.md) | [`src/core`](../src/core), [`src/browser`](../src/browser) | [`tests/src`](../tests/src) |
 
 ## By directory
 
-| Directory  | Guide                  |
-| ---------- | ---------------------- |
-| `src/core` | [`table.md`](table.md) |
+| Directory     | Guide                  |
+| ------------- | ---------------------- |
+| `src/core`    | [`table.md`](table.md) |
+| `src/browser` | [`table.md`](table.md) |
 
 The parity suite checks every fence in `table.md` — its language, its imports, and the exports it
 names — and transcribes its worked examples, plus the Usage fence in the root `README.md`, into

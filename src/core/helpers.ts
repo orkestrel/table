@@ -552,3 +552,16 @@ export function serializeRows(
 
 	return Object.freeze(output)
 }
+
+/** Compares complete row values independently of their snapshot identities.
+ * @param left - The previous row, if present.
+ * @param right - The next row.
+ * @returns Whether both rows carry exactly the same cells.
+ */
+export function matchesTableRow(left: TableRow | undefined, right: TableRow): boolean {
+	return (
+		left !== undefined &&
+		Object.keys(left).length === Object.keys(right).length &&
+		Object.keys(right).every((key) => Object.hasOwn(left, key) && left[key] === right[key])
+	)
+}

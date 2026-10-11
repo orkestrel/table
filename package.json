@@ -51,7 +51,7 @@
 		"check": "tsc --noEmit --project tsconfig.json && npm run check:src",
 		"check:src": "npm run check:src:core && npm run check:src:browser",
 		"check:src:core": "tsc --noEmit -p configs/src/tsconfig.core.json",
-		"test": "npm run test:src && npm run test:policy && npm run test:config && npm run test:setup && npm run test:guides",
+		"test": "npm run test:src && npm run test:policy && npm run test:config && npm run test:setup && npm run test:setup:browser && npm run test:guides",
 		"test:src": "npm run test:src:core && npm run test:src:browser",
 		"test:src:core": "vitest run --config vite.config.ts --no-cache --reporter=dot --project src:core",
 		"test:policy": "vitest run --config vite.config.ts --no-cache --reporter=dot --project policy",
@@ -68,6 +68,7 @@
 		"test:setup": "vitest run --config vite.config.ts --no-cache --reporter=dot --project setup",
 		"check:src:browser": "tsc --noEmit -p configs/src/tsconfig.browser.json",
 		"test:src:browser": "vitest run --config vite.config.ts --no-cache --reporter=dot --project src:browser",
+		"test:setup:browser": "vitest run --config vite.config.ts --no-cache --reporter=dot --project setup:browser",
 		"build:src:browser": "vite build --config configs/src/vite.browser.config.ts"
 	},
 	"dependencies": {

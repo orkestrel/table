@@ -46,7 +46,7 @@ describe('Table construction and derived state', () => {
 			].sort(),
 		)
 		expect(Object.getOwnPropertyNames(RowManager.prototype).sort()).toStrictEqual(
-			['add', 'constructor', 'move', 'remove', 'row', 'rows', 'update'].sort(),
+			['add', 'constructor', 'move', 'remove', 'replace', 'row', 'rows', 'update'].sort(),
 		)
 		expect(Object.getOwnPropertyNames(SortManager.prototype).sort()).toStrictEqual(
 			['constructor', 'order', 'orders', 'remove', 'set'].sort(),

@@ -72,6 +72,7 @@ describe('src core entry', () => {
 				'matchesCell',
 				'matchesFilter',
 				'matchesTerms',
+				'matchesTableRow',
 				'mergeTerms',
 				'parseRows',
 				'parseTable',

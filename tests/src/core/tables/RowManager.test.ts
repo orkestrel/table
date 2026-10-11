@@ -5,6 +5,46 @@ import { describe, expect, it } from 'vitest'
 import { createTableFixture, readTableError } from '../../../setup.js'
 
 describe('RowManager reads and writes', () => {
+	it('replaces whole rows atomically while retaining order, selection, expansion, and ownership', () => {
+		const table = createTableFixture()
+		table.selection.select('1')
+		table.expansion.expand('1')
+		const writes = createRecorder<TableEventMap['write']>()
+		table.emitter.on('write', writes.handler)
+		const row = { id: '1', name: 'Replaced' }
+		const keys = table.rows.rows().map((entry) => entry.id)
+		expect(table.rows.replace(row)).toBe(true)
+		row.name = 'Caller edit'
+		expect(table.rows.row('1')).toEqual({ id: '1', name: 'Replaced' })
+		expect(table.rows.rows().map((entry) => entry.id)).toEqual(keys)
+		expect(table.selection.keys.has('1')).toBe(true)
+		expect(table.expansion.keys.has('1')).toBe(true)
+		expect(writes.calls).toEqual([['1']])
+		expect(table.rows.replace({ id: '1', name: 'Replaced' })).toBe(true)
+		expect(writes.count).toBe(1)
+		expect(table.rows.replace([{ id: '1', name: 'Lost' }, { id: 'absent' }])).toBe(false)
+		expect(
+			readTableError(() =>
+				table.rows.replace([
+					{ id: '1', name: 'Lost' },
+					{ id: '2', age: 'old' },
+				]),
+			),
+		).toBe('CELL')
+		expect(table.rows.row('1')).toEqual({ id: '1', name: 'Replaced' })
+		expect(table.rows.replace([])).toBe(true)
+		expect(
+			table.rows.replace([
+				{ id: '1', name: 'Intermediate' },
+				{ id: '1', name: 'Final' },
+			]),
+		).toBe(true)
+		expect(table.rows.row('1')).toEqual({ id: '1', name: 'Final' })
+		expect(writes.calls).toEqual([['1'], ['1']])
+		table.destroy()
+		expect(readTableError(() => table.rows.replace({ id: '1' }))).toBe('DESTROYED')
+	})
+
 	it('finds rows and returns owned frozen snapshots', () => {
 		const table = createTableFixture()
 		const first = table.rows.row('1')

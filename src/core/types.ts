@@ -463,6 +463,19 @@ export interface RowManagerInterface {
 	 */
 	update(row: TableRow): boolean
 	/**
+	 * Replaces complete rows under existing keys, removing omitted cells without moving identities.
+	 * @param rows - Whole rows to replace; every key must already exist.
+	 * @returns Whether every key exists. A missing key leaves the batch unchanged.
+	 * @throws A table error when any row is invalid, before any row is written.
+	 */
+	replace(rows: readonly TableRow[]): boolean
+	/**
+	 * Replaces one complete row while retaining its position, selection, and expansion.
+	 * @param row - The whole replacement, including its existing identity.
+	 * @returns Whether the key exists.
+	 */
+	replace(row: TableRow): boolean
+	/**
 	 * Moves one row to another place in the table's own order, counted from zero and clamped to the
 	 * rows that exist.
 	 *

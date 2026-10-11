@@ -259,6 +259,24 @@ export function setup(override?: UserConfig): UserConfig {
 	return mergeOverride(project, override)
 }
 
+export function setupBrowser(override?: UserConfig): UserConfig {
+	const project: UserConfig = {
+		resolve,
+		optimizeDeps,
+		test: {
+			name: { label: 'setup:browser', color: 'blue' },
+			include: ['tests/setupBrowser.test.ts', 'tests/setupStyles.test.ts'],
+			setupFiles: ['./tests/setup.ts', './tests/setupBrowser.ts'],
+			browser: {
+				enabled: true,
+				provider: playwright(browserOptions),
+				instances: [{ browser: 'chromium', headless: true }],
+			},
+		},
+	}
+	return mergeOverride(project, override)
+}
+
 export function guides(override?: UserConfig): UserConfig {
 	const project: UserConfig = {
 		resolve,
@@ -317,6 +335,16 @@ export function probe(override?: UserConfig): UserConfig {
 export default defineConfig({
 	resolve,
 	test: {
-		projects: [srcCore, srcBrowser, policy, config, setup, guides, distribution, probe],
+		projects: [
+			srcCore,
+			srcBrowser,
+			policy,
+			config,
+			setup,
+			setupBrowser,
+			guides,
+			distribution,
+			probe,
+		],
 	},
 })

@@ -27,6 +27,8 @@ const GUIDE_SPEC = 'guides/table.md'
 const MODULES = Object.freeze({
 	[PACKAGE_NAME]: 'src/core',
 	'@src/core': 'src/core',
+	'@orkestrel/table/browser': 'src/browser',
+	'@src/browser': 'src/browser',
 })
 /**
  * Declarations deliberately kept out of the barrel, as `computeSymbolKey` strings.
@@ -106,6 +108,22 @@ await new GuideCommand({
 	const manifest = parseJSON(requireValue(files['package.json'], 'Missing inventory: package.json'))
 	if (!isRecord(manifest)) throw new Error('Invalid package manifest: package.json')
 	const sources = createSourceManager({ files, modules: MODULES })
+	it('executes the whole-row replacement guide without losing selection', () => {
+		const table = createTable(
+			{
+				key: 'id',
+				columns: [
+					{ key: 'id', cell: 'text' },
+					{ key: 'name', cell: 'text' },
+				],
+			},
+			{ rows: [{ id: 'ash', name: 'Ash' }] },
+		)
+		table.selection.select('ash')
+		expect(table.rows.replace({ id: 'ash' })).toBe(true)
+		expect(table.rows.row('ash')).toEqual({ id: 'ash' })
+		expect(table.selection.keys.has('ash')).toBe(true)
+	})
 	it('manifest lists at least one guide', () => {
 		expect(report.input).toEqual([])
 		expect(entries.length).toBeGreaterThan(0)

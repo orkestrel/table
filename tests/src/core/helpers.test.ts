@@ -23,6 +23,7 @@ import {
 	matchesCell,
 	matchesFilter,
 	matchesTerms,
+	matchesTableRow,
 	mergeTerms,
 	removeTerms,
 	serializeRows,
@@ -40,6 +41,14 @@ import {
 import { describe, expect, it } from 'vitest'
 
 const absentMatcher: CellMatcher = (cell) => cell === undefined
+
+it('compares complete row values without relying on snapshot identity or property order', () => {
+	expect(matchesTableRow({ id: 'ash', name: 'Ash' }, { name: 'Ash', id: 'ash' })).toBe(true)
+	expect(matchesTableRow({ id: 'ash', name: 'Ash' }, { id: 'ash' })).toBe(false)
+	expect(matchesTableRow({ id: 'ash' }, { id: 'elm' })).toBe(false)
+	expect(matchesTableRow(undefined, { id: 'ash' })).toBe(false)
+	expect(matchesTableRow({ id: 'ash', active: false }, { id: 'ash', active: true })).toBe(false)
+})
 const reverseComparator: CellComparator = (left, right) =>
 	String(right ?? '').localeCompare(String(left ?? ''))
 
