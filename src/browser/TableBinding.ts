@@ -145,6 +145,11 @@ export class TableBinding implements TableBindingInterface {
 	/** Releases native resources and restores authored state while retaining the core document. */
 	destroy(): void {
 		if (this.destroyed) return
+		const active = this.#element.ownerDocument.activeElement
+		const focused =
+			active instanceof HTMLElement && [...this.#rows.values()].some((row) => row.contains(active))
+				? active
+				: undefined
 		this.#lifetime.abort()
 		if (this.#pending !== undefined) clearTimeout(this.#pending)
 		this.#pending = undefined
@@ -156,11 +161,12 @@ export class TableBinding implements TableBindingInterface {
 			for (const row of this.#document.rows.rows()) {
 				const key = extractKey(this.#document.schema, row)
 				const node = key === undefined ? undefined : this.#rows.get(key)
-				if (node !== undefined) this.#body.append(node)
+				if (node !== undefined) this.#place(node, null)
 			}
 		}
 		for (const element of this.#attributes.keys()) this.#release(element)
 		for (const input of this.#checks.keys()) this.#release(input)
+		this.#restoreFocus(focused)
 		this.#rows.clear()
 		this.#values.clear()
 		this.#details.clear()
@@ -316,6 +322,12 @@ export class TableBinding implements TableBindingInterface {
 			if (node.parentElement === this.#body) this.#visible.add(node)
 		this.#headers()
 		this.#pages(view)
+		this.#restoreFocus(focused, true)
+		this.#observe()
+		if (this.#records.length > 0) this.#enqueue()
+	}
+
+	#restoreFocus(focused: HTMLElement | undefined, hidden = false): void {
 		if (
 			focused !== undefined &&
 			this.#element.ownerDocument.activeElement !== focused &&
@@ -323,7 +335,7 @@ export class TableBinding implements TableBindingInterface {
 				this.#element.ownerDocument.activeElement === null)
 		) {
 			if (focused.isConnected) focused.focus({ preventScroll: true })
-			else {
+			else if (hidden) {
 				this.#attribute(this.#element, 'tabindex', '-1')
 				if (
 					!this.#element.hasAttribute('aria-label') &&
@@ -334,8 +346,6 @@ export class TableBinding implements TableBindingInterface {
 				this.#element.focus({ preventScroll: true })
 			}
 		}
-		this.#observe()
-		if (this.#records.length > 0) this.#enqueue()
 	}
 
 	#detail(key: string, row: TableRow): HTMLTableRowElement | undefined {
@@ -421,11 +431,12 @@ export class TableBinding implements TableBindingInterface {
 	}
 
 	#controls(node: HTMLTableRowElement, key: string, detail: HTMLTableRowElement | undefined): void {
+		const table = node.closest('table')
 		for (const input of node.querySelectorAll('input[type="checkbox"][data-table-select]'))
-			if (input instanceof HTMLInputElement && input.closest('table') === this.#element)
+			if (input instanceof HTMLInputElement && input.closest('table') === table)
 				this.#check(input, this.#document.selection.keys.has(key), false)
 		for (const button of node.querySelectorAll('button[data-table-expand]'))
-			if (button.closest('table') === this.#element) {
+			if (button.closest('table') === table) {
 				this.#attribute(button, 'aria-expanded', String(this.#document.expansion.keys.has(key)))
 				this.#attribute(button, 'aria-controls', detail?.id ?? null)
 			}

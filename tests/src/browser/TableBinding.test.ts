@@ -128,6 +128,115 @@ it('projects every manager with page-scoped selection, retained details, and val
 	}
 })
 
+it.each([true, false])(
+	'projects initial and returning selection and expansion on authored=%s rows without touching nested controls',
+	(authored) => {
+		const { root, element, body } = createNativeTableFixture(authored)
+		const projection = readTable(element)
+		const table = createTable(projection.schema, {
+			rows: authored
+				? projection.rows
+				: [
+						{ id: 'cedar', name: 'Cedar', age: 30 },
+						{ id: 'ash', name: 'Ash', age: 20 },
+					],
+			limit: 1,
+		})
+		table.selection.select('cedar')
+		table.expansion.expand('cedar')
+		const binding = createTableBinding(element, table, {
+			...(authored ? {} : { row: renderTableFixtureRow }),
+			detail: renderTableFixtureDetail,
+		})
+		try {
+			const cedar = requireValue(body.rows[0])
+			const checkbox = requireValue(
+				cedar.querySelector<HTMLInputElement>('input[data-table-select]'),
+			)
+			const button = requireValue(cedar.querySelector('button[data-table-expand]'))
+			expect(checkbox.checked).toBe(true)
+			expect(button.getAttribute('aria-expanded')).toBe('true')
+			expect(button.getAttribute('aria-controls')).toBe(body.rows[1]?.id)
+			const nested = document.createElement('table')
+			nested.innerHTML =
+				'<caption><input type="checkbox" data-table-select checked><button data-table-expand aria-expanded="authored">Nested</button></caption>'
+			cedar.insertCell().append(nested)
+			table.pagination.move(2)
+			binding.refresh()
+			expect(cedar.isConnected).toBe(false)
+			table.selection.clear()
+			table.expansion.clear()
+			table.pagination.move(1)
+			binding.refresh()
+			expect(body.rows[0]).toBe(cedar)
+			expect(checkbox.checked).toBe(false)
+			expect(button.getAttribute('aria-expanded')).toBe('false')
+			expect(button.hasAttribute('aria-controls')).toBe(false)
+			expect(nested.querySelector('input')?.checked).toBe(true)
+			expect(nested.querySelector('button')?.getAttribute('aria-expanded')).toBe('authored')
+		} finally {
+			binding.destroy()
+			table.destroy()
+			root.remove()
+		}
+	},
+)
+
+it('preserves retained authored focus while teardown restores store order and releases the binding', async () => {
+	const { root, element, body } = createNativeTableFixture(true)
+	const projection = readTable(element)
+	const table = createTable(projection.schema, { rows: projection.rows })
+	const binding = createTableBinding(element, table)
+	const row = requireValue(body.rows[0])
+	const button = requireValue(row.querySelector('button'))
+	try {
+		table.sort.set({ column: 'name', direction: 'ascending' })
+		binding.refresh()
+		await userEvent.click(button)
+		expect(document.activeElement).toBe(button)
+		binding.destroy()
+		expect(readTableFixtureKeys(body)).toEqual(['cedar', 'ash', 'birch'])
+		expect(document.activeElement).toBe(button)
+		expect(binding.emitter.destroyed).toBe(true)
+		expect(table.emitter.count()).toBe(0)
+		expect(table.destroyed).toBe(false)
+		table.sort.set({ column: 'name', direction: 'descending' })
+		await waitForDelay(10)
+		expect(readTableFixtureKeys(body)).toEqual(['cedar', 'ash', 'birch'])
+	} finally {
+		binding.destroy()
+		table.destroy()
+		root.remove()
+	}
+})
+
+it('retains an unrelated focus choice when a sort listener destroys the binding', async () => {
+	const { root, element, body } = createNativeTableFixture(true)
+	const projection = readTable(element)
+	const table = createTable(projection.schema, { rows: projection.rows })
+	const binding = createTableBinding(element, table)
+	const outside = requireValue(root.querySelector<HTMLButtonElement>('[data-outside]'))
+	try {
+		table.sort.set({ column: 'name', direction: 'ascending' })
+		binding.refresh()
+		binding.emitter.once('sort', () => {
+			outside.focus()
+			binding.destroy()
+		})
+		await userEvent.click(
+			requireValue(element.querySelector<HTMLButtonElement>('[data-table-sort="name"]')),
+		)
+		expect(document.activeElement).toBe(outside)
+		expect(readTableFixtureKeys(body)).toEqual(['cedar', 'ash', 'birch'])
+		expect(table.sort.orders()).toEqual([{ column: 'name', direction: 'ascending' }])
+		expect(table.emitter.count()).toBe(0)
+	} finally {
+		binding.destroy()
+		table.destroy()
+		root.remove()
+	}
+})
+
 it('preserves focused controls on sort and moves hidden-row focus to a named table', () => {
 	const { root, element, body } = createNativeTableFixture(true)
 	const projection = readTable(element)

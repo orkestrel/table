@@ -141,7 +141,8 @@ retain identity across the view. Reorders use native state-preserving movement w
 focus is restored on fallback moves. When a focused row leaves the view, focus moves to the named
 table. An already focused external control keeps focus. Destroy disconnects scheduling, observers,
 and listeners, restores attributes still carrying the binding's values, removes details, and
-returns retained authored rows in core order. Model rows remain an inert final snapshot. The
+returns retained authored rows in core order while retaining a connected focused control. A caller's
+deliberate focus choice outside the row remains untouched. Model rows remain an inert final snapshot. The
 borrowed document stays live.
 
 The lower-level readers share the same validation boundary, and the row comparison ignores
