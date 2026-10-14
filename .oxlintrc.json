@@ -71,15 +71,6 @@
 	},
 	"overrides": [
 		{
-			"files": [
-				"tools/artifacts/**/*.{js,mjs,ts,mts}",
-				".orkestrel/*/instruments/**/tools/artifacts/**/*.{js,mjs,ts,mts}"
-			],
-			"rules": {
-				"import/no-dynamic-require": ["error", { "esmodule": false }]
-			}
-		},
-		{
 			"files": ["*.config.ts", "*.config.js"],
 			"rules": {
 				"import/no-default-export": "off"
