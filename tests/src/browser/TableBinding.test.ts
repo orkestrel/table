@@ -10,7 +10,7 @@ import {
 	renderTableFixtureRow,
 } from '../../setupBrowser.js'
 
-it('I1 moves native pages by keyboard and hands focus across both bounds', async () => {
+it('moves native pages by keyboard and hands focus across both bounds', async () => {
 	const { root, element } = createNativeTableFixture(true)
 	const projection = readTable(element)
 	const table = createTable(projection.schema, { rows: projection.rows, limit: 2 })
@@ -48,7 +48,7 @@ it('I1 moves native pages by keyboard and hands focus across both bounds', async
 	}
 })
 
-it('I1 resizes through native controls and announces changed ranges only after clearing', async () => {
+it('resizes through native controls and announces changed ranges only after clearing', async () => {
 	const { root, element } = createNativeTableFixture(true)
 	const projection = readTable(element)
 	const table = createTable(projection.schema, { rows: projection.rows, limit: 2 })
@@ -96,7 +96,7 @@ it('I1 resizes through native controls and announces changed ranges only after c
 	}
 })
 
-it('I1 describes ranges and contains malformed limits and foreign controls', async () => {
+it('describes ranges and contains malformed limits and foreign controls', async () => {
 	const { root, element, body } = createNativeTableFixture(true)
 	const projection = readTable(element)
 	const table = createTable(projection.schema, { rows: projection.rows, limit: 2 })
@@ -132,7 +132,7 @@ it('I1 describes ranges and contains malformed limits and foreign controls', asy
 	}
 })
 
-it('I8 toggles only visible expansion keys with a fixed label and stable detail rows', async () => {
+it('toggles only visible expansion keys with a fixed label and stable detail rows', async () => {
 	const { root, element, body } = createNativeTableFixture(true)
 	const projection = readTable(element)
 	const table = createTable(projection.schema, { rows: projection.rows, limit: 2 })
@@ -176,7 +176,7 @@ it('I8 toggles only visible expansion keys with a fixed label and stable detail 
 	}
 })
 
-it('C5 describes sort priority through the binding option and clears removed orders', () => {
+it('describes sort priority through the binding option and clears removed orders', () => {
 	const { root, element } = createNativeTableFixture(true)
 	const projection = readTable(element)
 	const table = createTable(projection.schema, { rows: projection.rows })
