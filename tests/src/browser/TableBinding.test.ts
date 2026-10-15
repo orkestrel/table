@@ -1,6 +1,12 @@
 import { createRecorder, requireValue, waitForCondition, waitForDelay } from '@orkestrel/test'
 import { createTable } from '@src/core'
-import { createTableBinding, readTable, TableBindingError, isTableBindingError } from '@src/browser'
+import {
+	createTableBinding,
+	readTable,
+	TableBindingError,
+	isTableBindingError,
+	type TableExpansion,
+} from '@src/browser'
 import { userEvent } from 'vitest/browser'
 import { expect, it } from 'vitest'
 import {
@@ -184,8 +190,7 @@ it('emits one cancelable expand request per row and page toggle and changes noth
 		scope: root,
 		detail: renderTableFixtureDetail,
 	})
-	const requests =
-		createRecorder<readonly [ReadonlyArray<{ key: string; expanded: boolean }>, boolean]>()
+	const requests = createRecorder<readonly [readonly TableExpansion[], boolean]>()
 	binding.emitter.on('expand', (event) => requests.handler(event.detail, event.cancelable))
 	try {
 		const page = requireValue(root.querySelector<HTMLButtonElement>('[data-table-expand="page"]'))
@@ -215,13 +220,7 @@ it('emits one cancelable expand request per row and page toggle and changes noth
 		await waitForCondition('closed page', () => table.expansion.keys.size === 0)
 		expect(requests.calls.slice(2)).toEqual([
 			[[{ key: 'cedar', expanded: true }], true],
-			[
-				[
-					{ key: 'cedar', expanded: true },
-					{ key: 'ash', expanded: true },
-				],
-				true,
-			],
+			[[{ key: 'ash', expanded: true }], true],
 			[
 				[
 					{ key: 'cedar', expanded: false },
@@ -237,20 +236,81 @@ it('emits one cancelable expand request per row and page toggle and changes noth
 	}
 })
 
-it('reaches the error event when an expand request handler throws', async () => {
+it('applies the announced state when a listener changes the key without preventing', async () => {
+	const { root, element, body } = createNativeTableFixture(true)
+	const projection = readTable(element)
+	const table = createTable(projection.schema, { rows: projection.rows })
+	const binding = createTableBinding(element, table)
+	try {
+		binding.emitter.once('expand', () => table.expansion.expand('cedar'))
+		await userEvent.click(
+			requireValue(body.rows[0]?.querySelector<HTMLButtonElement>('[data-table-expand]')),
+		)
+		await waitForDelay(20)
+		expect(table.expansion.keys.has('cedar')).toBe(true)
+	} finally {
+		binding.destroy()
+		table.destroy()
+		root.remove()
+	}
+})
+
+it('applies nothing when an expand listener destroys the binding', async () => {
+	const { root, element, body } = createNativeTableFixture(true)
+	const projection = readTable(element)
+	const table = createTable(projection.schema, { rows: projection.rows })
+	const binding = createTableBinding(element, table)
+	try {
+		binding.emitter.once('expand', () => binding.destroy())
+		await userEvent.click(
+			requireValue(body.rows[0]?.querySelector<HTMLButtonElement>('[data-table-expand]')),
+		)
+		expect(table.expansion.keys.size).toBe(0)
+		expect(table.emitter.count()).toBe(0)
+	} finally {
+		binding.destroy()
+		table.destroy()
+		root.remove()
+	}
+})
+
+it('ignores a click made from inside an expand listener', async () => {
+	const { root, element, body } = createNativeTableFixture(true)
+	const projection = readTable(element)
+	const table = createTable(projection.schema, { rows: projection.rows })
+	const binding = createTableBinding(element, table)
+	const requests = createRecorder<readonly [readonly TableExpansion[]]>()
+	binding.emitter.on('expand', (event) => requests.handler(event.detail))
+	try {
+		const row = requireValue(body.rows[0]?.querySelector<HTMLButtonElement>('[data-table-expand]'))
+		binding.emitter.once('expand', () => row.click())
+		await userEvent.click(row)
+		await waitForCondition('opened row', () => table.expansion.keys.has('cedar'))
+		expect(requests.calls).toHaveLength(1)
+	} finally {
+		binding.destroy()
+		table.destroy()
+		root.remove()
+	}
+})
+
+it('routes a throwing expand listener to the error option and still toggles', async () => {
 	const { root, element, body } = createNativeTableFixture(true)
 	const projection = readTable(element)
 	const table = createTable(projection.schema, { rows: projection.rows })
 	const errors = createRecorder<readonly [unknown]>()
 	const binding = createTableBinding(element, table, { error: errors.handler })
 	try {
+		const refusal = new Error('refused')
 		binding.emitter.once('expand', () => {
-			throw new Error('refused')
+			throw refusal
 		})
 		await userEvent.click(
 			requireValue(body.rows[0]?.querySelector<HTMLButtonElement>('[data-table-expand]')),
 		)
 		expect(errors.calls).toHaveLength(1)
+		expect(errors.calls[0]?.[0]).toBe(refusal)
+		await waitForCondition('opened row', () => table.expansion.keys.has('cedar'))
 	} finally {
 		binding.destroy()
 		table.destroy()

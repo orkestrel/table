@@ -161,7 +161,8 @@ render success; refresh retries. Destroy cancels pending fills and restores cont
 carrying the binding's last write, preserving caller edits.
 
 A button with `data-table-expand="page"` expands the visible keys, or collapses them when every
-visible key is expanded. Off-page expansion stays intact. The label stays authored;
+visible key is expanded. Off-page expansion stays intact. The cancelable `expand` request lists
+only the keys whose state changes. The label stays authored;
 `aria-expanded` carries the state, and an empty view disables the button. Row controls continue
 to use bare `data-table-expand`. Detail rows and their identifiers survive collapse and paging.
 Nested tables supply none of these controls to the containing binding. The binding renders no

@@ -631,7 +631,11 @@ export class TableBinding implements TableBindingInterface {
 				const keys = this.#keys(this.#document.view)
 				const closing =
 					keys.length > 0 && keys.every((key) => this.#document.expansion.keys.has(key))
-				if (keys.length > 0 && !this.#request(keys.map((key) => ({ key, expanded: !closing }))))
+				const changing = keys.filter((key) => this.#document.expansion.keys.has(key) === closing)
+				if (
+					changing.length > 0 &&
+					!this.#request(changing.map((key) => ({ key, expanded: !closing })))
+				)
 					return
 				if (closing) this.#document.expansion.clear(keys)
 				else this.#document.expansion.expand(keys)
@@ -660,11 +664,11 @@ export class TableBinding implements TableBindingInterface {
 			} else if (button.hasAttribute('data-table-expand')) {
 				const row = button.closest('tr')
 				const key = Array.from(this.#rows).find(([, node]) => node === row)?.[0]
-				if (
-					key !== undefined &&
-					this.#request([{ key, expanded: !this.#document.expansion.keys.has(key) }])
-				)
-					this.#document.expansion.toggle(key)
+				if (key === undefined) return
+				const expanded = !this.#document.expansion.keys.has(key)
+				if (!this.#request([{ key, expanded }])) return
+				if (expanded) this.#document.expansion.expand(key)
+				else this.#document.expansion.clear(key)
 			}
 		})
 		if (!outcome.success) this.#emitter.emit('error', outcome.error)
@@ -673,11 +677,8 @@ export class TableBinding implements TableBindingInterface {
 	#request(detail: readonly TableExpansion[]): boolean {
 		const request = new CustomEvent('table-expand', { cancelable: true, detail })
 		this.#requesting = true
-		try {
-			this.#emitter.emit('expand', request)
-		} finally {
-			this.#requesting = false
-		}
+		this.#emitter.emit('expand', request)
+		this.#requesting = false
 		return !request.defaultPrevented && !this.destroyed
 	}
 
