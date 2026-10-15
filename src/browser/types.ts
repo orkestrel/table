@@ -2,6 +2,7 @@ import type { EmitterErrorHandler, EmitterHooks, EmitterInterface } from '@orkes
 import type {
 	TableDirection,
 	TableInterface,
+	TableKey,
 	TableOrder,
 	TableRow,
 	TableSchema,
@@ -40,9 +41,16 @@ export interface TableSortDescription {
 /** Names a native binding failure at its structure, rendering, or lifecycle boundary. */
 export type TableBindingErrorCode = 'STRUCTURE'
 
-/** Announces cancelable sorting, completed rendering, and failed DOM operations. */
+/** Proposes one row's next expansion state in a cancelable expand request. */
+export interface TableExpansion {
+	readonly key: TableKey
+	readonly expanded: boolean
+}
+
+/** Announces cancelable sorting and expanding, completed rendering, and failed DOM operations. */
 export type TableBindingEventMap = {
 	readonly sort: readonly [event: CustomEvent<readonly TableOrder[]>]
+	readonly expand: readonly [event: CustomEvent<readonly TableExpansion[]>]
 	readonly render: readonly []
 	readonly error: readonly [error: unknown]
 }

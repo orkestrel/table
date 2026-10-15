@@ -4,6 +4,7 @@ import type {
 	TableBindingEventMap,
 	TableBindingInterface,
 	TableBindingOptions,
+	TableExpansion,
 	TableRange,
 } from './types.js'
 import { attempt, parseNumber } from '@orkestrel/contract'
@@ -628,8 +629,11 @@ export class TableBinding implements TableBindingInterface {
 				)
 			} else if (button.getAttribute('data-table-expand') === 'page') {
 				const keys = this.#keys(this.#document.view)
-				if (keys.length > 0 && keys.every((key) => this.#document.expansion.keys.has(key)))
-					this.#document.expansion.clear(keys)
+				const closing =
+					keys.length > 0 && keys.every((key) => this.#document.expansion.keys.has(key))
+				if (keys.length > 0 && !this.#request(keys.map((key) => ({ key, expanded: !closing }))))
+					return
+				if (closing) this.#document.expansion.clear(keys)
 				else this.#document.expansion.expand(keys)
 			} else if (button.hasAttribute('data-table-sort') && this.#element.tHead?.contains(button)) {
 				const column = button.getAttribute('data-table-sort')
@@ -656,10 +660,25 @@ export class TableBinding implements TableBindingInterface {
 			} else if (button.hasAttribute('data-table-expand')) {
 				const row = button.closest('tr')
 				const key = Array.from(this.#rows).find(([, node]) => node === row)?.[0]
-				if (key !== undefined) this.#document.expansion.toggle(key)
+				if (
+					key !== undefined &&
+					this.#request([{ key, expanded: !this.#document.expansion.keys.has(key) }])
+				)
+					this.#document.expansion.toggle(key)
 			}
 		})
 		if (!outcome.success) this.#emitter.emit('error', outcome.error)
+	}
+
+	#request(detail: readonly TableExpansion[]): boolean {
+		const request = new CustomEvent('table-expand', { cancelable: true, detail })
+		this.#requesting = true
+		try {
+			this.#emitter.emit('expand', request)
+		} finally {
+			this.#requesting = false
+		}
+		return !request.defaultPrevented && !this.destroyed
 	}
 
 	#change(event: Event): void {

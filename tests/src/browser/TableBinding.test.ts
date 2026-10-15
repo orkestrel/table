@@ -176,6 +176,88 @@ it('toggles only visible expansion keys with a fixed label and stable detail row
 	}
 })
 
+it('emits one cancelable expand request per row and page toggle and changes nothing when prevented', async () => {
+	const { root, element, body } = createNativeTableFixture(true)
+	const projection = readTable(element)
+	const table = createTable(projection.schema, { rows: projection.rows, limit: 2 })
+	const binding = createTableBinding(element, table, {
+		scope: root,
+		detail: renderTableFixtureDetail,
+	})
+	const requests =
+		createRecorder<readonly [ReadonlyArray<{ key: string; expanded: boolean }>, boolean]>()
+	binding.emitter.on('expand', (event) => requests.handler(event.detail, event.cancelable))
+	try {
+		const page = requireValue(root.querySelector<HTMLButtonElement>('[data-table-expand="page"]'))
+		const row = requireValue(body.rows[0]?.querySelector<HTMLButtonElement>('[data-table-expand]'))
+		const before = Array.from(body.rows)
+		binding.emitter.once('expand', (event) => event.preventDefault())
+		await userEvent.click(row)
+		binding.emitter.once('expand', (event) => event.preventDefault())
+		await userEvent.click(page)
+		expect(requests.calls).toEqual([
+			[[{ key: 'cedar', expanded: true }], true],
+			[
+				[
+					{ key: 'cedar', expanded: true },
+					{ key: 'ash', expanded: true },
+				],
+				true,
+			],
+		])
+		expect([...table.expansion.keys]).toEqual([])
+		expect(Array.from(body.rows)).toEqual(before)
+		await userEvent.click(row)
+		await waitForCondition('opened row', () => table.expansion.keys.has('cedar'))
+		await userEvent.click(page)
+		await waitForCondition('opened page', () => table.expansion.keys.has('ash'))
+		await userEvent.click(page)
+		await waitForCondition('closed page', () => table.expansion.keys.size === 0)
+		expect(requests.calls.slice(2)).toEqual([
+			[[{ key: 'cedar', expanded: true }], true],
+			[
+				[
+					{ key: 'cedar', expanded: true },
+					{ key: 'ash', expanded: true },
+				],
+				true,
+			],
+			[
+				[
+					{ key: 'cedar', expanded: false },
+					{ key: 'ash', expanded: false },
+				],
+				true,
+			],
+		])
+	} finally {
+		binding.destroy()
+		table.destroy()
+		root.remove()
+	}
+})
+
+it('reaches the error event when an expand request handler throws', async () => {
+	const { root, element, body } = createNativeTableFixture(true)
+	const projection = readTable(element)
+	const table = createTable(projection.schema, { rows: projection.rows })
+	const errors = createRecorder<readonly [unknown]>()
+	const binding = createTableBinding(element, table, { error: errors.handler })
+	try {
+		binding.emitter.once('expand', () => {
+			throw new Error('refused')
+		})
+		await userEvent.click(
+			requireValue(body.rows[0]?.querySelector<HTMLButtonElement>('[data-table-expand]')),
+		)
+		expect(errors.calls).toHaveLength(1)
+	} finally {
+		binding.destroy()
+		table.destroy()
+		root.remove()
+	}
+})
+
 it('describes sort priority through the binding option and clears removed orders', () => {
 	const { root, element } = createNativeTableFixture(true)
 	const projection = readTable(element)
