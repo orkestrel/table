@@ -11,6 +11,10 @@ export function createNativeTableFixture(authored = false) {
 		'<section><label><input type="checkbox" data-table-page> Select page</label><button data-outside>Filter</button><table data-table-key="id"><caption>People</caption><thead><tr><th data-table-column="id" data-table-cell="text">Reference</th><th data-table-column="name" data-table-cell="text"><button data-table-sort="name">Name</button></th><th data-table-column="age" data-table-cell="number"><button data-table-sort="age">Age</button></th><th>Actions</th></tr></thead><tbody></tbody></table></section>',
 	)
 	document.body.append(root)
+	root.insertAdjacentHTML(
+		'beforeend',
+		'<nav aria-label="People pages"><output data-table-range>Authored range</output><select aria-label="Rows per page" data-table-limit><option value="">All</option><option value="1">1</option><option value="2">2</option><option value="invalid">Invalid</option></select><button type="button" data-table-move="previous">Previous</button><button type="button" data-table-move="next">Next</button><button type="button" data-table-expand="page">Page details</button></nav>',
+	)
 	const element = requireValue(root.querySelector('table'))
 	const body = requireValue(element.tBodies[0])
 	if (authored) {

@@ -68,6 +68,13 @@ table.selection.keys.has('1') // true — a key, so it survives the next sort
 
 ## Guide
 
+The `@orkestrel/table/browser` entry binds native rows, sort buttons, page selection, visible-row
+expansion, and pager controls to the core document. Use `data-table-limit`,
+`data-table-move="previous|next"`, and `output[data-table-range]` inside a dedicated binding scope.
+Use `data-table-expand="page"` for a fixed-label page expansion button. The `describe.range` and
+`describe.sort` options customize range and sort-priority wording; see the
+[native binding guide](./guides/table.md#native-binding) for markup and lifecycle behavior.
+
 See [guides/table.md](./guides/table.md) for the documented surface — the column cells and what
 each one fixes, the required identity column and the refusals built on it, the lens of sort, filter,
 and page and the order it applies in, the events and when each one stays silent, the serialize/parse
@@ -76,8 +83,8 @@ of what this package leaves to the layer above.
 
 ## Package
 
-Published as one entry point per the `exports` field in `package.json`: `.`, the host-independent
-core. It ships dual ESM+CJS builds with declarations for both.
+Published through the `exports` field in `package.json`: `.` is the host-independent core with
+ESM and CJS builds, and `./browser` is the native DOM binding with an ESM build. Both carry declarations.
 
 ## Development
 

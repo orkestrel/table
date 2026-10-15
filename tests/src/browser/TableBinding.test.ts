@@ -10,6 +10,336 @@ import {
 	renderTableFixtureRow,
 } from '../../setupBrowser.js'
 
+it('I1 moves native pages by keyboard and hands focus across both bounds', async () => {
+	const { root, element } = createNativeTableFixture(true)
+	const projection = readTable(element)
+	const table = createTable(projection.schema, { rows: projection.rows, limit: 2 })
+	const binding = createTableBinding(element, table, { scope: root })
+	try {
+		const previous = requireValue(
+			root.querySelector<HTMLButtonElement>('[data-table-move="previous"]'),
+		)
+		const next = requireValue(root.querySelector<HTMLButtonElement>('[data-table-move="next"]'))
+		const limit = requireValue(root.querySelector<HTMLSelectElement>('[data-table-limit]'))
+		expect(previous.disabled).toBe(true)
+		expect(next.disabled).toBe(false)
+		expect(limit.value).toBe('2')
+		await userEvent.click(limit)
+		await userEvent.keyboard('{Escape}')
+		await userEvent.tab()
+		expect(document.activeElement).toBe(next)
+		await userEvent.keyboard('{Enter}')
+		await waitForCondition('last page', () => next.disabled)
+		expect(table.pagination.page).toBe(2)
+		expect(document.activeElement).toBe(previous)
+		await userEvent.keyboard('{Enter}')
+		await waitForCondition('first page', () => previous.disabled)
+		expect(table.pagination.page).toBe(1)
+		expect(document.activeElement).toBe(next)
+		table.filter.set({ column: 'name', operator: 'contains', text: 'absent' })
+		binding.refresh()
+		expect(previous.disabled).toBe(true)
+		expect(next.disabled).toBe(true)
+		expect(document.activeElement).toBe(element)
+	} finally {
+		binding.destroy()
+		table.destroy()
+		root.remove()
+	}
+})
+
+it('I1 resizes through native controls and announces changed ranges only after clearing', async () => {
+	const { root, element } = createNativeTableFixture(true)
+	const projection = readTable(element)
+	const table = createTable(projection.schema, { rows: projection.rows, limit: 2 })
+	const binding = createTableBinding(element, table, { scope: root })
+	const output = requireValue(root.querySelector('output'))
+	const mutations = createRecorder<readonly [readonly MutationRecord[]]>()
+	const observer = new MutationObserver(mutations.handler)
+	try {
+		await waitForCondition('initial range', () => output.value === '1 to 2 of 3')
+		observer.observe(output, { childList: true, characterData: true, subtree: true })
+		table.selection.select('ash')
+		table.sort.set({ column: 'age', direction: 'ascending' })
+		binding.refresh()
+		await waitForDelay()
+		expect(mutations.count).toBe(0)
+		expect(observer.takeRecords()).toHaveLength(0)
+		table.pagination.move(2)
+		binding.refresh()
+		expect(output.value).toBe('')
+		await waitForCondition('last range', () => output.value === '3 to 3 of 3')
+		const limit = requireValue(root.querySelector<HTMLSelectElement>('[data-table-limit]'))
+		await userEvent.selectOptions(limit, '1')
+		await waitForCondition(
+			'resized range',
+			() => table.pagination.limit === 1 && limit.value === '1',
+		)
+		expect(table.pagination.page).toBe(3)
+		await userEvent.selectOptions(limit, '')
+		await waitForCondition('unpaged range', () => output.value === '1 to 3 of 3')
+		expect(table.pagination.limit).toBeUndefined()
+		table.filter.set({ column: 'name', operator: 'contains', text: 'absent' })
+		binding.refresh()
+		await waitForCondition('empty range', () => output.value === '0 to 0 of 0')
+		table.filter.remove()
+		binding.refresh()
+		binding.destroy()
+		await waitForDelay()
+		expect(output.value).toBe('Authored range')
+		expect(limit.value).toBe('')
+	} finally {
+		observer.disconnect()
+		binding.destroy()
+		table.destroy()
+		root.remove()
+	}
+})
+
+it('I1 describes ranges and contains malformed limits and foreign controls', async () => {
+	const { root, element, body } = createNativeTableFixture(true)
+	const projection = readTable(element)
+	const table = createTable(projection.schema, { rows: projection.rows, limit: 2 })
+	const errors = createRecorder()
+	const binding = createTableBinding(element, table, {
+		scope: root,
+		describe: {
+			range: ({ first, last, count, page, pages }) => `${first}–${last}/${count}; ${page}/${pages}`,
+		},
+		on: { error: errors.handler },
+	})
+	try {
+		const output = requireValue(root.querySelector('output'))
+		await waitForCondition('localized range', () => output.value === '1–2/3; 1/2')
+		const limit = requireValue(root.querySelector<HTMLSelectElement>('[data-table-limit]'))
+		await userEvent.selectOptions(limit, 'invalid')
+		expect(errors.count).toBe(1)
+		expect(table.pagination.limit).toBe(2)
+		const nested = document.createElement('table')
+		nested.innerHTML =
+			'<caption><button data-table-move="next">Foreign page</button><button data-table-expand="page" aria-expanded="authored">Foreign details</button></caption>'
+		requireValue(body.rows[0]).insertCell().append(nested)
+		await userEvent.click(requireValue(nested.querySelector('button')))
+		expect(table.pagination.page).toBe(1)
+		binding.refresh()
+		expect(nested.querySelector('[data-table-expand]')?.getAttribute('aria-expanded')).toBe(
+			'authored',
+		)
+	} finally {
+		binding.destroy()
+		table.destroy()
+		root.remove()
+	}
+})
+
+it('I8 toggles only visible expansion keys with a fixed label and stable detail rows', async () => {
+	const { root, element, body } = createNativeTableFixture(true)
+	const projection = readTable(element)
+	const table = createTable(projection.schema, { rows: projection.rows, limit: 2 })
+	table.expansion.expand('birch')
+	const binding = createTableBinding(element, table, {
+		scope: root,
+		detail: renderTableFixtureDetail,
+	})
+	try {
+		const button = requireValue(root.querySelector<HTMLButtonElement>('[data-table-expand="page"]'))
+		expect(button.getAttribute('aria-expanded')).toBe('false')
+		await userEvent.click(button)
+		await waitForCondition('expanded page', () => button.getAttribute('aria-expanded') === 'true')
+		expect([...table.expansion.keys]).toEqual(['birch', 'cedar', 'ash'])
+		expect(button.textContent).toBe('Page details')
+		const detail = requireValue(body.rows[1])
+		const id = detail.id
+		await userEvent.keyboard('{Enter}')
+		await waitForCondition('collapsed page', () => button.getAttribute('aria-expanded') === 'false')
+		expect([...table.expansion.keys]).toEqual(['birch'])
+		expect(detail.isConnected).toBe(false)
+		await userEvent.keyboard('{Enter}')
+		await waitForCondition('retained detail', () => body.rows[1] === detail)
+		expect(detail.id).toBe(id)
+		table.pagination.move(2)
+		binding.refresh()
+		expect(button.getAttribute('aria-expanded')).toBe('true')
+		await userEvent.click(button)
+		expect([...table.expansion.keys]).toEqual(['cedar', 'ash'])
+		table.filter.set({ column: 'name', operator: 'contains', text: 'absent' })
+		binding.refresh()
+		expect(button.getAttribute('aria-expanded')).toBe('false')
+		expect(button.disabled).toBe(true)
+		binding.destroy()
+		expect(button.hasAttribute('aria-expanded')).toBe(false)
+		expect(button.disabled).toBe(false)
+	} finally {
+		binding.destroy()
+		table.destroy()
+		root.remove()
+	}
+})
+
+it('C5 describes sort priority through the binding option and clears removed orders', () => {
+	const { root, element } = createNativeTableFixture(true)
+	const projection = readTable(element)
+	const table = createTable(projection.schema, { rows: projection.rows })
+	table.sort.set([
+		{ column: 'age', direction: 'ascending' },
+		{ column: 'name', direction: 'descending' },
+	])
+	const binding = createTableBinding(element, table, {
+		describe: {
+			sort: ({ column, priority, count, direction }) =>
+				`${column}: ${priority}/${count} ${direction}`,
+		},
+	})
+	try {
+		const button = requireValue(element.querySelector('[data-table-sort="name"]'))
+		expect(button.getAttribute('aria-description')).toBe('name: 2/2 descending')
+		table.sort.remove('name')
+		binding.refresh()
+		expect(button.hasAttribute('aria-description')).toBe(false)
+	} finally {
+		binding.destroy()
+		table.destroy()
+		root.remove()
+	}
+})
+
+it('clears repeated range wording, replaces pending pages, and preserves authored control edits on teardown', async () => {
+	const { root, element } = createNativeTableFixture(true)
+	const projection = readTable(element)
+	const table = createTable(projection.schema, { rows: projection.rows, limit: 1 })
+	const descriptions = createRecorder<readonly [number]>()
+	const binding = createTableBinding(element, table, {
+		scope: root,
+		describe: {
+			range: ({ page }) => {
+				descriptions.handler(page)
+				return 'Matching rows'
+			},
+		},
+	})
+	try {
+		const output = requireValue(root.querySelector('output'))
+		await waitForCondition('first wording', () => output.value === 'Matching rows')
+		table.pagination.move(2)
+		binding.refresh()
+		expect(output.value).toBe('')
+		await waitForCondition('repeated wording', () => output.value === 'Matching rows')
+		table.pagination.move(3)
+		binding.refresh()
+		table.pagination.move(1)
+		binding.refresh()
+		await waitForCondition('coalesced wording', () => output.value === 'Matching rows')
+		expect(descriptions.calls.map(([page]) => page)).toEqual([1, 2, 3, 1])
+		const previous = requireValue(
+			root.querySelector<HTMLButtonElement>('[data-table-move="previous"]'),
+		)
+		expect(previous.disabled).toBe(true)
+		output.value = 'Caller range'
+		previous.disabled = false
+		binding.destroy()
+		expect(output.value).toBe('Caller range')
+		expect(previous.disabled).toBe(false)
+		await userEvent.click(
+			requireValue(root.querySelector<HTMLButtonElement>('[data-table-move="next"]')),
+		)
+		expect(table.pagination.page).toBe(1)
+	} finally {
+		binding.destroy()
+		table.destroy()
+		root.remove()
+	}
+})
+
+it('contains formatter failures and retries without success or writes after destruction', async () => {
+	const { root, element } = createNativeTableFixture(true)
+	const projection = readTable(element)
+	const table = createTable(projection.schema, { rows: projection.rows, limit: 1 })
+	const errors = createRecorder()
+	const renders = createRecorder()
+	let refused = true
+	let stop = false
+	const binding = createTableBinding(element, table, {
+		scope: root,
+		describe: {
+			range: ({ page }) => {
+				if (refused) throw new Error('Wording refused')
+				if (stop) binding.destroy()
+				return `Page ${page}`
+			},
+		},
+		on: { error: errors.handler, render: renders.handler },
+	})
+	try {
+		const output = requireValue(root.querySelector('output'))
+		expect(errors.count).toBe(1)
+		expect(renders.count).toBe(0)
+		expect(output.value).toBe('Authored range')
+		refused = false
+		binding.refresh()
+		await waitForCondition('retry wording', () => output.value === 'Page 1')
+		stop = true
+		table.pagination.move(2)
+		binding.refresh()
+		expect(binding.destroyed).toBe(true)
+		await waitForDelay()
+		expect(output.value).toBe('Authored range')
+		expect(renders.count).toBe(1)
+	} finally {
+		binding.destroy()
+		table.destroy()
+		root.remove()
+	}
+})
+
+it('does not fill a stale range when the formatter or a pending page changes the document', async () => {
+	const { root, element } = createNativeTableFixture(true)
+	const projection = readTable(element)
+	const table = createTable(projection.schema, { rows: projection.rows, limit: 1 })
+	const binding = createTableBinding(element, table, {
+		scope: root,
+		describe: {
+			range: ({ page }) => {
+				if (page === 1) table.pagination.move(2)
+				return `Page ${page}`
+			},
+		},
+	})
+	try {
+		const output = requireValue(root.querySelector('output'))
+		await waitForCondition('formatter move', () => output.value === 'Page 2')
+		table.pagination.move(1)
+		binding.refresh()
+		table.pagination.move(3)
+		await waitForCondition('pending move', () => output.value === 'Page 3')
+		expect(table.pagination.page).toBe(3)
+	} finally {
+		binding.destroy()
+		table.destroy()
+		root.remove()
+	}
+})
+
+it('refills a range after a stale pending fill returns to the same page before refresh', async () => {
+	const { root, element } = createNativeTableFixture(true)
+	const projection = readTable(element)
+	const table = createTable(projection.schema, { rows: projection.rows, limit: 1 })
+	const binding = createTableBinding(element, table, { scope: root })
+	const returning = setTimeout(() => table.pagination.move(1), 0)
+	try {
+		table.pagination.move(2)
+		await waitForCondition(
+			'returning range',
+			() => root.querySelector('output')?.value === '1 to 1 of 3',
+		)
+		expect(table.pagination.page).toBe(1)
+	} finally {
+		clearTimeout(returning)
+		binding.destroy()
+		table.destroy()
+		root.remove()
+	}
+})
+
 it('cycles and cancels native sort requests while retaining nodes and multi-sort descriptions', async () => {
 	const { root, element, body } = createNativeTableFixture(true)
 	const projection = readTable(element)

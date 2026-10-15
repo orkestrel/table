@@ -1,6 +1,57 @@
 import { expect, it } from 'vitest'
+import { userEvent } from 'vitest/browser'
+import { requireValue, waitForCondition } from '@orkestrel/test'
 import { createTable } from '@src/core'
 import { createTableBinding, readTable } from '@src/browser'
+
+it('executes the scoped pager and expansion guide through native controls', async () => {
+	const scope = document.createElement('section')
+	scope.innerHTML =
+		'<table data-table-key="id"><caption>Accounts</caption><thead><tr><th data-table-column="id" data-table-cell="text"><button data-table-sort="id">Account</button></th></tr></thead><tbody><tr data-table-key="ash"><td data-table-column="id">ash</td></tr><tr data-table-key="cedar"><td data-table-column="id">cedar</td></tr></tbody></table><nav aria-label="Account pages"><output data-table-range></output><select aria-label="Rows per page" data-table-limit><option value="1">1</option><option value="">All</option></select><button type="button" data-table-move="previous">Previous</button><button type="button" data-table-move="next">Next</button><button type="button" data-table-expand="page">Page details</button></nav>'
+	document.body.append(scope)
+	const element = scope.querySelector('table')
+	if (element === null) throw new Error('Missing account table')
+	const projection = readTable(element)
+	const table = createTable(projection.schema, { rows: projection.rows, limit: 1 })
+	const binding = createTableBinding(element, table, {
+		scope,
+		describe: {
+			range: ({ first, last, count }) => `${first}–${last} of ${count} accounts`,
+			sort: ({ priority, count, direction }) => `Order ${priority}/${count}: ${direction}`,
+		},
+		detail: (node, row) => {
+			const cell = node.cells[0]
+			if (cell !== undefined) cell.textContent = `Account ${row['id']}`
+		},
+	})
+	try {
+		const output = requireValue(scope.querySelector('output'))
+		await waitForCondition('guide initial range', () => output.value === '1–1 of 2 accounts')
+		await userEvent.click(
+			requireValue(scope.querySelector<HTMLButtonElement>('[data-table-move="next"]')),
+		)
+		await waitForCondition('guide last range', () => output.value === '2–2 of 2 accounts')
+		expect(document.activeElement).toBe(scope.querySelector('[data-table-move="previous"]'))
+		await userEvent.click(
+			requireValue(scope.querySelector<HTMLButtonElement>('[data-table-expand="page"]')),
+		)
+		await waitForCondition(
+			'guide detail',
+			() => element.tBodies[0]?.rows[1]?.textContent === 'Account cedar',
+		)
+		expect([...table.expansion.keys]).toEqual(['cedar'])
+		const sort = requireValue(scope.querySelector<HTMLButtonElement>('[data-table-sort]'))
+		await userEvent.click(sort)
+		await waitForCondition(
+			'guide sort wording',
+			() => sort.getAttribute('aria-description') === 'Order 1/1: ascending',
+		)
+	} finally {
+		binding.destroy()
+		table.destroy()
+		scope.remove()
+	}
+})
 
 it('executes the native enhancement guide across core and browser', () => {
 	const element = document.createElement('table')

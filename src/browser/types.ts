@@ -1,5 +1,11 @@
 import type { EmitterErrorHandler, EmitterHooks, EmitterInterface } from '@orkestrel/emitter'
-import type { TableInterface, TableOrder, TableRow, TableSchema } from '../core/types.js'
+import type {
+	TableDirection,
+	TableInterface,
+	TableOrder,
+	TableRow,
+	TableSchema,
+} from '../core/types.js'
 
 /** Holds a validated native table projection for constructing a core document. */
 export interface TableProjection {
@@ -12,6 +18,24 @@ export interface TableProjection {
  * @param row - The core value to present.
  */
 export type TableRenderHandler = (element: HTMLTableRowElement, row: TableRow) => void
+
+/** Describes the displayed page within the filtered rows. */
+export interface TableRange {
+	readonly first: number
+	readonly last: number
+	readonly count: number
+	readonly page: number
+	readonly pages: number
+	readonly limit: number | undefined
+}
+
+/** Describes a column's direction and one-based priority among active sort orders. */
+export interface TableSortDescription {
+	readonly column: string
+	readonly direction: TableDirection
+	readonly priority: number
+	readonly count: number
+}
 
 /** Names a native binding failure at its structure, rendering, or lifecycle boundary. */
 export type TableBindingErrorCode = 'STRUCTURE'
@@ -28,13 +52,19 @@ export type TableBindingEventMap = {
  * Supply row for model-owned values and an empty body. Omit it to enhance authored rows
  * matching the supplied document. Each callback patches only the supplied row contents.
  * Detail receives a generated row containing a spanning cell. Scope contains the table and
- * its external page checkbox. The error option handles listener throws; on.error observes
+ * its external controls. Describe customizes range and sort wording; range receives zero
+ * bounds for an empty view, and sort receives a one-based priority and active order count.
+ * The error option handles listener throws; on.error observes
  * failed native reads and renders. Neither callback owns row placement or core teardown.
  */
 export interface TableBindingOptions {
 	readonly row?: TableRenderHandler
 	readonly detail?: TableRenderHandler
 	readonly scope?: HTMLElement
+	readonly describe?: {
+		readonly range?: (range: TableRange) => string
+		readonly sort?: (sort: TableSortDescription) => string
+	}
 	readonly on?: EmitterHooks<TableBindingEventMap>
 	readonly error?: EmitterErrorHandler
 }

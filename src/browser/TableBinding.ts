@@ -1,7 +1,12 @@
 import type { EmitterInterface } from '@orkestrel/emitter'
 import type { TableInterface, TableRow } from '../core/types.js'
-import type { TableBindingEventMap, TableBindingInterface, TableBindingOptions } from './types.js'
-import { attempt } from '@orkestrel/contract'
+import type {
+	TableBindingEventMap,
+	TableBindingInterface,
+	TableBindingOptions,
+	TableRange,
+} from './types.js'
+import { attempt, parseNumber } from '@orkestrel/contract'
 import { Emitter } from '@orkestrel/emitter'
 import { extractKey, matchesTableRow } from '../core/helpers.js'
 import { TableBindingError } from './errors.js'
@@ -30,9 +35,15 @@ export class TableBinding implements TableBindingInterface {
 		HTMLInputElement,
 		{ readonly checked: boolean; readonly indeterminate: boolean; value: boolean; mixed: boolean }
 	>()
+	readonly #controlValues = new Map<
+		HTMLSelectElement | HTMLOutputElement,
+		{ readonly original: string; value: string }
+	>()
 	readonly #schedule = this.#enqueue.bind(this)
 	readonly #subscriptions: Array<() => void> = []
 	#pending: ReturnType<typeof setTimeout> | undefined
+	#announcement: ReturnType<typeof setTimeout> | undefined
+	#range: string | undefined
 	#rendering = false
 	#requesting = false
 	#records: MutationRecord[] = []
@@ -99,7 +110,7 @@ export class TableBinding implements TableBindingInterface {
 			document.emitter.on(event, this.#schedule)
 			this.#subscriptions.push(() => document.emitter.off(event, this.#schedule))
 		}
-		element.addEventListener('click', (event) => this.#click(event), {
+		this.#scope.addEventListener('click', (event) => this.#click(event), {
 			signal: this.#lifetime.signal,
 		})
 		this.#scope.addEventListener('change', (event) => this.#change(event), {
@@ -154,6 +165,8 @@ export class TableBinding implements TableBindingInterface {
 		if (this.#pending !== undefined) clearTimeout(this.#pending)
 		this.#pending = undefined
 		this.#observer.disconnect()
+		if (this.#announcement !== undefined) clearTimeout(this.#announcement)
+		this.#announcement = undefined
 		for (const unsubscribe of this.#subscriptions) unsubscribe()
 		this.#subscriptions.length = 0
 		for (const detail of this.#details.values()) detail.remove()
@@ -166,6 +179,8 @@ export class TableBinding implements TableBindingInterface {
 		}
 		for (const element of this.#attributes.keys()) this.#release(element)
 		for (const input of this.#checks.keys()) this.#release(input)
+		for (const [control, state] of this.#controlValues)
+			if (control.value === state.value) control.value = state.original
 		this.#restoreFocus(focused)
 		this.#rows.clear()
 		this.#values.clear()
@@ -173,6 +188,7 @@ export class TableBinding implements TableBindingInterface {
 		this.#detailValues.clear()
 		this.#attributes.clear()
 		this.#checks.clear()
+		this.#controlValues.clear()
 		this.#visible.clear()
 		this.#records = []
 		this.#emitter.destroy()
@@ -321,7 +337,11 @@ export class TableBinding implements TableBindingInterface {
 		for (const node of this.#rows.values())
 			if (node.parentElement === this.#body) this.#visible.add(node)
 		this.#headers()
+		if (this.destroyed) return
 		this.#pages(view)
+		if (this.destroyed) return
+		this.#pager()
+		if (this.destroyed) return
 		this.#restoreFocus(focused, true)
 		this.#observe()
 		if (this.#records.length > 0) this.#enqueue()
@@ -335,17 +355,19 @@ export class TableBinding implements TableBindingInterface {
 				this.#element.ownerDocument.activeElement === null)
 		) {
 			if (focused.isConnected) focused.focus({ preventScroll: true })
-			else if (hidden) {
-				this.#attribute(this.#element, 'tabindex', '-1')
-				if (
-					!this.#element.hasAttribute('aria-label') &&
-					!this.#element.hasAttribute('aria-labelledby') &&
-					this.#element.caption === null
-				)
-					this.#attribute(this.#element, 'aria-label', this.#document.schema.label ?? 'Table')
-				this.#element.focus({ preventScroll: true })
-			}
+			else if (hidden) this.#focusTable()
 		}
+	}
+
+	#focusTable(): void {
+		this.#attribute(this.#element, 'tabindex', '-1')
+		if (
+			!this.#element.hasAttribute('aria-label') &&
+			!this.#element.hasAttribute('aria-labelledby') &&
+			this.#element.caption === null
+		)
+			this.#attribute(this.#element, 'aria-label', this.#document.schema.label ?? 'Table')
+		this.#element.focus({ preventScroll: true })
 	}
 
 	#detail(key: string, row: TableRow): HTMLTableRowElement | undefined {
@@ -435,7 +457,9 @@ export class TableBinding implements TableBindingInterface {
 		for (const input of node.querySelectorAll('input[type="checkbox"][data-table-select]'))
 			if (input instanceof HTMLInputElement && input.closest('table') === table)
 				this.#check(input, this.#document.selection.keys.has(key), false)
-		for (const button of node.querySelectorAll('button[data-table-expand]'))
+		for (const button of node.querySelectorAll(
+			'button[data-table-expand]:not([data-table-expand="page"])',
+		))
 			if (button.closest('table') === table) {
 				this.#attribute(button, 'aria-expanded', String(this.#document.expansion.keys.has(key)))
 				this.#attribute(button, 'aria-controls', detail?.id ?? null)
@@ -451,22 +475,36 @@ export class TableBinding implements TableBindingInterface {
 			const column = button.getAttribute('data-table-sort')
 			const index = orders.findIndex((order) => order.column === column)
 			const order = orders[index]
+			const description =
+				order === undefined
+					? null
+					: (this.#options.describe?.sort?.({
+							column: order.column,
+							direction: order.direction,
+							priority: index + 1,
+							count: orders.length,
+						}) ?? `Sort priority ${index + 1} of ${orders.length}, ${order.direction}`)
+			if (this.destroyed) return
 			this.#attribute(
 				header,
 				'aria-sort',
 				index === 0 && order !== undefined ? order.direction : null,
 			)
-			this.#attribute(
-				button,
-				'aria-description',
-				order === undefined
-					? null
-					: `Sort priority ${index + 1} of ${orders.length}, ${order.direction}`,
-			)
+			this.#attribute(button, 'aria-description', description)
 		}
 	}
 
 	#pages(view: readonly TableRow[]): void {
+		const keys = this.#keys(view)
+		for (const button of this.#scoped('button[data-table-expand="page"]')) {
+			this.#attribute(
+				button,
+				'aria-expanded',
+				String(keys.length > 0 && keys.every((key) => this.#document.expansion.keys.has(key))),
+			)
+			if (button instanceof HTMLButtonElement) this.#disable(button, keys.length === 0)
+			if (this.destroyed) return
+		}
 		const selected = view.filter((row) => {
 			const key = extractKey(this.#document.schema, row)
 			return key !== undefined && this.#document.selection.keys.has(key)
@@ -483,17 +521,117 @@ export class TableBinding implements TableBindingInterface {
 				)
 	}
 
+	#scoped(selector: string): readonly HTMLElement[] {
+		return Array.from(this.#scope.querySelectorAll<HTMLElement>(selector)).filter((control) => {
+			const table = control.closest('table')
+			return table === null || table === this.#element
+		})
+	}
+
+	#disable(button: HTMLButtonElement, disabled: boolean, sibling?: HTMLButtonElement): void {
+		if (disabled && this.#element.ownerDocument.activeElement === button) {
+			if (sibling !== undefined) sibling.focus({ preventScroll: true })
+			else this.#focusTable()
+		}
+		if (!this.destroyed) this.#attribute(button, 'disabled', disabled ? '' : null)
+	}
+
+	#value(control: HTMLSelectElement | HTMLOutputElement, value: string): void {
+		const state = this.#controlValues.get(control)
+		if (state === undefined) this.#controlValues.set(control, { original: control.value, value })
+		else state.value = value
+		if (control.value !== value) control.value = value
+	}
+
+	#readRange(): TableRange {
+		const pagination = this.#document.pagination
+		const length = this.#document.view.length
+		return {
+			first: length === 0 ? 0 : pagination.offset + 1,
+			last: length === 0 ? 0 : pagination.offset + length,
+			count: this.#document.count,
+			page: pagination.page,
+			pages: pagination.count,
+			limit: pagination.limit,
+		}
+	}
+
+	#pager(): void {
+		const range = this.#readRange()
+		const buttons = this.#scoped(
+			'button[data-table-move="previous"], button[data-table-move="next"]',
+		).filter((button) => button instanceof HTMLButtonElement)
+		const enabled = buttons.filter((button) =>
+			button.getAttribute('data-table-move') === 'previous'
+				? range.page > 1
+				: range.page < range.pages,
+		)
+		for (const button of enabled) this.#disable(button, false)
+		for (const button of buttons) {
+			if (!enabled.includes(button))
+				this.#disable(
+					button,
+					true,
+					enabled.find(
+						(sibling) =>
+							sibling.getAttribute('data-table-move') !== button.getAttribute('data-table-move'),
+					),
+				)
+			if (this.destroyed) return
+		}
+		for (const select of this.#scoped('select[data-table-limit]'))
+			if (select instanceof HTMLSelectElement)
+				this.#value(select, range.limit === undefined ? '' : String(range.limit))
+		const signature = JSON.stringify(range)
+		if (signature === this.#range) return
+		const outputs = this.#scoped('output[data-table-range]').filter(
+			(output) => output instanceof HTMLOutputElement,
+		)
+		const description =
+			this.#options.describe?.range?.(range) ?? `${range.first} to ${range.last} of ${range.count}`
+		if (this.destroyed) return
+		if (signature !== JSON.stringify(this.#readRange())) {
+			this.#enqueue()
+			return
+		}
+		this.#range = signature
+		if (this.#announcement !== undefined) clearTimeout(this.#announcement)
+		for (const output of outputs) this.#value(output, '')
+		this.#announcement = setTimeout(() => {
+			this.#announcement = undefined
+			if (this.destroyed) return
+			if (signature !== JSON.stringify(this.#readRange())) {
+				this.#range = undefined
+				this.#enqueue()
+				return
+			}
+			for (const output of outputs)
+				if (this.#scoped('output[data-table-range]').includes(output))
+					this.#value(output, description)
+		}, 0)
+	}
+
 	#click(event: MouseEvent): void {
 		if (!(event.target instanceof Element) || this.destroyed || this.#requesting) return
 		const button = event.target.closest('button')
 		if (
 			!(button instanceof HTMLButtonElement) ||
 			button.disabled ||
-			button.closest('table') !== this.#element
+			(button.closest('table') !== null && button.closest('table') !== this.#element)
 		)
 			return
 		const outcome = attempt(() => {
-			if (button.hasAttribute('data-table-sort') && this.#element.tHead?.contains(button)) {
+			const move = button.getAttribute('data-table-move')
+			if (move === 'previous' || move === 'next') {
+				this.#document.pagination.move(
+					this.#document.pagination.page + (move === 'previous' ? -1 : 1),
+				)
+			} else if (button.getAttribute('data-table-expand') === 'page') {
+				const keys = this.#keys(this.#document.view)
+				if (keys.length > 0 && keys.every((key) => this.#document.expansion.keys.has(key)))
+					this.#document.expansion.clear(keys)
+				else this.#document.expansion.expand(keys)
+			} else if (button.hasAttribute('data-table-sort') && this.#element.tHead?.contains(button)) {
 				const column = button.getAttribute('data-table-sort')
 				if (column === null || !this.#document.schema.columns.some((entry) => entry.key === column))
 					throw new TableBindingError('STRUCTURE', 'The sort button names no column')
@@ -526,6 +664,25 @@ export class TableBinding implements TableBindingInterface {
 
 	#change(event: Event): void {
 		const input = event.target
+		if (input instanceof HTMLSelectElement && input.hasAttribute('data-table-limit')) {
+			if (
+				input.disabled ||
+				this.destroyed ||
+				!this.#scoped('select[data-table-limit]').includes(input)
+			)
+				return
+			const outcome = attempt(() => {
+				const limit = input.value === '' ? undefined : parseNumber(input.value)
+				if (input.value !== '' && (limit === undefined || limit <= 0 || !Number.isInteger(limit)))
+					throw new TableBindingError(
+						'STRUCTURE',
+						'The page limit must be a positive integer or empty',
+					)
+				this.#document.pagination.resize(limit)
+			})
+			if (!outcome.success) this.#emitter.emit('error', outcome.error)
+			return
+		}
 		if (
 			!(input instanceof HTMLInputElement) ||
 			input.type !== 'checkbox' ||

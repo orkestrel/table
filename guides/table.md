@@ -71,7 +71,9 @@ These declarations belong to the browser entry.
 | ----------------------- | --------- | ----------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
 | `TableBinding`          | class     | `TableBindingInterface`                                                                                                 | Retains keyed native rows while projecting every core table manager.                   |
 | `TableBindingInterface` | interface | `{ element, document, destroyed, emitter } plus refresh, destroy`                                                       | Binds native table elements to a borrowed core document.                               |
-| `TableBindingOptions`   | interface | `{ row?, detail?, scope?, on?, error? }`                                                                                | Configures row ownership, detail presentation, scoped controls, and event listeners.   |
+| `TableBindingOptions`   | interface | `{ row?, detail?, scope?, describe?: { range?, sort? }, on?, error? }`                                                  | Configures row ownership, detail presentation, scoped controls, and event listeners.   |
+| `TableRange`            | interface | `{ first, last, count, page, pages, limit }`                                                                            | Describes the displayed page within the filtered rows.                                 |
+| `TableSortDescription`  | interface | `{ column, direction, priority, count }`                                                                                | Describes a column's direction and one-based priority among active sort orders.        |
 | `TableBindingEventMap`  | type      | `{ sort: readonly [event: CustomEvent<readonly TableOrder[]>]; render: readonly []; error: readonly [error: unknown] }` | Announces cancelable sorting, completed rendering, and failed DOM operations.          |
 | `TableRenderHandler`    | type      | `(element: HTMLTableRowElement, row: TableRow) => void`                                                                 | Patches the contents of a retained row without moving or replacing that row.           |
 | `TableProjection`       | interface | `{ schema, rows }`                                                                                                      | Holds a validated native table projection for constructing a core document.            |
@@ -130,11 +132,67 @@ error without render success; refresh retries. Arbitrary callback effects are no
 Native hooks use real controls: a header button with data-table-sort naming the column, a row
 checkbox with data-table-select, a row button with data-table-expand, and a scope checkbox with
 data-table-page. Scope defaults to the table. Use a scope dedicated to that table for an external
-page checkbox. It selects or clears only current view keys; off-page selection stays selected.
+controls. It selects or clears only current view keys; off-page selection stays selected.
 Sort clicks cycle ascending, descending, and absent, replacing the primary order. Programmatic
 multi-sort remains intact and is described on each sorted header button. The sort event carries
 a cancelable CustomEvent whose detail is the proposed order array; preventDefault vetoes before
 the document changes. The core managers remain the only owners of filters and paging.
+
+An external pager belongs inside the binding's dedicated scope. Use a select with
+`data-table-limit`, buttons with `data-table-move="previous"` and `data-table-move="next"`, and an
+authored `output` with `data-table-range`. A limit option's value is a positive integer; an empty
+value removes paging. Invalid values emit a binding error without changing pagination. Programmatic
+limit changes update the select; include an option for each limit your page uses. Native disabled
+states follow the bounds. A focused button that becomes disabled hands focus to the enabled
+opposite button, or to the named table when neither direction is available.
+
+The range output is cleared before filling on a later task. It fills initially and when the
+displayed range, filtered count, page, page count, or limit changes. Sorting, selection, expansion,
+and refresh alone don't repeat the sentence. Its implicit status role needs no added live role.
+The default is `1 to 2 of 3`, or `0 to 0 of 0` for an empty view. The `describe.range` callback
+receives one-based bounds, filtered count, page and page count, and the optional page limit.
+The `describe.sort` callback receives the column, direction, one-based priority, and active order
+count. Its default is `Sort priority 2 of 2, descending`. Formatter throws emit error without
+render success; refresh retries. Destroy cancels pending fills and restores control values still
+carrying the binding's last write, preserving caller edits.
+
+A button with `data-table-expand="page"` expands the visible keys, or collapses them when every
+visible key is expanded. Off-page expansion stays intact. The label stays authored;
+`aria-expanded` carries the state, and an empty view disables the button. Row controls continue
+to use bare `data-table-expand`. Detail rows and their identifiers survive collapse and paging.
+Nested tables supply none of these controls to the containing binding. The binding renders no
+numbered page window; presentation classes belong to the host.
+
+This scoped binding example customizes wording while retaining native control labels.
+
+```ts
+import { createTable } from '@orkestrel/table'
+import { createTableBinding, readTable } from '@orkestrel/table/browser'
+
+const scope = document.createElement('section')
+scope.innerHTML =
+	'<table data-table-key="id"><caption>Accounts</caption><thead><tr><th data-table-column="id" data-table-cell="text"><button data-table-sort="id">Account</button></th></tr></thead><tbody><tr data-table-key="ash"><td data-table-column="id">ash</td></tr><tr data-table-key="cedar"><td data-table-column="id">cedar</td></tr></tbody></table><nav aria-label="Account pages"><output data-table-range></output><select aria-label="Rows per page" data-table-limit><option value="1">1</option><option value="">All</option></select><button type="button" data-table-move="previous">Previous</button><button type="button" data-table-move="next">Next</button><button type="button" data-table-expand="page">Page details</button></nav>'
+document.body.append(scope)
+const element = scope.querySelector('table')
+if (element === null) throw new Error('Missing account table')
+const projection = readTable(element)
+const table = createTable(projection.schema, { rows: projection.rows, limit: 1 })
+const binding = createTableBinding(element, table, {
+	scope,
+	describe: {
+		range: ({ first, last, count }) => `${first}–${last} of ${count} accounts`,
+		sort: ({ priority, count, direction }) => `Order ${priority}/${count}: ${direction}`,
+	},
+	detail: (node, row) => {
+		const cell = node.cells[0]
+		if (cell !== undefined) cell.textContent = `Account ${row['id']}`
+	},
+})
+// Keep the binding while the page is mounted; release it before removing the scope.
+binding.destroy()
+table.destroy()
+scope.remove()
+```
 
 Rendering coalesces on a later task, including writes during callbacks. Rows and child controls
 retain identity across the view. Reorders use native state-preserving movement when available;
