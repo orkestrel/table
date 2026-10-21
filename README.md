@@ -18,7 +18,7 @@ npm install @orkestrel/table
 
 ## Requirements
 
-- Node.js >= 22.12
+- Node.js >= 22.18
 - Host-independent: no `node:*`, no DOM. Ships dual ESM+CJS builds.
 
 ## Usage
