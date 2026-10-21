@@ -1,4 +1,4 @@
-import type { TableInterface } from '../core/types.js'
+import type { TableInterface } from '@src/core'
 import type { TableBindingInterface, TableBindingOptions } from './types.js'
 import { TableBinding } from './TableBinding.js'
 

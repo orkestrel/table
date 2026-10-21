@@ -1,7 +1,7 @@
 import type { TableProjection } from './types.js'
-import type { TableRow, TableSchema } from '../core/types.js'
+import type { TableRow, TableSchema } from '@src/core'
 import { parseJSON } from '@orkestrel/contract'
-import { parseRows, parseTable } from '../core/parsers.js'
+import { parseRows, parseTable } from '@src/core'
 import { TableBindingError } from './errors.js'
 
 /** Reads declared header metadata and explicit row keys into a validated core projection.

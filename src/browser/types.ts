@@ -6,7 +6,7 @@ import type {
 	TableOrder,
 	TableRow,
 	TableSchema,
-} from '../core/types.js'
+} from '@src/core'
 
 /** Holds a validated native table projection for constructing a core document. */
 export interface TableProjection {

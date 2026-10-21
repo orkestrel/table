@@ -1,5 +1,5 @@
 import type { EmitterInterface } from '@orkestrel/emitter'
-import type { TableInterface, TableRow } from '../core/types.js'
+import type { TableInterface, TableRow } from '@src/core'
 import type {
 	TableBindingEventMap,
 	TableBindingInterface,
@@ -9,7 +9,7 @@ import type {
 } from './types.js'
 import { attempt, parseNumber } from '@orkestrel/contract'
 import { Emitter } from '@orkestrel/emitter'
-import { extractKey, matchesTableRow } from '../core/helpers.js'
+import { extractKey, matchesTableRow } from '@src/core'
 import { TableBindingError } from './errors.js'
 import { readTableRows, readTableSchema } from './helpers.js'
 
