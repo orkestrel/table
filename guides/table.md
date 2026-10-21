@@ -12,7 +12,7 @@ drawing belongs to each host. The browser face binds native table elements to th
 The row store is the source of truth, and it is the whole of it. Sort terms, filters, the picked
 keys, the opened keys, and the page are held; `view` and every tally are worked out on read, so no
 second copy of an answer can go stale. A write validates all of itself before any of it lands, and
-announces itself once it has.
+announces itself after it has.
 
 The core refuses rather than throws. Every guard returns `false` off-shape rather than throwing,
 every parser returns `undefined` on refusal, and every row the table hands back is a frozen owned
@@ -362,7 +362,7 @@ A `Shape` cell holds the constant's declared type.
 ### Guards
 
 Total `is*` guards over unknown input. None throws, none coerces, and each returns `false` for
-anything off-shape — including a hostile prototype, a symbol key, or a cyclic value.
+anything off-shape — including an unexpected prototype, a symbol key, or a cyclic value.
 
 In a guard table a `Shape` cell holds the type the guard narrows to.
 
@@ -404,7 +404,7 @@ lens-list operations, the cell gate, the comparison, the filter tests, the row p
 audit, and the wire projections. `computeKeys`, `matchesTerms`, `filterRows`, and `sortRows`
 propagate exceptions from supplied callbacks; `serializeTable` raises `SCHEMA` for a `meta` no clone
 can own. The other helpers are total over ordinary declared inputs, subject to the core's
-hostile-reflection boundary described later.
+reflection-failure boundary described later.
 
 | API              | Kind     | Summary                                                                                                                     |
 | ---------------- | -------- | --------------------------------------------------------------------------------------------------------------------------- |
@@ -435,7 +435,7 @@ row the table hands back is a live internal reference.
 | `cloneRow`    | function | Clones one row into an owned frozen snapshot.                                                                                                                   |
 | `cloneSchema` | function | Clones a whole schema into an owned frozen snapshot, freezing every nested column, choice list, choice, and `meta`; raises `SCHEMA` for a `meta` it cannot own. |
 
-`cloneRow` cannot fail for an ordinary row record, subject to the core's hostile-reflection boundary
+`cloneRow` cannot fail for an ordinary row record, subject to the core's reflection-failure boundary
 described later. `cloneSchema` can also fail when a column's `meta` holds something no clone can own, such as a
 record that refers back to itself. `meta` is typed as JSON and a cycle satisfies that type, so the
 refusal is a `TableError` coded `SCHEMA` rather than a silent partial copy. `createTable` never reaches
@@ -455,9 +455,9 @@ owned value rather than the caller's.
 | `parseTable` | function | Parses unknown wire data into an owned, structurally valid, semantically sound table schema.                           |
 | `parseRows`  | function | Parses unknown wire data into owned rows against one table schema, coercing a numeric string and `'true'` / `'false'`. |
 
-**Hostile reflection.** A TypeScript shape does not guarantee that reflection succeeds. An ordinary
+**Reflection failures.** A TypeScript shape does not guarantee that reflection succeeds. An ordinary
 helper or cloner may propagate a throw from a proxy trap or accessor. Guards and parsers contain that
-throw and refuse instead. This is the hostile-reflection boundary for the whole core.
+throw and refuse instead. This is the reflection-failure boundary for the whole core.
 
 ## Cells
 
@@ -982,7 +982,7 @@ the filter admits, so nothing here can drift out of step with what the table hol
   "page 1 of 1" over an empty list needs no separate case for it.
 - A page beyond the last one clamps to the last one. Narrowing the filter therefore moves the page
   on its own, and moving to page 9 of 3 shows page 3 rather than nothing.
-- `resize` keeps the first row the view was showing, so the page moves to wherever that row now
+- `resize` keeps the first row the view was showing, so the page moves to wherever that row
   falls. Resizing is a change of magnification, not a jump to the top.
 
 ```ts
@@ -1144,11 +1144,11 @@ An event fires only when something actually moved: a write that changes nothing 
 | ---------- | --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `write`    | the row's `key`             | Once per row admitted, written over, or moved to a different place, in the order the table wrote them. A listener that wants the row reads it back.                        |
 | `remove`   | the row's `key`             | Once per row taken out, in the order the table removed them. A `clear` is the exception; see its row.                                                                      |
-| `sort`     | every current `TableOrder`  | Whenever the term list's content changes, carrying the whole list as it now stands.                                                                                        |
-| `filter`   | every current `TableFilter` | Whenever the filter list's content changes, carrying the whole list as it now stands.                                                                                      |
+| `sort`     | every current `TableOrder`  | Whenever the term list's content changes, carrying the whole list as it stands.                                                                                            |
+| `filter`   | every current `TableFilter` | Whenever the filter list's content changes, carrying the whole list as it stands.                                                                                          |
 | `select`   | the picked `TableKey` set   | Whenever the picked set changes, carrying the whole set — including when removing rows pruned it.                                                                          |
 | `expand`   | the opened `TableKey` set   | Whenever the opened set changes, carrying the whole set — including when removing rows pruned it.                                                                          |
-| `paginate` | the `page` now shown        | Whenever the paged window moves: a `move`, a `resize`, and a clamp caused by a narrower filter or by rows leaving.                                                         |
+| `paginate` | the `page` shown            | Whenever the paged window moves: a `move`, a `resize`, and a clamp caused by a narrower filter or by rows leaving.                                                         |
 | `clear`    | nothing                     | On a completed `clear`. It is the whole announcement of that reset: no `remove`, no `sort`, no `filter`, no `select`, no `expand`, and no `paginate` is emitted beside it. |
 
 A payload is owned by the listener. `sort` and `filter` carry the whole axis because a single term is
@@ -1365,7 +1365,7 @@ a host can check against the same number the package checks against.
 They bind at the schema door and the value door, and which door a limit sits at is the whole story.
 
 **The schema door reports.** `auditTable` counts columns, choices, names, strings, total text, and
-total nodes — `meta` included, since it is retained like everything else — and returns one human
+total nodes — `meta` included, because it is retained like everything else — and returns one human
 diagnostic per breach. `createTable` raises `SCHEMA` carrying them and `parseTable` refuses the
 schema, so no over-budget schema is ever held.
 
@@ -1642,7 +1642,7 @@ These invariants hold across [`src/core`](../src/core) and this guide.
     whatever it reset, so a reset of ten thousand rows is one event. `destroy` called twice does what
     calling it once did; afterwards every write raises `DESTROYED` while every getter still answers
     what the table last held, and `destroyed` reports the fact so a host need not catch to learn it.
-16. **Guards are total and parsers refuse.** No `is*` throws for any input — hostile prototype,
+16. **Guards are total and parsers refuse.** No `is*` throws for any input — unexpected prototype,
     symbol key, cycle, or depth. No `parse*` throws; each returns `undefined` on refusal. A
     guard-valid value is never refused by its parser, and every parsed result satisfies its guard.
     `isTableSchema` is therefore semantic and not merely structural: it is the exact shape plus an
@@ -1701,7 +1701,7 @@ this package answers today through a mechanism it already exposes.
 | Grouping and aggregation     | out           | Group headers, subtotals, and rollups add a second row kind that is not a row, and a fold that is not a filter. `view` stays a flat list of the rows the table holds.                                                                                                                                                                                                                                                         |
 | Tree and hierarchical rows   | out           | A parent key would make `view` a traversal rather than a projection, and expansion would mean "show children" instead of "this row is open". Expansion here says only which rows are open.                                                                                                                                                                                                                                    |
 | Editing transactions         | out           | A staged edit set with commit and rollback is a second store beside the row store, and two writers that can disagree. A host that needs one holds the pending values and calls `update` once.                                                                                                                                                                                                                                 |
-| Undo and history             | out           | The table holds the rows now. A stack of everything before is a host concern with a host's retention policy, built over the same `update` and `remove` calls.                                                                                                                                                                                                                                                                 |
+| Undo and history             | out           | The table holds the rows. A stack of everything before is a host concern with a host's retention policy, built over the same `update` and `remove` calls.                                                                                                                                                                                                                                                                     |
 | Async data sources           | host          | Every read here is synchronous, so `view` is right the instant anything moves. Fetching, paging a server, and reconciling a response are the host's; it reads the lens and calls `add` or `clear`.                                                                                                                                                                                                                            |
 | Server-side paging           | seam          | `sort.orders()`, `filter.filters()`, `pagination.offset`, and `pagination.limit` are already the shape a query asks for, in the vocabulary `@orkestrel/database` uses.                                                                                                                                                                                                                                                        |
 | Row count budget             | out           | A table legitimately holds a million rows. The budgets bound one schema's declarations, which arrive from a wire; how many rows a host holds is the host's memory to spend.                                                                                                                                                                                                                                                   |
@@ -1746,7 +1746,7 @@ this package answers today through a mechanism it already exposes.
   `compareCells`, `admitsFilter`, `matchesFilter`, `filterRows`, `sortRows`, `auditTable`,
   `serializeTable`, `serializeRows`, and the budgets.
 - [`tests/src/core/validators.test.ts`](../tests/src/core/validators.test.ts) — every guard against
-  valid, off-shape, and hostile input, plus guard/parser soundness in both directions.
+  valid, off-shape, and untrusted input, plus guard/parser soundness in both directions.
 - [`tests/src/core/parsers.test.ts`](../tests/src/core/parsers.test.ts) — `parseTable`, `parseRows`,
   the coercions, identity at the parse door, and the canonical byte-stable round trip.
 - [`tests/src/core/cloners.test.ts`](../tests/src/core/cloners.test.ts) — every clone is owned,

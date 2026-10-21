@@ -37,7 +37,7 @@ const NPM = process.platform === 'win32' ? 'npm.cmd' : 'npm'
 // resolved from the workspace under proof, so a consumer of the packed artifact is
 // checked by the same compiler that workspace's own `check` script runs.
 const TSC = createRequire(join(ROOT, 'package.json')).resolve('typescript/bin/tsc')
-// Windows needs a shell to launch a `.cmd`: Node refuses one directly since the
+// Windows needs a shell to launch a `.cmd`: Node refuses one directly because the
 // batch-argument hardening, and `spawnSync` returns `EINVAL` with a null status
 // rather than an exit code a caller can read. Every following argument is a literal or
 // a path this file built, so the shell has nothing to escape.
@@ -657,7 +657,7 @@ async function bundleEntry(stage: Stage, entry: Entry): Promise<string> {
 }
 
 // The key set the bundled module publishes in a real browser, read off the page
-// once it has loaded over a loopback server. A module that never evaluated
+// after it has loaded over a loopback server. A module that never evaluated
 // publishes nothing, and a page error is raised rather than compared away.
 async function readBrowserExports(browser: Browser, bundle: string): Promise<readonly string[]> {
 	const server = createServer((request, response) => {

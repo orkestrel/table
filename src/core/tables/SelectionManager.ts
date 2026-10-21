@@ -25,7 +25,7 @@ export class SelectionManager implements SelectionManagerInterface {
 		this.#keys = new KeyManager(emitter, 'select', gate, rows, read, write)
 	}
 
-	/** Returns the keys of the rows picked right now. */
+	/** Returns the keys of the rows picked. */
 	get keys(): ReadonlySet<TableKey> {
 		return this.#keys.keys
 	}

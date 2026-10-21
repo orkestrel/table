@@ -37,7 +37,7 @@ export class KeyManager {
 		this.#write = write
 	}
 
-	/** Returns the keys held right now. */
+	/** Returns the keys held. */
 	get keys(): ReadonlySet<TableKey> {
 		return new Set(this.#read())
 	}

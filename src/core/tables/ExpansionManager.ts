@@ -25,7 +25,7 @@ export class ExpansionManager implements ExpansionManagerInterface {
 		this.#keys = new KeyManager(emitter, 'expand', gate, rows, read, write)
 	}
 
-	/** Returns the keys of the rows opened right now. */
+	/** Returns the keys of the rows opened. */
 	get keys(): ReadonlySet<TableKey> {
 		return this.#keys.keys
 	}

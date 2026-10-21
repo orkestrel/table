@@ -339,10 +339,10 @@ export type TableErrorCode = 'SCHEMA' | 'COLUMN' | 'KEY' | 'CELL' | 'DESTROYED'
  * `write` and `remove` carry one key and fire once per row, in the order the table wrote or
  * removed them. A listener that wants the row reads it back.
  *
- * `sort` and `filter` carry the whole axis as it now stands, and `select` and `expand` carry the
+ * `sort` and `filter` carry the whole axis as it stands, and `select` and `expand` carry the
  * whole key set. Each payload is owned by the listener, so nothing it holds moves underneath it.
  *
- * `paginate` carries the page the table now shows, and fires whenever the paged window moves,
+ * `paginate` carries the page the table shows, and fires whenever the paged window moves,
  * including a clamp and a change of page size.
  *
  * `clear` is a signal, and it is the whole announcement of that reset: a clear emits no `remove`,
@@ -657,7 +657,7 @@ export interface FilterManagerInterface {
  * ```
  */
 export interface SelectionManagerInterface {
-	/** Holds the keys of the rows picked right now. */
+	/** Holds the keys of the rows picked. */
 	readonly keys: ReadonlySet<TableKey>
 	/**
 	 * Picks every row the table holds, one row, or several. Every row, not every visible one.
@@ -733,7 +733,7 @@ export interface SelectionManagerInterface {
  * ```
  */
 export interface ExpansionManagerInterface {
-	/** Holds the keys of the rows opened right now. */
+	/** Holds the keys of the rows opened. */
 	readonly keys: ReadonlySet<TableKey>
 	/** Opens every row the table holds, one row, or several. */
 	expand(): void
@@ -828,7 +828,7 @@ export interface PaginationManagerInterface {
 	 * argument out to stop paging.
 	 *
 	 * @remarks
-	 * The page moves to wherever that first row now falls.
+	 * The page moves to wherever that first row falls.
 	 *
 	 * @param limit - How many rows a page holds. Leave it out to stop paging, and the view shows
 	 *   every row the filter admits.
@@ -847,7 +847,7 @@ export interface PaginationManagerInterface {
  * `pagination`. Nothing else is stored. `view` and `count` are worked out when they are read, so no
  * second copy of the answer can go stale.
  *
- * A write validates all of itself before any of it lands, and announces itself once it has.
+ * A write validates all of itself before any of it lands, and announces itself after it has.
  *
  * @example
  * ```ts
@@ -874,7 +874,7 @@ export interface TableInterface {
 	/** Manages which stretch of them the view shows. */
 	readonly pagination: PaginationManagerInterface
 	/**
-	 * Returns the rows to draw right now: filtered, then sorted, then paged.
+	 * Returns the rows to draw: filtered, then sorted, then paged.
 	 *
 	 * @remarks
 	 * It is worked out on every read and never stored, so it is right the instant anything moves.
