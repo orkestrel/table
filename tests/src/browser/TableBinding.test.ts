@@ -16,6 +16,31 @@ import {
 	renderTableFixtureRow,
 } from '../../setupBrowser.js'
 
+class CallbackControl {
+	#refused: boolean
+	#stopped = false
+
+	constructor(refused = false) {
+		this.#refused = refused
+	}
+
+	get refused(): boolean {
+		return this.#refused
+	}
+
+	get stopped(): boolean {
+		return this.#stopped
+	}
+
+	accept(): void {
+		this.#refused = false
+	}
+
+	stop(): void {
+		this.#stopped = true
+	}
+}
+
 it('moves native pages by keyboard and hands focus across both bounds', async () => {
 	const { root, element } = createNativeTableFixture(true)
 	const projection = readTable(element)
@@ -398,14 +423,13 @@ it('contains formatter failures and retries without success or writes after dest
 	const table = createTable(projection.schema, { rows: projection.rows, limit: 1 })
 	const errors = createRecorder()
 	const renders = createRecorder()
-	let refused = true
-	let stop = false
+	const control = new CallbackControl(true)
 	const binding = createTableBinding(element, table, {
 		scope: root,
 		describe: {
 			range: ({ page }) => {
-				if (refused) throw new Error('Wording refused')
-				if (stop) binding.destroy()
+				if (control.refused) throw new Error('Wording refused')
+				if (control.stopped) binding.destroy()
 				return `Page ${page}`
 			},
 		},
@@ -416,10 +440,10 @@ it('contains formatter failures and retries without success or writes after dest
 		expect(errors.count).toBe(1)
 		expect(renders.count).toBe(0)
 		expect(output.value).toBe('Authored range')
-		refused = false
+		control.accept()
 		binding.refresh()
 		await waitForCondition('retry wording', () => output.value === 'Page 1')
-		stop = true
+		control.stop()
 		table.pagination.move(2)
 		binding.refresh()
 		expect(binding.destroyed).toBe(true)
@@ -802,10 +826,10 @@ it('reports failed callbacks without success, retries explicitly, and yields ree
 	})
 	const errors = createRecorder()
 	const renders = createRecorder()
-	let refused = true
+	const control = new CallbackControl(true)
 	const binding = createTableBinding(element, table, {
 		row: (node, row) => {
-			if (refused) throw new Error('Renderer refusal')
+			if (control.refused) throw new Error('Renderer refusal')
 			renderTableFixtureRow(node, row)
 			if (row['age'] === 20) table.rows.update({ id: 'ash', age: 21 })
 		},
@@ -814,7 +838,7 @@ it('reports failed callbacks without success, retries explicitly, and yields ree
 	try {
 		expect(errors.count).toBe(1)
 		expect(renders.count).toBe(0)
-		refused = false
+		control.accept()
 		binding.refresh()
 		await waitForCondition(
 			'reentrant final value rendered',
@@ -903,11 +927,11 @@ it('yields refresh from render listeners and stops a renderer continuation after
 	const table = createTable(readTable(element).schema, {
 		rows: [{ id: 'ash', name: 'Ash', age: 20 }],
 	})
-	let stop = false
+	const control = new CallbackControl()
 	const binding = createTableBinding(element, table, {
 		row: (node, row) => {
 			renderTableFixtureRow(node, row)
-			if (stop) binding.destroy()
+			if (control.stopped) binding.destroy()
 		},
 	})
 	try {
@@ -917,7 +941,7 @@ it('yields refresh from render listeners and stops a renderer continuation after
 		binding.refresh()
 		expect(renders.count).toBe(1)
 		await waitForCondition('listener refresh yields', () => renders.count === 2)
-		stop = true
+		control.stop()
 		table.rows.update({ id: 'ash', age: 21 })
 		binding.refresh()
 		expect(binding.destroyed).toBe(true)

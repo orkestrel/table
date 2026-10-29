@@ -16,10 +16,12 @@ import {
 import {
 	createChoiceBudgetSchema,
 	createColumnBudgetSchema,
+	createDeepMetadata,
 	createTableRows,
 	createTableSchema,
 } from '../../setup.js'
 import { createHostileValues } from '@orkestrel/test'
+import { attempt } from '@orkestrel/contract'
 import { describe, expect, it } from 'vitest'
 
 describe('table structural guards', () => {
@@ -140,11 +142,12 @@ describe('table structural guards', () => {
 
 		for (const [index, value] of createHostileValues().entries()) {
 			for (const guard of strictGuards) {
-				let accepted: boolean | undefined
-				expect(() => {
-					accepted = guard(value)
-				}, `${guard.name} against hostile value ${index}`).not.toThrow()
-				expect(accepted, `${guard.name} against hostile value ${index}`).toBe(false)
+				const accepted = attempt(() => guard(value))
+				expect(accepted.success, `${guard.name} against hostile value ${index}`).toBe(true)
+				expect(
+					accepted.success ? accepted.value : undefined,
+					`${guard.name} against hostile value ${index}`,
+				).toBe(false)
 			}
 		}
 	})
@@ -158,24 +161,19 @@ describe('table structural guards', () => {
 		const accepting = new Set([2, 5])
 
 		for (const [index, value] of createHostileValues().entries()) {
-			let rowAccepted: boolean | undefined
-			expect(() => {
-				rowAccepted = isTableRow(value)
-			}, `row guard against hostile value ${index}`).not.toThrow()
-			expect(rowAccepted, `row guard against hostile value ${index}`).toBe(accepting.has(index))
+			const rowAccepted = attempt(() => isTableRow(value))
+			expect(rowAccepted.success, `row guard against hostile value ${index}`).toBe(true)
+			expect(
+				rowAccepted.success ? rowAccepted.value : undefined,
+				`row guard against hostile value ${index}`,
+			).toBe(accepting.has(index))
 		}
 	})
 
 	it('refuses cyclic and excessively deep metadata without throwing', () => {
 		const cycle: Record<string, unknown> = {}
 		cycle.self = cycle
-		const deep: Record<string, unknown> = {}
-		let current = deep
-		for (let index = 0; index < 600; index += 1) {
-			const next: Record<string, unknown> = {}
-			current.next = next
-			current = next
-		}
+		const deep = createDeepMetadata(600)
 
 		for (const meta of [cycle, deep]) {
 			const column = { cell: 'text', key: 'id', meta }

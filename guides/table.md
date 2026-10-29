@@ -20,6 +20,9 @@ copy. Table-owned refusals raise `TableError`, and each one names a caller mista
 
 ## Surface
 
+The core and browser error guards recognize self-branded errors across package copies and
+subclasses. They validate declared members and refuse transparent proxies and unbranded look-alikes.
+
 The core surface is exported from `@orkestrel/table` ([`src/core`](../src/core)); the native binding
 surface comes from `@orkestrel/table/browser` ([`src/browser`](../src/browser)). The manager
 classes and the key-set shell they compose are the module's internal declarations: they stay out

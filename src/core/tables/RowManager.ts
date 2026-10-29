@@ -110,8 +110,7 @@ export class RowManager implements RowManagerInterface {
 
 		const next = [...current]
 		const moved: TableKey[] = []
-		for (let index = 0; index < updates.length; index += 1) {
-			const update = updates[index]
+		for (const [index, update] of updates.entries()) {
 			const location = locations[index]
 			if (update === undefined || location === undefined) continue
 			const previous = next[location]

@@ -10,6 +10,7 @@ import type { SpawnSyncReturns } from 'node:child_process'
 import type { TestContext } from 'vitest'
 import { spawnSync } from 'node:child_process'
 import {
+	cpSync,
 	existsSync,
 	mkdirSync,
 	mkdtempSync,
@@ -23,7 +24,7 @@ import { createServer } from 'node:http'
 import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { chromium } from 'playwright'
 import { build } from 'vite'
 import { resolveBrowser, resolvePinnedBrowser } from '../configs/browsers.js'
@@ -36,7 +37,10 @@ const NPM = process.platform === 'win32' ? 'npm.cmd' : 'npm'
 // compiler majors this toolchain supports, and its in-process API is not. It is
 // resolved from the workspace under proof, so a consumer of the packed artifact is
 // checked by the same compiler that workspace's own `check` script runs.
-const TSC = createRequire(join(ROOT, 'package.json')).resolve('typescript/bin/tsc')
+const TSC = join(
+	dirname(createRequire(join(ROOT, 'package.json')).resolve('typescript/package.json')),
+	'bin/tsc',
+)
 // Windows needs a shell to launch a `.cmd`: Node refuses one directly because the
 // batch-argument hardening, and `spawnSync` returns `EINVAL` with a null status
 // rather than an exit code a caller can read. Every following argument is a literal or
@@ -207,14 +211,18 @@ function isList(value: unknown): value is readonly unknown[] {
 function isPackageTarget(target: string): boolean {
 	if (!target.startsWith('./')) return false
 	for (const segment of target.slice(2).split(/[\\/]/u)) {
-		let decoded = segment
-		try {
-			decoded = decodeURIComponent(segment)
-		} catch {}
-		const normalized = decoded.toLowerCase()
+		const normalized = decodeSegment(segment).toLowerCase()
 		if (normalized === '.' || normalized === '..' || normalized === 'node_modules') return false
 	}
 	return true
+}
+
+function decodeSegment(segment: string): string {
+	try {
+		return decodeURIComponent(segment)
+	} catch {
+		return segment
+	}
 }
 
 function readJson(path: string): unknown {
@@ -243,7 +251,7 @@ function runNpm(args: readonly string[], cwd: string): SpawnSyncReturns<string> 
 	return spawnSync(NPM, [...args], {
 		cwd,
 		encoding: 'utf8',
-		env: { ...process.env, npm_config_cache: join(readScratch(), 'cache') },
+		env: { ...process.env, npm_config_cache: join(SESSION.scratch, 'cache') },
 		shell: SHELL,
 		windowsHide: true,
 	})
@@ -298,11 +306,16 @@ function matchesFile(path: string): boolean {
 // the containing condition or fallback list unresolved, so the walk continues.
 function targetToDeclaration(target: string, installed: string): string | undefined {
 	if (!isPackageTarget(target)) return undefined
-	let declaration = target
-	if (target.endsWith('.cjs')) declaration = `${target.slice(0, -4)}.d.cts`
-	else if (target.endsWith('.mjs')) declaration = `${target.slice(0, -4)}.d.mts`
-	else if (target.endsWith('.js')) declaration = `${target.slice(0, -3)}.d.ts`
-	else if (!isDeclaration(target)) return undefined
+	const declaration = target.endsWith('.cjs')
+		? `${target.slice(0, -4)}.d.cts`
+		: target.endsWith('.mjs')
+			? `${target.slice(0, -4)}.d.mts`
+			: target.endsWith('.js')
+				? `${target.slice(0, -3)}.d.ts`
+				: isDeclaration(target)
+					? target
+					: undefined
+	if (declaration === undefined) return undefined
 	return matchesFile(join(installed, declaration)) ? declaration : undefined
 }
 
@@ -334,22 +347,23 @@ function resolveDeclaration(
 // physical nested manifest starts a scope even when it omits `type` or cannot be
 // parsed. A directory at that spelling is not a manifest, so the walk continues.
 function readPackageType(installed: string, target: string): unknown {
-	let directory = dirname(join(installed, target))
-	while (true) {
-		const path = join(directory, 'package.json')
-		if (matchesFile(path)) {
-			try {
-				const manifest = readJson(path)
-				return isRecord(manifest) ? manifest.type : undefined
-			} catch {
-				return undefined
-			}
+	return readDirectoryType(installed, dirname(join(installed, target)))
+}
+
+function readDirectoryType(installed: string, directory: string): unknown {
+	const path = join(directory, 'package.json')
+	if (matchesFile(path)) {
+		try {
+			const manifest = readJson(path)
+			return isRecord(manifest) ? manifest.type : undefined
+		} catch {
+			return undefined
 		}
-		if (directory === installed) return undefined
-		const parent = dirname(directory)
-		if (parent === directory) return undefined
-		directory = parent
 	}
+	if (directory === installed) return undefined
+	const parent = dirname(directory)
+	if (parent === directory) return undefined
+	return readDirectoryType(installed, parent)
 }
 
 function resolvesBrowser(entry: unknown): boolean {
@@ -696,8 +710,8 @@ async function readBrowserExports(browser: Browser, bundle: string): Promise<rea
 // published surface back off the installed tree. Every later claim reads this
 // result, so a failure here is raised where it happens rather than once per entry.
 function buildStage(): Stage {
-	const packed = join(readScratch(), 'packed')
-	const consumer = join(readScratch(), 'consumer')
+	const packed = join(SESSION.scratch, 'packed')
+	const consumer = join(SESSION.scratch, 'consumer')
 	mkdirSync(packed, { recursive: true })
 	const pack = runNpm(['pack', '--ignore-scripts', '--pack-destination', packed], ROOT)
 	if (pack.status !== 0) throw new Error(`npm pack refused this workspace: ${readOutput(pack)}`)
@@ -771,26 +785,43 @@ function buildStage(): Stage {
 	return { consumer, installed, archives, entries, subpaths, undeclared, excluded, targets }
 }
 
-let scratch: string | undefined
-let staged: Stage | undefined
+class DistributionSession {
+	#scratch: string | undefined
+	#stage: Stage | undefined
 
-function readScratch(): string {
-	if (scratch === undefined) {
-		throw new Error('The distribution setup has not allocated its scratch directory')
+	get scratch(): string {
+		if (this.#scratch === undefined) {
+			throw new Error('The distribution setup has not allocated its scratch directory')
+		}
+		return this.#scratch
 	}
-	return scratch
+
+	get stage(): Stage | undefined {
+		return this.#stage
+	}
+
+	open(): void {
+		if (this.#scratch !== undefined) throw new Error('The distribution session is already open')
+		this.#scratch = mkdtempSync(join(tmpdir(), 'distribution-'))
+		mkdirSync(join(this.#scratch, 'cache'), { recursive: true })
+		this.#stage = openStage()
+	}
+
+	close(): void {
+		if (this.#scratch !== undefined) {
+			rmSync(this.#scratch, { force: true, recursive: true, maxRetries: 3, retryDelay: 100 })
+		}
+	}
 }
 
+const SESSION = new DistributionSession()
+
 beforeAll(() => {
-	scratch = mkdtempSync(join(tmpdir(), 'distribution-'))
-	mkdirSync(join(scratch, 'cache'), { recursive: true })
-	staged = openStage()
+	SESSION.open()
 })
 
 afterAll(() => {
-	if (scratch !== undefined) {
-		rmSync(scratch, { force: true, recursive: true, maxRetries: 3, retryDelay: 100 })
-	}
+	SESSION.close()
 })
 
 // Installing the packed archive resolves its own runtime dependencies, so an
@@ -806,14 +837,14 @@ function openStage(): Stage | undefined {
 		}
 		return buildStage()
 	} catch (error) {
-		rmSync(readScratch(), { force: true, recursive: true, maxRetries: 3, retryDelay: 100 })
+		rmSync(SESSION.scratch, { force: true, recursive: true, maxRetries: 3, retryDelay: 100 })
 		throw error
 	}
 }
 
 describe('distribution classifiers', () => {
 	it('classifies synthetic export mappings without a registry stage', () => {
-		const root = join(readScratch(), 'classifiers')
+		const root = join(SESSION.scratch, 'classifiers')
 		writeFile(
 			join(root, 'package.json'),
 			JSON.stringify({
@@ -882,6 +913,7 @@ describe('distribution classifiers', () => {
 // The staged consumer, or a skip naming what the run could not reach. `it.skipIf`
 // carries no reason, so the gate sits here where the test context can state one.
 function requireStage(context: TestContext): Stage {
+	const staged = SESSION.stage
 	if (staged === undefined) {
 		return context.skip('`npm ping` did not answer, so nothing was packed or installed')
 	}
@@ -889,6 +921,57 @@ function requireStage(context: TestContext): Stage {
 }
 
 describe('installed package consumer', () => {
+	it('recognizes branded errors across formats and copies [requires the registry]', (context) => {
+		const stage = requireStage(context)
+		const copy = join(stage.consumer, 'node_modules', '@orkestrel', 'table-copy')
+		cpSync(stage.installed, copy, { recursive: true })
+		const driver = join(stage.consumer, 'errors.mjs')
+		writeFile(
+			driver,
+			`import assert from 'node:assert/strict'
+import { createRequire } from 'node:module'
+import * as imported from '@orkestrel/table'
+const required = createRequire(import.meta.url)('@orkestrel/table')
+const copied = await import(${JSON.stringify(pathToFileURL(join(copy, 'dist/src/core/index.js')).href)})
+const browser = await import('@orkestrel/table/browser')
+const copiedBrowser = await import(${JSON.stringify(pathToFileURL(join(copy, 'dist/src/browser/index.js')).href)})
+for (const source of [imported, required, copied]) {
+  const error = new source.TableError('SCHEMA', 'invalid')
+  class Derived extends source.TableError {
+    constructor() { super('SCHEMA', 'derived'); this.name = 'Derived' }
+  }
+  for (const target of [imported, required, copied]) {
+    assert.equal(target.isTableError(error), true)
+    assert.equal(target.isTableError(new Derived()), true)
+    assert.equal(target.isTableError(Object.assign(new Error('look-alike'), { code: 'SCHEMA' })), false)
+    assert.equal(target.isTableError(new Proxy(error, {})), false)
+    const plain = {}
+    Object.defineProperty(plain, Symbol.for('@orkestrel/table.TableError'), { value: plain })
+    assert.equal(target.isTableError(plain), false)
+  }
+}
+for (const source of [browser, copiedBrowser]) {
+  const error = new source.TableBindingError('STRUCTURE', 'invalid')
+  class Derived extends source.TableBindingError {
+    constructor() { super('STRUCTURE', 'derived'); this.name = 'Derived' }
+  }
+  for (const target of [browser, copiedBrowser]) {
+    assert.equal(target.isTableBindingError(error), true)
+    assert.equal(target.isTableBindingError(new Derived()), true)
+    assert.equal(target.isTableBindingError(Object.assign(new Error('look-alike'), { code: 'STRUCTURE' })), false)
+    assert.equal(target.isTableBindingError(new Proxy(error, {})), false)
+    const plain = {}
+    Object.defineProperty(plain, Symbol.for('@orkestrel/table.TableBindingError'), { value: plain })
+    assert.equal(target.isTableBindingError(plain), false)
+  }
+}
+`,
+		)
+		const result = runNode([driver], stage.consumer)
+		expect(readOutput(result)).toBe('')
+		expect(result.status).toBe(0)
+	})
+
 	it('packs one archive and installs it in isolation [requires the registry]', (context) => {
 		const stage = requireStage(context)
 		expect(stage.archives).toHaveLength(1)

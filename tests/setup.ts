@@ -1,4 +1,4 @@
-import type { JSONValue } from '@orkestrel/contract'
+import type { JSONRecord, JSONValue } from '@orkestrel/contract'
 import type {
 	TableCell,
 	TableColumn,
@@ -198,10 +198,10 @@ export function readDestroyedWrites(
 
 /** Builds a schema with an exact column population. */
 export function createColumnBudgetSchema(count: number): TableSchema {
-	const columns: TableColumn[] = []
-	for (let index = 0; index < count; index += 1) {
-		columns.push({ cell: 'text', key: index === 0 ? 'id' : `column-${index}` })
-	}
+	const columns = Array.from<unknown, TableColumn>({ length: count }, (_, index) => ({
+		cell: 'text',
+		key: index === 0 ? 'id' : `column-${index}`,
+	}))
 	return { key: 'id', columns }
 }
 
@@ -225,14 +225,60 @@ export function createChoiceBudgetSchema(count: number): TableSchema {
 
 /** Builds a schema at the whole-text budget plus an optional delta. */
 export function createTextBudgetSchema(extra = 0): TableSchema {
-	const meta: Record<string, JSONValue> = {}
-	let remaining = TEXT_LIMIT - 46 + extra
-	for (let index = 0; index < 16; index += 1) {
-		const length = Math.min(STRING_LIMIT, remaining)
-		meta[`k${index}`] = 'x'.repeat(length)
-		remaining -= length
-	}
+	const meta: Record<string, JSONValue> = Object.fromEntries(
+		Array.from({ length: 16 }, (_, index) => [
+			`k${index}`,
+			'x'.repeat(
+				Math.min(STRING_LIMIT, Math.max(0, TEXT_LIMIT - 46 + extra - index * STRING_LIMIT)),
+			),
+		]),
+	)
 	return { key: 'id', columns: [{ cell: 'text', key: 'id', meta }] }
+}
+
+/** Builds nested metadata with the requested depth. */
+export function createDeepMetadata(depth: number): JSONRecord {
+	return Array.from({ length: depth }).reduce<JSONRecord>((nested) => ({ next: nested }), {})
+}
+
+/** Builds a schema whose metadata contains an accessor. */
+export function createAccessorSchema(): TableSchema {
+	return {
+		key: 'id',
+		columns: [
+			{
+				cell: 'text',
+				key: 'id',
+				meta: {
+					get icon() {
+						return 'key'
+					},
+				},
+			},
+		],
+	}
+}
+
+/** Counts metadata reads and returns a cycle after the stable reads are exhausted. */
+export class TestMetadata {
+	#calls = 0
+	readonly #stable: number
+
+	constructor(stable: number) {
+		this.#stable = stable
+	}
+
+	get calls(): number {
+		return this.#calls
+	}
+
+	read(): JSONRecord {
+		this.#calls += 1
+		if (this.#calls <= this.#stable) return { align: 'end' }
+		const cyclic: Record<string, JSONValue> = {}
+		cyclic.self = cyclic
+		return cyclic
+	}
 }
 
 /** Builds a schema at the whole-node budget plus an optional delta. */

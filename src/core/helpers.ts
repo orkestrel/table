@@ -350,27 +350,29 @@ export function sortRows(
  */
 export function auditTable(schema: TableSchema): readonly string[] {
 	const faults: string[] = []
-	const columns = new Set<string>()
-	let choiceExceeded: string | undefined
-	let nameExceeded = schema.name !== undefined && schema.name.length > NAME_LIMIT
+	const columns: string[] = []
+	const longName = schema.name !== undefined && schema.name.length > NAME_LIMIT
 
 	if (schema.columns.length > COLUMN_LIMIT) {
 		faults.push(`schema declares more than ${COLUMN_LIMIT} columns`)
 	}
 
 	const columnCount = Math.min(schema.columns.length, COLUMN_LIMIT + 1)
-	for (let index = 0; index < columnCount; index += 1) {
-		const column = schema.columns[index]
-		if (column === undefined) continue
-		if (column.key.length > NAME_LIMIT) nameExceeded = true
-		if (
-			choiceExceeded === undefined &&
-			column.cell === 'choice' &&
-			column.choices.length > CHOICE_LIMIT
-		) {
-			choiceExceeded = column.key
-		}
-	}
+	const indices = Array.from({ length: columnCount }, (_, index) => index)
+	const [choiceExceeded, nameExceeded] = indices.reduce<readonly [string | undefined, boolean]>(
+		([choice, name], index) => {
+			const column = schema.columns[index]
+			if (column === undefined) return [choice, name]
+			const exceeded = column.key.length > NAME_LIMIT
+			return [
+				choice === undefined && column.cell === 'choice' && column.choices.length > CHOICE_LIMIT
+					? column.key
+					: choice,
+				name || exceeded,
+			]
+		},
+		[undefined, longName],
+	)
 
 	if (choiceExceeded !== undefined) {
 		faults.push(`column "${choiceExceeded}" offers more than ${CHOICE_LIMIT} choices`)
@@ -379,35 +381,28 @@ export function auditTable(schema: TableSchema): readonly string[] {
 
 	const pending: unknown[] = [schema]
 	const metadata: boolean[] = [false]
-	let position = 0
-	let stringExceeded = false
-	let textExceeded = false
-	let nodeExceeded = false
-	let text = 0
+	const measurements: Array<readonly [number, boolean, boolean]> = []
 
-	while (position < pending.length) {
-		const node = pending[position]
+	for (const [position, node] of pending.entries()) {
 		const inMeta = metadata[position] === true
-		position += 1
 
 		if (isString(node)) {
-			if (node.length > STRING_LIMIT) stringExceeded = true
-			text = Math.min(TEXT_LIMIT + 1, text + node.length)
-			if (text > TEXT_LIMIT) textExceeded = true
+			measurements.push([node.length, node.length > STRING_LIMIT, false])
 			continue
 		}
 
 		if (isArray(node)) {
 			const read = readArrayEntries(node)
 			if (!read.success || !read.value.dense) continue
-			for (const entry of read.value.entries) {
+			const exceeded = read.value.entries.reduce<boolean>((refused, entry) => {
 				if (pending.length >= NODE_LIMIT) {
-					nodeExceeded = true
-					continue
+					return true
 				}
 				pending.push(entry)
 				metadata.push(inMeta)
-			}
+				return refused
+			}, false)
+			measurements.push([0, false, exceeded])
 			continue
 		}
 
@@ -415,29 +410,30 @@ export function auditTable(schema: TableSchema): readonly string[] {
 		const keys = attempt(() => Object.keys(node))
 		if (!keys.success) continue
 
-		for (const key of keys.value) {
-			if (inMeta) {
-				if (key.length > STRING_LIMIT) stringExceeded = true
-				text = Math.min(TEXT_LIMIT + 1, text + key.length)
-				if (text > TEXT_LIMIT) textExceeded = true
-			}
-
-			const value = attempt(() => node[key])
-			if (!value.success || value.value === undefined) continue
-			if (pending.length >= NODE_LIMIT) {
-				nodeExceeded = true
-				continue
-			}
-			pending.push(value.value)
-			metadata.push(inMeta || key === 'meta')
-		}
+		const measured = keys.value.reduce<readonly [number, boolean, boolean]>(
+			([text, string, refused], key) => {
+				const length = text + (inMeta ? key.length : 0)
+				const oversized = string || (inMeta && key.length > STRING_LIMIT)
+				const value = attempt(() => node[key])
+				if (!value.success || value.value === undefined) return [length, oversized, refused]
+				if (pending.length >= NODE_LIMIT) return [length, oversized, true]
+				pending.push(value.value)
+				metadata.push(inMeta || key === 'meta')
+				return [length, oversized, refused]
+			},
+			[0, false, false],
+		)
+		measurements.push(measured)
 	}
+	const stringExceeded = measurements.some((entry) => entry[1])
+	const textExceeded = measurements.reduce((total, entry) => total + entry[0], 0) > TEXT_LIMIT
+	const nodeExceeded = measurements.some((entry) => entry[2])
 
 	if (stringExceeded) faults.push(`schema contains a string longer than ${STRING_LIMIT}`)
 	if (textExceeded) faults.push(`schema retains more than ${TEXT_LIMIT} string code units`)
 	if (nodeExceeded) faults.push(`schema retains more than ${NODE_LIMIT} nodes`)
 
-	for (let index = 0; index < columnCount; index += 1) {
+	for (const index of indices) {
 		const column = schema.columns[index]
 		if (column === undefined) continue
 		if (!nodeExceeded && column.meta !== undefined) {
@@ -447,21 +443,21 @@ export function auditTable(schema: TableSchema): readonly string[] {
 			}
 		}
 		if (column.key.length === 0) faults.push('column "" has an empty key')
-		if (columns.has(column.key)) {
+		if (columns.includes(column.key)) {
 			faults.push(`column "${column.key}" is declared more than once`)
 		}
-		columns.add(column.key)
+		columns.push(column.key)
 
 		if (column.cell === 'choice') {
-			const choices = new Set<string>()
+			const choices: string[] = []
 			const choiceCount = Math.min(column.choices.length, CHOICE_LIMIT + 1)
-			for (let choiceIndex = 0; choiceIndex < choiceCount; choiceIndex += 1) {
+			for (const choiceIndex of Array.from({ length: choiceCount }, (_, position) => position)) {
 				const choice = column.choices[choiceIndex]
 				if (choice === undefined) continue
-				if (choices.has(choice.value)) {
+				if (choices.includes(choice.value)) {
 					faults.push(`column "${column.key}" offers choice "${choice.value}" more than once`)
 				}
-				choices.add(choice.value)
+				choices.push(choice.value)
 			}
 			if (column.choices.length === 0) {
 				faults.push(`column "${column.key}" offers no choices`)

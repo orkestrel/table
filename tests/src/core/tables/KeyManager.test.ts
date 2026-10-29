@@ -6,18 +6,34 @@ import { KeyManager } from '../../../../src/core/tables/KeyManager.js'
 
 const rows: readonly TableKey[] = ['1', '2', '3']
 
+class KeyStore {
+	#keys: ReadonlySet<TableKey>
+
+	constructor(keys: readonly TableKey[] = []) {
+		this.#keys = new Set(keys)
+	}
+
+	get keys(): ReadonlySet<TableKey> {
+		return this.#keys
+	}
+
+	set keys(keys: ReadonlySet<TableKey>) {
+		this.#keys = keys
+	}
+}
+
 describe('KeyManager', () => {
 	it('applies the 0/1/N forms over the keys a caller may address', () => {
 		const emitter = new Emitter<TableEventMap>()
-		let held: ReadonlySet<TableKey> = new Set()
+		const held = new KeyStore()
 		const keys = new KeyManager(
 			emitter,
 			'select',
 			() => undefined,
 			() => rows,
-			() => held,
+			() => held.keys,
 			(next) => {
-				held = next
+				held.keys = next
 			},
 		)
 
@@ -29,15 +45,15 @@ describe('KeyManager', () => {
 
 	it('refuses a batch naming an unknown key without moving the set', () => {
 		const emitter = new Emitter<TableEventMap>()
-		let held: ReadonlySet<TableKey> = new Set(['1'])
+		const held = new KeyStore(['1'])
 		const keys = new KeyManager(
 			emitter,
 			'expand',
 			() => undefined,
 			() => rows,
-			() => held,
+			() => held.keys,
 			(next) => {
-				held = next
+				held.keys = next
 			},
 		)
 
@@ -51,15 +67,15 @@ describe('KeyManager', () => {
 		const selections = createRecorder<TableEventMap['select']>()
 		emitter.on('expand', expansions.handler)
 		emitter.on('select', selections.handler)
-		let held: ReadonlySet<TableKey> = new Set()
+		const held = new KeyStore()
 		const keys = new KeyManager(
 			emitter,
 			'expand',
 			() => undefined,
 			() => rows,
-			() => held,
+			() => held.keys,
 			(next) => {
-				held = next
+				held.keys = next
 			},
 		)
 
@@ -72,15 +88,15 @@ describe('KeyManager', () => {
 
 	it('hands back an owned key set and passes the gate throw through', () => {
 		const emitter = new Emitter<TableEventMap>()
-		let held: ReadonlySet<TableKey> = new Set(['1'])
+		const held = new KeyStore(['1'])
 		const open = new KeyManager(
 			emitter,
 			'select',
 			() => undefined,
 			() => rows,
-			() => held,
+			() => held.keys,
 			(next) => {
-				held = next
+				held.keys = next
 			},
 		)
 		const closed = new KeyManager(
@@ -90,13 +106,13 @@ describe('KeyManager', () => {
 				throw new Error('gated')
 			},
 			() => rows,
-			() => held,
+			() => held.keys,
 			(next) => {
-				held = next
+				held.keys = next
 			},
 		)
 
-		expect(open.keys).not.toBe(held)
+		expect(open.keys).not.toBe(held.keys)
 		expect([...open.keys]).toStrictEqual(['1'])
 		expect(() => closed.change('2', () => true)).toThrow('gated')
 		expect([...open.keys]).toStrictEqual(['1'])

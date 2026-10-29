@@ -10,6 +10,7 @@ import {
 } from '@src/core'
 import {
 	createNodeBudgetSchema,
+	createAccessorSchema,
 	createTableRows,
 	createTableSchema,
 	createTextBudgetSchema,
@@ -74,20 +75,7 @@ describe('parseTable', () => {
 	})
 
 	it('never throws for cyclic, hostile, or accessor-bearing wire data', () => {
-		const accessor = {
-			key: 'id',
-			columns: [
-				{
-					cell: 'text',
-					key: 'id',
-					meta: {
-						get icon() {
-							return 'key'
-						},
-					},
-				},
-			],
-		}
+		const accessor = createAccessorSchema()
 
 		for (const [index, value] of createHostileValues().entries()) {
 			expect(() => parseTable(value), `hostile value ${index}`).not.toThrow()

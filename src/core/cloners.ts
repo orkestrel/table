@@ -1,6 +1,5 @@
-import type { JSONRecord } from '@orkestrel/contract'
 import type { TableRow, TableSchema } from './types.js'
-import { cloneJSONRecord, isContractError } from '@orkestrel/contract'
+import { attempt, cloneJSONRecord, isContractError } from '@orkestrel/contract'
 import { TableError } from './errors.js'
 
 /**
@@ -25,20 +24,17 @@ export function cloneSchema(schema: TableSchema): TableSchema {
 		...schema,
 		columns: Object.freeze(
 			schema.columns.map((column) => {
-				let meta: { meta?: JSONRecord } = {}
-
-				if (column.meta !== undefined) {
-					try {
-						meta = { meta: cloneJSONRecord(column.meta) }
-					} catch (error) {
-						if (!isContractError(error)) throw error
-						throw new TableError(
-							'SCHEMA',
-							`column "${column.key}" has metadata that cannot be owned`,
-							{ column: column.key },
-						)
-					}
+				const owned =
+					column.meta === undefined ? undefined : attempt(() => cloneJSONRecord(column.meta))
+				if (owned !== undefined && !owned.success) {
+					if (!isContractError(owned.error)) throw owned.error
+					throw new TableError(
+						'SCHEMA',
+						`column "${column.key}" has metadata that cannot be owned`,
+						{ column: column.key },
+					)
 				}
+				const meta = owned === undefined ? {} : { meta: owned.value }
 
 				if (column.cell === 'choice') {
 					return Object.freeze({

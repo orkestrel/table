@@ -19,6 +19,8 @@ import { createRecorder, requireValue } from '@orkestrel/test'
 import { describe, expect, it } from 'vitest'
 import {
 	createTableFixture,
+	createDeepMetadata,
+	TestMetadata,
 	createTableRows,
 	createTableSchema,
 	readDestroyedWrites,
@@ -66,13 +68,7 @@ describe('Table construction and derived state', () => {
 	})
 
 	it('refuses a schema whose owned copy fails the guard the caller-supplied one passed', () => {
-		const deep: Record<string, JSONRecord> = {}
-		let current = deep
-		for (let index = 0; index < 600; index += 1) {
-			const next: Record<string, JSONRecord> = {}
-			current.next = next
-			current = next
-		}
+		const deep = createDeepMetadata(600)
 		// The trap answers a property read; the clone reads the data descriptor instead, so the
 		// object the guard accepted and the object the table would own are not the same schema.
 		const meta: JSONRecord = new Proxy(
@@ -94,23 +90,19 @@ describe('Table construction and derived state', () => {
 		// re-guard reads it once more, and cloneSchema's undefined check reads it a third time
 		// before cloneSchema's cloneJSONRecord call issues the fourth read that fails.
 		const stable = 3
-		let calls = 0
+		const metadata = new TestMetadata(stable)
 		const column: TextColumn = { cell: 'text', key: 'id' }
 		Object.defineProperty(column, 'meta', {
 			enumerable: true,
 			configurable: true,
 			get() {
-				calls += 1
-				if (calls <= stable) return { align: 'end' }
-				const cyclic: Record<string, unknown> = {}
-				cyclic.self = cyclic
-				return cyclic
+				return metadata.read()
 			},
 		})
 		const schema: TableSchema = { key: 'id', columns: [column] }
 
 		expect(isStructuralTableSchema(schema)).toBe(true)
-		expect(calls).toBe(1)
+		expect(metadata.calls).toBe(1)
 		expect(() => new Table(schema)).toThrow(/^column "id" has metadata that cannot be owned$/)
 	})
 

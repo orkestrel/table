@@ -311,14 +311,7 @@ export class TableBinding implements TableBindingInterface {
 		for (const row of view) {
 			const key = extractKey(this.#document.schema, row)
 			if (key === undefined) continue
-			let node = this.#rows.get(key)
-			if (node === undefined) {
-				if (this.#options.row === undefined)
-					throw new TableBindingError('STRUCTURE', 'An authored document row has no native row')
-				node = this.#element.ownerDocument.createElement('tr')
-				node.setAttribute('data-table-key', key)
-				this.#rows.set(key, node)
-			}
+			const node = this.#rows.get(key) ?? this.#createRow(key)
 			if (this.#options.row !== undefined && !matchesTableRow(this.#values.get(key), row)) {
 				this.#options.row(node, row)
 				if (this.destroyed) return
@@ -348,6 +341,26 @@ export class TableBinding implements TableBindingInterface {
 		if (this.#records.length > 0) this.#enqueue()
 	}
 
+	#createRow(key: string): HTMLTableRowElement {
+		if (this.#options.row === undefined)
+			throw new TableBindingError('STRUCTURE', 'An authored document row has no native row')
+		const node = this.#element.ownerDocument.createElement('tr')
+		node.setAttribute('data-table-key', key)
+		this.#rows.set(key, node)
+		return node
+	}
+
+	#createDetail(key: string): HTMLTableRowElement {
+		const detail = this.#element.ownerDocument.createElement('tr')
+		detail.id = `table-detail-${crypto.randomUUID()}`
+		detail.insertCell().colSpan = Math.max(
+			1,
+			this.#rows.get(key)?.cells.length ?? this.#document.schema.columns.length,
+		)
+		this.#details.set(key, detail)
+		return detail
+	}
+
 	#restoreFocus(focused: HTMLElement | undefined, hidden = false): void {
 		if (
 			focused !== undefined &&
@@ -374,16 +387,7 @@ export class TableBinding implements TableBindingInterface {
 	#detail(key: string, row: TableRow): HTMLTableRowElement | undefined {
 		if (this.#options.detail === undefined || !this.#document.expansion.keys.has(key))
 			return undefined
-		let detail = this.#details.get(key)
-		if (detail === undefined) {
-			detail = this.#element.ownerDocument.createElement('tr')
-			detail.id = `table-detail-${crypto.randomUUID()}`
-			detail.insertCell().colSpan = Math.max(
-				1,
-				this.#rows.get(key)?.cells.length ?? this.#document.schema.columns.length,
-			)
-			this.#details.set(key, detail)
-		}
+		const detail = this.#details.get(key) ?? this.#createDetail(key)
 		if (!matchesTableRow(this.#detailValues.get(key), row)) {
 			this.#options.detail(detail, row)
 			if (!this.destroyed) this.#detailValues.set(key, row)
@@ -406,11 +410,9 @@ export class TableBinding implements TableBindingInterface {
 	}
 
 	#attribute(element: Element, name: string, value: string | null): void {
-		let attributes = this.#attributes.get(element)
-		if (attributes === undefined) {
-			attributes = new Map()
-			this.#attributes.set(element, attributes)
-		}
+		if (!this.#attributes.has(element)) this.#attributes.set(element, new Map())
+		const attributes = this.#attributes.get(element)
+		if (attributes === undefined) return
 		const entry = attributes.get(name)
 		if (entry === undefined) attributes.set(name, { original: element.getAttribute(name), value })
 		else entry.value = value

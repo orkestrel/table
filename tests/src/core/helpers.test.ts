@@ -42,6 +42,10 @@ import { describe, expect, it } from 'vitest'
 
 const absentMatcher: CellMatcher = (cell) => cell === undefined
 
+function matchDirection(first: TableOrder, second: TableOrder): boolean {
+	return first.direction === second.direction
+}
+
 it('compares complete row values without relying on snapshot identity or property order', () => {
 	expect(matchesTableRow({ id: 'ash', name: 'Ash' }, { name: 'Ash', id: 'ash' })).toBe(true)
 	expect(matchesTableRow({ id: 'ash', name: 'Ash' }, { id: 'ash' })).toBe(false)
@@ -254,11 +258,8 @@ describe('table helper leaves', () => {
 			{ column: 'name', direction: 'ascending' },
 			{ column: 'age', direction: 'descending' },
 		]
-		const sameDirection = (first: TableOrder, second: TableOrder): boolean =>
-			first.direction === second.direction
-
-		expect(matchesTerms(left, [...left], sameDirection)).toBe(true)
-		expect(matchesTerms(left, left.slice(0, 1), sameDirection)).toBe(false)
+		expect(matchesTerms(left, [...left], matchDirection)).toBe(true)
+		expect(matchesTerms(left, left.slice(0, 1), matchDirection)).toBe(false)
 		expect(
 			matchesTerms(
 				left,
@@ -266,7 +267,7 @@ describe('table helper leaves', () => {
 					{ column: 'age', direction: 'descending' },
 					{ column: 'name', direction: 'ascending' },
 				],
-				sameDirection,
+				matchDirection,
 			),
 		).toBe(false)
 		expect(
@@ -276,10 +277,10 @@ describe('table helper leaves', () => {
 					{ column: 'name', direction: 'ascending' },
 					{ column: 'age', direction: 'ascending' },
 				],
-				sameDirection,
+				matchDirection,
 			),
 		).toBe(false)
-		expect(matchesTerms([], [], sameDirection)).toBe(true)
+		expect(matchesTerms([], [], matchDirection)).toBe(true)
 	})
 
 	it('sorts by ordered terms stably with absence and direction applied last', () => {

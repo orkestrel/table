@@ -1,7 +1,7 @@
 import type { TableSchema } from '@src/core'
 import { attempt } from '@orkestrel/contract'
 import { cloneRow, cloneSchema, isTableError } from '@src/core'
-import { createTableSchema } from '../../setup.js'
+import { createAccessorSchema, createTableSchema } from '../../setup.js'
 import { describe, expect, it } from 'vitest'
 
 describe('table cloners', () => {
@@ -61,20 +61,7 @@ describe('table cloners', () => {
 	})
 
 	it('translates metadata ownership refusal into a schema-coded TableError', () => {
-		const schema: TableSchema = {
-			key: 'id',
-			columns: [
-				{
-					cell: 'text',
-					key: 'id',
-					meta: {
-						get icon() {
-							return 'key'
-						},
-					},
-				},
-			],
-		}
+		const schema: TableSchema = createAccessorSchema()
 		const outcome = attempt(() => cloneSchema(schema))
 		const error = outcome.success ? undefined : outcome.error
 

@@ -57,16 +57,16 @@ export function parseRows(schema: TableSchema, input: unknown): readonly TableRo
 				const column = extractColumn(schema, key)
 				if (column === undefined) return undefined
 				const inputCell = candidate[key]
-				let cell: unknown = inputCell
-
-				if (column.cell === 'number' && isString(inputCell)) {
-					if (inputCell.length > STRING_LIMIT) return undefined
-					cell = parseNumber(inputCell)
-				} else if (column.cell === 'flag' && inputCell === 'true') {
-					cell = true
-				} else if (column.cell === 'flag' && inputCell === 'false') {
-					cell = false
-				}
+				if (column.cell === 'number' && isString(inputCell) && inputCell.length > STRING_LIMIT)
+					return undefined
+				const cell: unknown =
+					column.cell === 'number' && isString(inputCell)
+						? parseNumber(inputCell)
+						: column.cell === 'flag' && inputCell === 'true'
+							? true
+							: column.cell === 'flag' && inputCell === 'false'
+								? false
+								: inputCell
 
 				if (!matchesCell(column, cell)) return undefined
 				Object.defineProperty(row, key, {
