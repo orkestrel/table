@@ -178,11 +178,11 @@ describe('root test setup', () => {
 	})
 
 	it('chunks the text budget under the string limit and moves it by the requested delta', () => {
-		const lengths = Object.values(createTextBudgetSchema().columns.at(0)?.meta ?? {}).map(
-			(value) => (typeof value === 'string' ? value.length : -1),
+		const lengths = Object.values(createTextBudgetSchema().columns.at(0)?.meta ?? {}).map((value) =>
+			typeof value === 'string' ? value.length : -1,
 		)
-		const raised = Object.values(createTextBudgetSchema(1).columns.at(0)?.meta ?? {}).map(
-			(value) => (typeof value === 'string' ? value.length : -1),
+		const raised = Object.values(createTextBudgetSchema(1).columns.at(0)?.meta ?? {}).map((value) =>
+			typeof value === 'string' ? value.length : -1,
 		)
 		const total = lengths.reduce((sum, length) => sum + length, 0)
 
