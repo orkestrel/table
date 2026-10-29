@@ -935,6 +935,8 @@ const required = createRequire(import.meta.url)('@orkestrel/table')
 const copied = await import(${JSON.stringify(pathToFileURL(join(copy, 'dist/src/core/index.js')).href)})
 const browser = await import('@orkestrel/table/browser')
 const copiedBrowser = await import(${JSON.stringify(pathToFileURL(join(copy, 'dist/src/browser/index.js')).href)})
+const entries = [imported, required, copied]
+assert.equal(new Set(entries.map((entry) => entry.TableError)).size, entries.length)
 for (const source of [imported, required, copied]) {
   const error = new source.TableError('SCHEMA', 'invalid')
   class Derived extends source.TableError {
@@ -950,6 +952,8 @@ for (const source of [imported, required, copied]) {
     assert.equal(target.isTableError(plain), false)
   }
 }
+const browsers = [browser, copiedBrowser]
+assert.equal(new Set(browsers.map((entry) => entry.TableBindingError)).size, browsers.length)
 for (const source of [browser, copiedBrowser]) {
   const error = new source.TableBindingError('STRUCTURE', 'invalid')
   class Derived extends source.TableBindingError {
