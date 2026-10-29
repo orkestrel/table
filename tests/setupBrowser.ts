@@ -66,3 +66,29 @@ export function readTableFixtureKeys(body: HTMLTableSectionElement): readonly st
 		return key === null ? [] : [key]
 	})
 }
+
+/** Controls callback refusal and stop observations in binding tests. */
+export class CallbackControl {
+	#refused: boolean
+	#stopped = false
+
+	constructor(refused = false) {
+		this.#refused = refused
+	}
+
+	get refused(): boolean {
+		return this.#refused
+	}
+
+	get stopped(): boolean {
+		return this.#stopped
+	}
+
+	accept(): void {
+		this.#refused = false
+	}
+
+	stop(): void {
+		this.#stopped = true
+	}
+}

@@ -1,11 +1,4 @@
-import type {
-	CellComparator,
-	CellMatcher,
-	TableFilter,
-	TableOrder,
-	TableRow,
-	TableSchema,
-} from '@src/core'
+import type { TableFilter, TableOrder, TableRow, TableSchema } from '@src/core'
 import {
 	CHOICE_LIMIT,
 	COLUMN_LIMIT,
@@ -31,6 +24,8 @@ import {
 	sortRows,
 } from '@src/core'
 import {
+	matchDirection,
+	compareCellsReverse as reverseComparator,
 	createChoiceBudgetSchema,
 	createColumnBudgetSchema,
 	createNodeBudgetSchema,
@@ -39,12 +34,7 @@ import {
 	createTextBudgetSchema,
 } from '../../setup.js'
 import { describe, expect, it } from 'vitest'
-
-const absentMatcher: CellMatcher = (cell) => cell === undefined
-
-function matchDirection(first: TableOrder, second: TableOrder): boolean {
-	return first.direction === second.direction
-}
+import { isUndefined as absentMatcher } from '@orkestrel/contract'
 
 it('compares complete row values without relying on snapshot identity or property order', () => {
 	expect(matchesTableRow({ id: 'ash', name: 'Ash' }, { name: 'Ash', id: 'ash' })).toBe(true)
@@ -53,9 +43,6 @@ it('compares complete row values without relying on snapshot identity or propert
 	expect(matchesTableRow(undefined, { id: 'ash' })).toBe(false)
 	expect(matchesTableRow({ id: 'ash', active: false }, { id: 'ash', active: true })).toBe(false)
 })
-const reverseComparator: CellComparator = (left, right) =>
-	String(right ?? '').localeCompare(String(left ?? ''))
-
 describe('table helper leaves', () => {
 	it('extracts declared columns and only usable row identities', () => {
 		const schema = createTableSchema()

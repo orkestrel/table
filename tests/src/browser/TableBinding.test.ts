@@ -10,36 +10,12 @@ import {
 import { userEvent } from 'vitest/browser'
 import { expect, it } from 'vitest'
 import {
+	CallbackControl,
 	createNativeTableFixture,
 	readTableFixtureKeys,
 	renderTableFixtureDetail,
 	renderTableFixtureRow,
 } from '../../setupBrowser.js'
-
-class CallbackControl {
-	#refused: boolean
-	#stopped = false
-
-	constructor(refused = false) {
-		this.#refused = refused
-	}
-
-	get refused(): boolean {
-		return this.#refused
-	}
-
-	get stopped(): boolean {
-		return this.#stopped
-	}
-
-	accept(): void {
-		this.#refused = false
-	}
-
-	stop(): void {
-		this.#stopped = true
-	}
-}
 
 it('moves native pages by keyboard and hands focus across both bounds', async () => {
 	const { root, element } = createNativeTableFixture(true)

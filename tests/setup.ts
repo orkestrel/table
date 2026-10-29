@@ -1,5 +1,8 @@
 import type { JSONRecord, JSONValue } from '@orkestrel/contract'
 import type {
+	CellComparator,
+	TableOrder,
+	TableKey,
 	TableCell,
 	TableColumn,
 	TableErrorCode,
@@ -292,5 +295,31 @@ export function createNodeBudgetSchema(extra = 0): TableSchema {
 				meta: { nodes: Array.from({ length: 16376 + extra }, () => null) },
 			},
 		],
+	}
+}
+
+/** Compares the direction of table order declarations. */
+export function matchDirection(first: TableOrder, second: TableOrder): boolean {
+	return first.direction === second.direction
+}
+
+/** Compares cells as text in descending lexical order. */
+export const compareCellsReverse: CellComparator = (left, right) =>
+	String(right ?? '').localeCompare(String(left ?? ''))
+
+/** Holds the selected keys supplied to a key manager. */
+export class KeyStore {
+	#keys: ReadonlySet<TableKey>
+
+	constructor(keys: readonly TableKey[] = []) {
+		this.#keys = new Set(keys)
+	}
+
+	get keys(): ReadonlySet<TableKey> {
+		return this.#keys
+	}
+
+	set keys(keys: ReadonlySet<TableKey>) {
+		this.#keys = keys
 	}
 }

@@ -3,24 +3,9 @@ import { Emitter } from '@orkestrel/emitter'
 import { createRecorder } from '@orkestrel/test'
 import { describe, expect, it } from 'vitest'
 import { KeyManager } from '../../../../src/core/tables/KeyManager.js'
+import { KeyStore } from '../../../setup.js'
 
 const rows: readonly TableKey[] = ['1', '2', '3']
-
-class KeyStore {
-	#keys: ReadonlySet<TableKey>
-
-	constructor(keys: readonly TableKey[] = []) {
-		this.#keys = new Set(keys)
-	}
-
-	get keys(): ReadonlySet<TableKey> {
-		return this.#keys
-	}
-
-	set keys(keys: ReadonlySet<TableKey>) {
-		this.#keys = keys
-	}
-}
 
 describe('KeyManager', () => {
 	it('applies the 0/1/N forms over the keys a caller may address', () => {
