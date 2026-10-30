@@ -70,7 +70,7 @@ table.view.map((row) => row.name) // ['Grace', 'Alan'] — page one, oldest firs
 
 These declarations belong to the browser entry.
 
-| API                     | Kind      | Shape                                                                                                                                                                                     | Summary                                                                                     |
+| Name                    | Kind      | Shape                                                                                                                                                                                     | Summary                                                                                     |
 | ----------------------- | --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
 | `TableBinding`          | class     | `TableBindingInterface`                                                                                                                                                                   | Retains keyed native rows while projecting every core table manager.                        |
 | `TableBindingInterface` | interface | `{ element, document, destroyed, emitter } plus refresh, destroy`                                                                                                                         | Binds native table elements to a borrowed core document.                                    |
@@ -264,7 +264,7 @@ table.selection.keys.has('ash') // true
 
 This helper belongs to the core entry.
 
-| API               | Kind     | Shape                                                       | Summary                                                                  |
+| Name              | Kind     | Shape                                                       | Summary                                                                  |
 | ----------------- | -------- | ----------------------------------------------------------- | ------------------------------------------------------------------------ |
 | `matchesTableRow` | function | `(left: TableRow \| undefined, right: TableRow) => boolean` | Compares complete row values independently of their snapshot identities. |
 
@@ -274,7 +274,7 @@ The document itself — what a table declares and what one row of it holds. All 
 
 A `Shape` cell holds an interface's data members as bare names in braces, `?` marking an optional member and `plus` introducing its call-signature members, and a type alias's own type literal with a union's arms escaped as `\|`. An extended interface's name comes before `plus`, with the members it adds after.
 
-| API            | Kind      | Shape                                                      | Summary                                                                                                                                                                                     |
+| Name           | Kind      | Shape                                                      | Summary                                                                                                                                                                                     |
 | -------------- | --------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `TableKey`     | type      | `string`                                                   | Represents a row's identity — a `string`, carried in the cell the schema's `key` names.                                                                                                     |
 | `TableCell`    | type      | `string \| number \| boolean`                              | Represents every value a cell can hold — a `string`, a `number`, or a `boolean`.                                                                                                            |
@@ -295,7 +295,7 @@ The axes a table reads its rows through, and the slots that replace what a colum
 
 A `Shape` cell holds an interface's data members as bare names in braces, `?` marking an optional member and `plus` introducing its call-signature members, and a type alias's own type literal with a union's arms escaped as `\|`.
 
-| API              | Kind      | Shape                                                                     | Summary                                                                                                                                        |
+| Name             | Kind      | Shape                                                                     | Summary                                                                                                                                        |
 | ---------------- | --------- | ------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
 | `TableTerm`      | interface | `{ column }`                                                              | Represents one entry of a lens list — the `column` it names. A sort term and a filter each hold one, which is why the two share a list engine. |
 | `TableDirection` | type      | `'ascending' \| 'descending'`                                             | Names which way a column sorts. A column nobody has sorted carries no term at all.                                                             |
@@ -314,7 +314,7 @@ The entity, its managers, its factory, its contract, and the error it raises.
 
 A `Shape` cell holds an interface's data members as bare names in braces, `?` marking an optional member and `plus` introducing its call-signature members, and a type alias's own type literal with a union's arms escaped as `\|`. A function row's `Shape` cell holds its signature, and a guard row's the type it narrows to. A class row's `Shape` cell holds the interface it implements, or its constructor signature where it implements none.
 
-| API                          | Kind      | Shape                                                                                                                   | Summary                                                                                                                                                                                           |
+| Name                         | Kind      | Shape                                                                                                                   | Summary                                                                                                                                                                                           |
 | ---------------------------- | --------- | ----------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `Table`                      | class     | `TableInterface`                                                                                                        | Holds a schema, its rows, and the lens through which they are read, implementing `TableInterface` exactly.                                                                                        |
 | `TableInterface`             | interface | `{ emitter, schema, rows, sort, filter, selection, expansion, pagination, view, count, destroyed } plus clear, destroy` | Represents a table: what it declares, the rows it holds, and the lens it reads them through.                                                                                                      |
@@ -352,7 +352,7 @@ under a consumer.
 
 A `Shape` cell holds the constant's declared type.
 
-| API            | Kind  | Shape                   | Summary                                                                                       |
+| Name           | Kind  | Shape                   | Summary                                                                                       |
 | -------------- | ----- | ----------------------- | --------------------------------------------------------------------------------------------- |
 | `COLUMN_CELLS` | const | `readonly ColumnCell[]` | Lists every column cell, in the order declared by the public contract.                        |
 | `COLUMN_LIMIT` | const | `number`                | Names the maximum number of columns one schema may declare: 256.                              |
@@ -369,7 +369,7 @@ anything off-shape — including an unexpected prototype, a symbol key, or a cyc
 
 In a guard table a `Shape` cell holds the type the guard narrows to.
 
-| API                       | Kind     | Shape          | Summary                                                                                                                                  |
+| Name                      | Kind     | Shape          | Summary                                                                                                                                  |
 | ------------------------- | -------- | -------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
 | `isTableCell`             | function | `TableCell`    | Determines whether an unknown value has a table cell shape — a string, a finite number, or a boolean.                                    |
 | `isTableRow`              | function | `TableRow`     | Determines whether an unknown value is a record whose every own key is a string and every value a `TableCell`.                           |
@@ -409,7 +409,7 @@ propagate exceptions from supplied callbacks; `serializeTable` raises `SCHEMA` f
 can own. The other helpers are total over ordinary declared inputs, subject to the core's
 reflection-failure boundary described later.
 
-| API              | Kind     | Summary                                                                                                                     |
+| Name             | Kind     | Summary                                                                                                                     |
 | ---------------- | -------- | --------------------------------------------------------------------------------------------------------------------------- |
 | `extractColumn`  | function | Finds one column by key; `undefined` when the schema declares no such column.                                               |
 | `extractKey`     | function | Reads one row's declared identity; `undefined` when its key cell is missing, empty, or not a string.                        |
@@ -433,7 +433,7 @@ Owned frozen snapshots. The table takes one of the schema at construction and on
 admission, so a later edit to the object a caller passed changes nothing inside the table, and no
 row the table hands back is a live internal reference.
 
-| API           | Kind     | Summary                                                                                                                                                         |
+| Name          | Kind     | Summary                                                                                                                                                         |
 | ------------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `cloneRow`    | function | Clones one row into an owned frozen snapshot.                                                                                                                   |
 | `cloneSchema` | function | Clones a whole schema into an owned frozen snapshot, freezing every nested column, choice list, choice, and `meta`; raises `SCHEMA` for a `meta` it cannot own. |
@@ -453,7 +453,7 @@ serializing a schema on its own meets, and `serializeTable` refuses the same val
 The wire boundary. Each returns `undefined` on refusal rather than throwing, and each returns an
 owned value rather than the caller's.
 
-| API          | Kind     | Summary                                                                                                                |
+| Name         | Kind     | Summary                                                                                                                |
 | ------------ | -------- | ---------------------------------------------------------------------------------------------------------------------- |
 | `parseTable` | function | Parses unknown wire data into an owned, structurally valid, semantically sound table schema.                           |
 | `parseRows`  | function | Parses unknown wire data into owned rows against one table schema, coercing a numeric string and `'true'` / `'false'`. |
