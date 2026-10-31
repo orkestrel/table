@@ -948,7 +948,7 @@ for (const source of [imported, required, copied]) {
     assert.equal(target.isGridError(Object.assign(new Error('look-alike'), { code: 'SCHEMA' })), false)
     assert.equal(target.isGridError(new Proxy(error, {})), false)
     const plain = {}
-    Object.defineProperty(plain, Symbol.for('@orkestrel/table.TableError'), { value: plain })
+    Object.defineProperty(plain, Symbol.for('@orkestrel/table.GridError'), { value: plain })
     assert.equal(target.isGridError(plain), false)
   }
 }

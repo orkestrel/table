@@ -22,8 +22,7 @@ export class GridError extends Error {
 	 */
 	constructor(code: GridErrorCode, message: string, context?: JSONRecord) {
 		super(message)
-		// The published key, so a copy from before the Grid rename still recognizes this error.
-		INTRINSICS.define(this, Symbol.for('@orkestrel/table.TableError'), { value: this })
+		INTRINSICS.define(this, Symbol.for('@orkestrel/table.GridError'), { value: this })
 		this.name = 'GridError'
 		this.code = code
 		if (context !== undefined) this.context = context
@@ -44,7 +43,7 @@ export class GridError extends Error {
 export function isGridError(input: unknown): input is GridError {
 	return holds(() => {
 		if (!(input instanceof Error) || INTRINSICS.prototype(input) === Error.prototype) return false
-		const brand = INTRINSICS.describe(input, Symbol.for('@orkestrel/table.TableError'))
+		const brand = INTRINSICS.describe(input, Symbol.for('@orkestrel/table.GridError'))
 		if (brand?.value !== input) return false
 		const code: unknown = INTRINSICS.reflect.read(input, 'code')
 		const context: unknown = INTRINSICS.reflect.read(input, 'context')
