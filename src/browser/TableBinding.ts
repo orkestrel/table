@@ -1,22 +1,22 @@
 import type { EmitterInterface } from '@orkestrel/emitter'
-import type { TableInterface, TableRow } from '@src/core'
+import type { GridInterface, GridRow } from '@src/core'
 import type {
 	TableBindingEventMap,
 	TableBindingInterface,
 	TableBindingOptions,
-	TableExpansion,
-	TableRange,
+	GridExpansion,
+	GridRange,
 } from './types.js'
 import { attempt, parseNumber } from '@orkestrel/contract'
 import { Emitter } from '@orkestrel/emitter'
-import { extractKey, matchesTableRow } from '@src/core'
+import { extractGridKey, matchesGridRow } from '@src/core'
 import { TableBindingError } from './errors.js'
 import { readTableRows, readTableSchema } from './helpers.js'
 
-/** Retains keyed native rows while projecting every core table manager. */
+/** Retains keyed native rows while projecting every core grid manager. */
 export class TableBinding implements TableBindingInterface {
 	readonly #element: HTMLTableElement
-	readonly #document: TableInterface
+	readonly #document: GridInterface
 	readonly #options: TableBindingOptions
 	readonly #body: HTMLTableSectionElement
 	readonly #scope: HTMLElement
@@ -24,9 +24,9 @@ export class TableBinding implements TableBindingInterface {
 	readonly #lifetime = new AbortController()
 	readonly #observer: MutationObserver
 	readonly #rows = new Map<string, HTMLTableRowElement>()
-	readonly #values = new Map<string, TableRow>()
+	readonly #values = new Map<string, GridRow>()
 	readonly #details = new Map<string, HTMLTableRowElement>()
-	readonly #detailValues = new Map<string, TableRow>()
+	readonly #detailValues = new Map<string, GridRow>()
 	readonly #visible = new Set<HTMLTableRowElement>()
 	readonly #attributes = new Map<
 		Element,
@@ -56,7 +56,7 @@ export class TableBinding implements TableBindingInterface {
 	 */
 	constructor(
 		element: HTMLTableElement,
-		document: TableInterface,
+		document: GridInterface,
 		options: TableBindingOptions = {},
 	) {
 		if (element.tBodies.length !== 1 || document.destroyed)
@@ -85,13 +85,13 @@ export class TableBinding implements TableBindingInterface {
 			if (
 				rows.length !== document.rows.rows().length ||
 				rows.some((row) => {
-					const key = extractKey(document.schema, row)
-					return key === undefined || !matchesTableRow(document.rows.row(key), row)
+					const key = extractGridKey(document.schema, row)
+					return key === undefined || !matchesGridRow(document.rows.row(key), row)
 				})
 			)
 				throw new TableBindingError('STRUCTURE', 'Authored rows must match the supplied document')
 			for (const [index, row] of rows.entries()) {
-				const key = extractKey(document.schema, row)
+				const key = extractGridKey(document.schema, row)
 				const node = elements[index]
 				if (key !== undefined && node !== undefined) this.#rows.set(key, node)
 			}
@@ -124,7 +124,7 @@ export class TableBinding implements TableBindingInterface {
 	get element(): HTMLTableElement {
 		return this.#element
 	}
-	get document(): TableInterface {
+	get document(): GridInterface {
 		return this.#document
 	}
 	get destroyed(): boolean {
@@ -173,7 +173,7 @@ export class TableBinding implements TableBindingInterface {
 		for (const detail of this.#details.values()) detail.remove()
 		if (this.#options.row === undefined) {
 			for (const row of this.#document.rows.rows()) {
-				const key = extractKey(this.#document.schema, row)
+				const key = extractGridKey(this.#document.schema, row)
 				const node = key === undefined ? undefined : this.#rows.get(key)
 				if (node !== undefined) this.#place(node, null)
 			}
@@ -263,10 +263,10 @@ export class TableBinding implements TableBindingInterface {
 		const rows = readTableRows(this.#document.schema, elements)
 		this.#records = []
 		const keys = new Set(this.#keys(rows))
-		const additions: TableRow[] = []
-		const replacements: TableRow[] = []
+		const additions: GridRow[] = []
+		const replacements: GridRow[] = []
 		for (const row of rows) {
-			const key = extractKey(this.#document.schema, row)
+			const key = extractGridKey(this.#document.schema, row)
 			if (key !== undefined && this.#document.rows.row(key) === undefined) additions.push(row)
 			else replacements.push(row)
 		}
@@ -280,7 +280,7 @@ export class TableBinding implements TableBindingInterface {
 				if (this.destroyed) return
 			}
 		for (const [index, row] of rows.entries()) {
-			const key = extractKey(this.#document.schema, row)
+			const key = extractGridKey(this.#document.schema, row)
 			const node = elements[index]
 			if (key !== undefined && node !== undefined) this.#rows.set(key, node)
 		}
@@ -309,10 +309,10 @@ export class TableBinding implements TableBindingInterface {
 		const view = this.#document.view
 		const ordered: HTMLTableRowElement[] = []
 		for (const row of view) {
-			const key = extractKey(this.#document.schema, row)
+			const key = extractGridKey(this.#document.schema, row)
 			if (key === undefined) continue
 			const node = this.#rows.get(key) ?? this.#createRow(key)
-			if (this.#options.row !== undefined && !matchesTableRow(this.#values.get(key), row)) {
+			if (this.#options.row !== undefined && !matchesGridRow(this.#values.get(key), row)) {
 				this.#options.row(node, row)
 				if (this.destroyed) return
 				this.#values.set(key, row)
@@ -384,11 +384,11 @@ export class TableBinding implements TableBindingInterface {
 		this.#element.focus({ preventScroll: true })
 	}
 
-	#detail(key: string, row: TableRow): HTMLTableRowElement | undefined {
+	#detail(key: string, row: GridRow): HTMLTableRowElement | undefined {
 		if (this.#options.detail === undefined || !this.#document.expansion.keys.has(key))
 			return undefined
 		const detail = this.#details.get(key) ?? this.#createDetail(key)
-		if (!matchesTableRow(this.#detailValues.get(key), row)) {
+		if (!matchesGridRow(this.#detailValues.get(key), row)) {
 			this.#options.detail(detail, row)
 			if (!this.destroyed) this.#detailValues.set(key, row)
 		}
@@ -497,7 +497,7 @@ export class TableBinding implements TableBindingInterface {
 		}
 	}
 
-	#pages(view: readonly TableRow[]): void {
+	#pages(view: readonly GridRow[]): void {
 		const keys = this.#keys(view)
 		for (const button of this.#scoped('button[data-table-expand="page"]')) {
 			this.#attribute(
@@ -509,7 +509,7 @@ export class TableBinding implements TableBindingInterface {
 			if (this.destroyed) return
 		}
 		const selected = view.filter((row) => {
-			const key = extractKey(this.#document.schema, row)
+			const key = extractGridKey(this.#document.schema, row)
 			return key !== undefined && this.#document.selection.keys.has(key)
 		}).length
 		for (const input of this.#scope.querySelectorAll('input[type="checkbox"][data-table-page]'))
@@ -546,7 +546,7 @@ export class TableBinding implements TableBindingInterface {
 		if (control.value !== value) control.value = value
 	}
 
-	#readRange(): TableRange {
+	#readRange(): GridRange {
 		const pagination = this.#document.pagination
 		const length = this.#document.view.length
 		return {
@@ -676,7 +676,7 @@ export class TableBinding implements TableBindingInterface {
 		if (!outcome.success) this.#emitter.emit('error', outcome.error)
 	}
 
-	#request(detail: readonly TableExpansion[]): boolean {
+	#request(detail: readonly GridExpansion[]): boolean {
 		const request = new CustomEvent('table-expand', { cancelable: true, detail })
 		this.#requesting = true
 		this.#emitter.emit('expand', request)
@@ -730,9 +730,9 @@ export class TableBinding implements TableBindingInterface {
 		if (!outcome.success) this.#emitter.emit('error', outcome.error)
 	}
 
-	#keys(rows: readonly TableRow[]): readonly string[] {
+	#keys(rows: readonly GridRow[]): readonly string[] {
 		return rows.flatMap((row) => {
-			const key = extractKey(this.#document.schema, row)
+			const key = extractGridKey(this.#document.schema, row)
 			return key === undefined ? [] : [key]
 		})
 	}

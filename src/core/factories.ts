@@ -1,19 +1,19 @@
-import type { TableInterface, TableOptions, TableSchema } from './types.js'
-import { Table } from './Table.js'
+import type { GridInterface, GridOptions, GridSchema } from './types.js'
+import { Grid } from './Grid.js'
 
 /**
- * Opens a table against a schema. The schema is copied, and the copy is what the table declares.
+ * Opens a grid against a schema. The schema is copied, and the copy is what the grid declares.
  *
- * @param schema - The table declaration to own.
+ * @param schema - The grid declaration to own.
  * @param options - Initial rows, lens overrides, pagination, and emitter wiring.
- * @returns A live table interface.
- * @throws A {@link TableError} coded `SCHEMA` when the schema is unusable, `KEY` when a seeded
+ * @returns A live grid interface.
+ * @throws A {@link GridError} coded `SCHEMA` when the schema is unusable, `KEY` when a seeded
  *   identity is unusable or repeated, and `CELL` when a seeded cell is invalid.
- * @example Open a table
+ * @example Open a grid
  * ```ts
- * import { createTable } from '@orkestrel/table'
+ * import { createGrid } from '@orkestrel/table'
  *
- * const table = createTable(
+ * const grid = createGrid(
  * 	{
  * 		label: 'People',
  * 		key: 'id',
@@ -33,14 +33,14 @@ import { Table } from './Table.js'
  * 	},
  * )
  *
- * table.filter.set({ column: 'name', operator: 'contains', text: 'a' })
- * table.sort.set({ column: 'age', direction: 'descending' })
+ * grid.filter.set({ column: 'name', operator: 'contains', text: 'a' })
+ * grid.sort.set({ column: 'age', direction: 'descending' })
  *
- * table.count // 3 — every name holds a lowercase 'a'
- * table.pagination.count // 2 — two pages of two
- * table.view.map((row) => row.name) // ['Grace', 'Alan'] — page one, oldest first
+ * grid.count // 3 — every name holds a lowercase 'a'
+ * grid.pagination.count // 2 — two pages of two
+ * grid.view.map((row) => row.name) // ['Grace', 'Alan'] — page one, oldest first
  * ```
  */
-export function createTable(schema: TableSchema, options?: TableOptions): TableInterface {
-	return new Table(schema, options)
+export function createGrid(schema: GridSchema, options?: GridOptions): GridInterface {
+	return new Grid(schema, options)
 }

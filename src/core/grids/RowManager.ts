@@ -1,45 +1,39 @@
 import type { Emitter } from '@orkestrel/emitter'
-import type {
-	RowManagerInterface,
-	TableEventMap,
-	TableKey,
-	TableRow,
-	TableSchema,
-} from '../types.js'
+import type { RowManagerInterface, GridEventMap, GridKey, GridRow, GridSchema } from '../types.js'
 import { isArray } from '@orkestrel/contract'
 import { cloneRow } from '../cloners.js'
-import { TableError } from '../errors.js'
-import { extractColumn, extractKey, matchesCell, matchesTableRow } from '../helpers.js'
-import { isTableRow } from '../validators.js'
+import { GridError } from '../errors.js'
+import { extractColumn, extractGridKey, matchesCell, matchesGridRow } from '../helpers.js'
+import { isGridRow } from '../validators.js'
 
-/** Manages the rows one table holds in its own order. */
+/** Manages the rows one grid holds in its own order. */
 export class RowManager implements RowManagerInterface {
-	readonly #schema: TableSchema
-	readonly #emitter: Emitter<TableEventMap>
+	readonly #schema: GridSchema
+	readonly #emitter: Emitter<GridEventMap>
 	readonly #gate: () => void
-	readonly #read: () => readonly TableRow[]
-	readonly #write: (rows: readonly TableRow[]) => void
-	readonly #settle: (removed: readonly TableKey[], announce: () => void) => void
+	readonly #read: () => readonly GridRow[]
+	readonly #write: (rows: readonly GridRow[]) => void
+	readonly #settle: (removed: readonly GridKey[], announce: () => void) => void
 
 	/**
-	 * Creates a row manager over one table's private row store.
+	 * Creates a row manager over one grid's private row store.
 	 *
-	 * @param schema - The table schema.
-	 * @param emitter - The table's event emitter.
-	 * @param gate - The table lifecycle gate.
+	 * @param schema - The grid schema.
+	 * @param emitter - The grid's event emitter.
+	 * @param gate - The grid lifecycle gate.
 	 * @param read - A read of the current rows.
 	 * @param write - The row commit boundary.
 	 * @param settle - Commit dependent state, then order row and dependent announcements.
 	 * @param rows - Rows to seed without announcements.
 	 */
 	constructor(
-		schema: TableSchema,
-		emitter: Emitter<TableEventMap>,
+		schema: GridSchema,
+		emitter: Emitter<GridEventMap>,
 		gate: () => void,
-		read: () => readonly TableRow[],
-		write: (rows: readonly TableRow[]) => void,
-		settle: (removed: readonly TableKey[], announce: () => void) => void,
-		rows: readonly TableRow[] = [],
+		read: () => readonly GridRow[],
+		write: (rows: readonly GridRow[]) => void,
+		settle: (removed: readonly GridKey[], announce: () => void) => void,
+		rows: readonly GridRow[] = [],
 	) {
 		this.#schema = schema
 		this.#emitter = emitter
@@ -53,27 +47,27 @@ export class RowManager implements RowManagerInterface {
 	}
 
 	/** Finds one row by key as an owned frozen snapshot. */
-	row(key: TableKey): TableRow | undefined {
-		const row = this.#read().find((candidate) => extractKey(this.#schema, candidate) === key)
+	row(key: GridKey): GridRow | undefined {
+		const row = this.#read().find((candidate) => extractGridKey(this.#schema, candidate) === key)
 		return row === undefined ? undefined : cloneRow(row)
 	}
 
-	/** Reads every row as owned frozen snapshots in table order. */
-	rows(): readonly TableRow[] {
+	/** Reads every row as owned frozen snapshots in grid order. */
+	rows(): readonly GridRow[] {
 		return Object.freeze(this.#read().map((row) => cloneRow(row)))
 	}
 
 	/** Appends several rows. */
-	add(rows: readonly TableRow[]): void
+	add(rows: readonly GridRow[]): void
 	/** Appends one row. */
-	add(row: TableRow): void
+	add(row: GridRow): void
 	/** Appends one row or several. */
-	add(input: TableRow | readonly TableRow[]): void {
+	add(input: GridRow | readonly GridRow[]): void {
 		this.#gate()
 		const rows = isArray(input) ? input : [input]
-		const keys = new Set<TableKey>()
+		const keys = new Set<GridKey>()
 		for (const row of this.#read()) {
-			const key = extractKey(this.#schema, row)
+			const key = extractGridKey(this.#schema, row)
 			if (key !== undefined) keys.add(key)
 		}
 		const added = this.#prepare(rows, keys)
@@ -82,18 +76,18 @@ export class RowManager implements RowManagerInterface {
 		this.#write(Object.freeze([...this.#read(), ...added]))
 		this.#settle([], () => {
 			for (const row of added) {
-				const key = extractKey(this.#schema, row)
+				const key = extractGridKey(this.#schema, row)
 				if (key !== undefined) this.#emitter.emit('write', key)
 			}
 		})
 	}
 
 	/** Merges several rows into the rows their keys name. */
-	update(rows: readonly TableRow[]): boolean
+	update(rows: readonly GridRow[]): boolean
 	/** Merges one row into the row its key names. */
-	update(row: TableRow): boolean
+	update(row: GridRow): boolean
 	/** Merges one row or several into the rows their keys name. */
-	update(input: TableRow | readonly TableRow[]): boolean {
+	update(input: GridRow | readonly GridRow[]): boolean {
 		this.#gate()
 		const updates = (isArray(input) ? input : [input]).map((row) => cloneRow(row))
 		const current = this.#read()
@@ -101,24 +95,24 @@ export class RowManager implements RowManagerInterface {
 
 		for (const update of updates) {
 			this.#validate(update)
-			const key = extractKey(this.#schema, update)
+			const key = extractGridKey(this.#schema, update)
 			if (key === undefined) this.#failKey('A row has no usable identity')
-			const index = current.findIndex((row) => extractKey(this.#schema, row) === key)
+			const index = current.findIndex((row) => extractGridKey(this.#schema, row) === key)
 			if (index === -1) return false
 			locations.push(index)
 		}
 
 		const next = [...current]
-		const moved: TableKey[] = []
+		const moved: GridKey[] = []
 		for (const [index, update] of updates.entries()) {
 			const location = locations[index]
 			if (update === undefined || location === undefined) continue
 			const previous = next[location]
 			if (previous === undefined) continue
 			const merged = cloneRow({ ...previous, ...update })
-			if (!matchesTableRow(previous, merged)) {
+			if (!matchesGridRow(previous, merged)) {
 				next[location] = merged
-				const key = extractKey(this.#schema, merged)
+				const key = extractGridKey(this.#schema, merged)
 				if (key !== undefined) moved.push(key)
 			}
 		}
@@ -132,11 +126,11 @@ export class RowManager implements RowManagerInterface {
 	}
 
 	/** Replaces several complete rows. */
-	replace(rows: readonly TableRow[]): boolean
+	replace(rows: readonly GridRow[]): boolean
 	/** Replaces one complete row. */
-	replace(row: TableRow): boolean
+	replace(row: GridRow): boolean
 	/** Replaces complete rows atomically without removing their identities. */
-	replace(input: TableRow | readonly TableRow[]): boolean {
+	replace(input: GridRow | readonly GridRow[]): boolean {
 		this.#gate()
 		const replacements = (isArray(input) ? input : [input]).map((row) => cloneRow(row))
 		const current = this.#read()
@@ -144,13 +138,14 @@ export class RowManager implements RowManagerInterface {
 		for (const row of replacements) {
 			this.#validate(row)
 			const location = current.findIndex(
-				(candidate) => extractKey(this.#schema, candidate) === extractKey(this.#schema, row),
+				(candidate) =>
+					extractGridKey(this.#schema, candidate) === extractGridKey(this.#schema, row),
 			)
 			if (location === -1) return false
 			locations.push(location)
 		}
 		const next = [...current]
-		const changed = new Set<TableKey>()
+		const changed = new Set<GridKey>()
 		for (const [index, row] of replacements.entries()) {
 			const location = locations[index]
 			if (location === undefined) continue
@@ -160,8 +155,8 @@ export class RowManager implements RowManagerInterface {
 			const previous = current[location]
 			const row = next[location]
 			if (previous === undefined || row === undefined) continue
-			const key = extractKey(this.#schema, row)
-			if (key !== undefined && !matchesTableRow(previous, row)) changed.add(key)
+			const key = extractGridKey(this.#schema, row)
+			if (key !== undefined && !matchesGridRow(previous, row)) changed.add(key)
 		}
 		if (changed.size === 0) return true
 		this.#write(Object.freeze(next))
@@ -171,11 +166,11 @@ export class RowManager implements RowManagerInterface {
 		return true
 	}
 
-	/** Moves one row to a clamped index in table order. */
-	move(key: TableKey, index: number): boolean {
+	/** Moves one row to a clamped index in grid order. */
+	move(key: GridKey, index: number): boolean {
 		this.#gate()
 		const current = this.#read()
-		const origin = current.findIndex((row) => extractKey(this.#schema, row) === key)
+		const origin = current.findIndex((row) => extractGridKey(this.#schema, row) === key)
 		if (origin === -1) return false
 		const target = Math.min(
 			current.length - 1,
@@ -196,17 +191,17 @@ export class RowManager implements RowManagerInterface {
 	/** Removes every row. */
 	remove(): void
 	/** Removes one row. */
-	remove(key: TableKey): boolean
+	remove(key: GridKey): boolean
 	/** Removes several rows. */
-	remove(keys: readonly TableKey[]): boolean
+	remove(keys: readonly GridKey[]): boolean
 	/** Removes one or more rows. */
-	remove(input?: TableKey | readonly TableKey[]): void | boolean {
+	remove(input?: GridKey | readonly GridKey[]): void | boolean {
 		this.#gate()
 		const current = this.#read()
 		const requested =
 			input === undefined
 				? current.flatMap((row) => {
-						const key = extractKey(this.#schema, row)
+						const key = extractGridKey(this.#schema, row)
 						return key === undefined ? [] : [key]
 					})
 				: isArray(input)
@@ -215,7 +210,7 @@ export class RowManager implements RowManagerInterface {
 		const keys = new Set(requested)
 		const known = new Set(
 			current.flatMap((row) => {
-				const key = extractKey(this.#schema, row)
+				const key = extractGridKey(this.#schema, row)
 				return key === undefined ? [] : [key]
 			}),
 		)
@@ -223,13 +218,13 @@ export class RowManager implements RowManagerInterface {
 		if (keys.size === 0) return input === undefined ? undefined : true
 
 		const removed = current.flatMap((row) => {
-			const key = extractKey(this.#schema, row)
+			const key = extractGridKey(this.#schema, row)
 			return key !== undefined && keys.has(key) ? [key] : []
 		})
 		this.#write(
 			Object.freeze(
 				current.filter((row) => {
-					const key = extractKey(this.#schema, row)
+					const key = extractGridKey(this.#schema, row)
 					return key === undefined || !keys.has(key)
 				}),
 			),
@@ -240,12 +235,12 @@ export class RowManager implements RowManagerInterface {
 		return input === undefined ? undefined : true
 	}
 
-	#prepare(rows: readonly TableRow[], existing: Set<TableKey>): readonly TableRow[] {
-		const owned: TableRow[] = []
+	#prepare(rows: readonly GridRow[], existing: Set<GridKey>): readonly GridRow[] {
+		const owned: GridRow[] = []
 		for (const row of rows) {
 			const snapshot = cloneRow(row)
 			this.#validate(snapshot)
-			const key = extractKey(this.#schema, snapshot)
+			const key = extractGridKey(this.#schema, snapshot)
 			if (key === undefined) this.#failKey('A row has no usable identity')
 			if (existing.has(key)) this.#failKey(`Row key "${key}" is already taken`, key)
 			existing.add(key)
@@ -254,21 +249,22 @@ export class RowManager implements RowManagerInterface {
 		return owned
 	}
 
-	#validate(row: TableRow): void {
-		if (extractKey(this.#schema, row) === undefined) this.#failKey('A row has no usable identity')
-		if (!isTableRow(row)) {
-			throw new TableError('CELL', 'A row contains a value no table cell can hold')
+	#validate(row: GridRow): void {
+		if (extractGridKey(this.#schema, row) === undefined)
+			this.#failKey('A row has no usable identity')
+		if (!isGridRow(row)) {
+			throw new GridError('CELL', 'A row contains a value no grid cell can hold')
 		}
 		for (const key of Object.keys(row)) {
 			const column = extractColumn(this.#schema, key)
 			if (column === undefined || !matchesCell(column, row[key])) {
-				throw new TableError('CELL', `Column "${key}" cannot hold that cell`, { column: key })
+				throw new GridError('CELL', `Column "${key}" cannot hold that cell`, { column: key })
 			}
 		}
 	}
 
-	#failKey(message: string, key?: TableKey): never {
-		if (key === undefined) throw new TableError('KEY', message)
-		throw new TableError('KEY', message, { key })
+	#failKey(message: string, key?: GridKey): never {
+		if (key === undefined) throw new GridError('KEY', message)
+		throw new GridError('KEY', message, { key })
 	}
 }

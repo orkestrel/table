@@ -936,20 +936,20 @@ const copied = await import(${JSON.stringify(pathToFileURL(join(copy, 'dist/src/
 const browser = await import('@orkestrel/table/browser')
 const copiedBrowser = await import(${JSON.stringify(pathToFileURL(join(copy, 'dist/src/browser/index.js')).href)})
 const entries = [imported, required, copied]
-assert.equal(new Set(entries.map((entry) => entry.TableError)).size, entries.length)
+assert.equal(new Set(entries.map((entry) => entry.GridError)).size, entries.length)
 for (const source of [imported, required, copied]) {
-  const error = new source.TableError('SCHEMA', 'invalid')
-  class Derived extends source.TableError {
+  const error = new source.GridError('SCHEMA', 'invalid')
+  class Derived extends source.GridError {
     constructor() { super('SCHEMA', 'derived'); this.name = 'Derived' }
   }
   for (const target of [imported, required, copied]) {
-    assert.equal(target.isTableError(error), true)
-    assert.equal(target.isTableError(new Derived()), true)
-    assert.equal(target.isTableError(Object.assign(new Error('look-alike'), { code: 'SCHEMA' })), false)
-    assert.equal(target.isTableError(new Proxy(error, {})), false)
+    assert.equal(target.isGridError(error), true)
+    assert.equal(target.isGridError(new Derived()), true)
+    assert.equal(target.isGridError(Object.assign(new Error('look-alike'), { code: 'SCHEMA' })), false)
+    assert.equal(target.isGridError(new Proxy(error, {})), false)
     const plain = {}
     Object.defineProperty(plain, Symbol.for('@orkestrel/table.TableError'), { value: plain })
-    assert.equal(target.isTableError(plain), false)
+    assert.equal(target.isGridError(plain), false)
   }
 }
 const browsers = [browser, copiedBrowser]

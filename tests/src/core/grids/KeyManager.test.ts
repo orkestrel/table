@@ -1,15 +1,15 @@
-import type { TableEventMap, TableKey } from '@src/core'
+import type { GridEventMap, GridKey } from '@src/core'
 import { Emitter } from '@orkestrel/emitter'
 import { createRecorder } from '@orkestrel/test'
 import { describe, expect, it } from 'vitest'
-import { KeyManager } from '../../../../src/core/tables/KeyManager.js'
+import { KeyManager } from '../../../../src/core/grids/KeyManager.js'
 import { KeyStore } from '../../../setup.js'
 
-const rows: readonly TableKey[] = ['1', '2', '3']
+const rows: readonly GridKey[] = ['1', '2', '3']
 
 describe('KeyManager', () => {
 	it('applies the 0/1/N forms over the keys a caller may address', () => {
-		const emitter = new Emitter<TableEventMap>()
+		const emitter = new Emitter<GridEventMap>()
 		const held = new KeyStore()
 		const keys = new KeyManager(
 			emitter,
@@ -29,7 +29,7 @@ describe('KeyManager', () => {
 	})
 
 	it('refuses a batch naming an unknown key without moving the set', () => {
-		const emitter = new Emitter<TableEventMap>()
+		const emitter = new Emitter<GridEventMap>()
 		const held = new KeyStore(['1'])
 		const keys = new KeyManager(
 			emitter,
@@ -47,9 +47,9 @@ describe('KeyManager', () => {
 	})
 
 	it('announces its own event only when the set moves', () => {
-		const emitter = new Emitter<TableEventMap>()
-		const expansions = createRecorder<TableEventMap['expand']>()
-		const selections = createRecorder<TableEventMap['select']>()
+		const emitter = new Emitter<GridEventMap>()
+		const expansions = createRecorder<GridEventMap['expand']>()
+		const selections = createRecorder<GridEventMap['select']>()
 		emitter.on('expand', expansions.handler)
 		emitter.on('select', selections.handler)
 		const held = new KeyStore()
@@ -72,7 +72,7 @@ describe('KeyManager', () => {
 	})
 
 	it('hands back an owned key set and passes the gate throw through', () => {
-		const emitter = new Emitter<TableEventMap>()
+		const emitter = new Emitter<GridEventMap>()
 		const held = new KeyStore(['1'])
 		const open = new KeyManager(
 			emitter,

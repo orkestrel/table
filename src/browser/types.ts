@@ -1,27 +1,27 @@
 import type { EmitterErrorHandler, EmitterHooks, EmitterInterface } from '@orkestrel/emitter'
 import type {
-	TableDirection,
-	TableInterface,
-	TableKey,
-	TableOrder,
-	TableRow,
-	TableSchema,
+	GridDirection,
+	GridInterface,
+	GridKey,
+	GridOrder,
+	GridRow,
+	GridSchema,
 } from '@src/core'
 
 /** Holds a validated native table projection for constructing a core document. */
-export interface TableProjection {
-	readonly schema: TableSchema
-	readonly rows: readonly TableRow[]
+export interface GridProjection {
+	readonly schema: GridSchema
+	readonly rows: readonly GridRow[]
 }
 
 /** Patches the contents of a retained row without moving or replacing that row.
  * @param element - The binding-owned row; a detail row already contains its spanning cell.
  * @param row - The core value to present.
  */
-export type TableRenderHandler = (element: HTMLTableRowElement, row: TableRow) => void
+export type GridRenderHandler = (element: HTMLTableRowElement, row: GridRow) => void
 
 /** Describes the displayed page within the filtered rows. */
-export interface TableRange {
+export interface GridRange {
 	readonly first: number
 	readonly last: number
 	readonly count: number
@@ -31,9 +31,9 @@ export interface TableRange {
 }
 
 /** Describes a column's direction and one-based priority among active sort orders. */
-export interface TableSortDescription {
+export interface GridSortDescription {
 	readonly column: string
-	readonly direction: TableDirection
+	readonly direction: GridDirection
 	readonly priority: number
 	readonly count: number
 }
@@ -42,15 +42,15 @@ export interface TableSortDescription {
 export type TableBindingErrorCode = 'STRUCTURE'
 
 /** Proposes one row's next expansion state in a cancelable expand request. */
-export interface TableExpansion {
-	readonly key: TableKey
+export interface GridExpansion {
+	readonly key: GridKey
 	readonly expanded: boolean
 }
 
 /** Announces cancelable sorting and expanding, completed rendering, and failed DOM operations. */
 export type TableBindingEventMap = {
-	readonly sort: readonly [event: CustomEvent<readonly TableOrder[]>]
-	readonly expand: readonly [event: CustomEvent<readonly TableExpansion[]>]
+	readonly sort: readonly [event: CustomEvent<readonly GridOrder[]>]
+	readonly expand: readonly [event: CustomEvent<readonly GridExpansion[]>]
 	readonly render: readonly []
 	readonly error: readonly [error: unknown]
 }
@@ -66,12 +66,12 @@ export type TableBindingEventMap = {
  * failed native reads and renders. Neither callback owns row placement or core teardown.
  */
 export interface TableBindingOptions {
-	readonly row?: TableRenderHandler
-	readonly detail?: TableRenderHandler
+	readonly row?: GridRenderHandler
+	readonly detail?: GridRenderHandler
 	readonly scope?: HTMLElement
 	readonly describe?: {
-		readonly range?: (range: TableRange) => string
-		readonly sort?: (sort: TableSortDescription) => string
+		readonly range?: (range: GridRange) => string
+		readonly sort?: (sort: GridSortDescription) => string
 	}
 	readonly on?: EmitterHooks<TableBindingEventMap>
 	readonly error?: EmitterErrorHandler
@@ -80,7 +80,7 @@ export interface TableBindingOptions {
 /** Binds native table elements to a borrowed core document. */
 export interface TableBindingInterface {
 	readonly element: HTMLTableElement
-	readonly document: TableInterface
+	readonly document: GridInterface
 	readonly destroyed: boolean
 	readonly emitter: EmitterInterface<TableBindingEventMap>
 	/** Reconciles and renders the document, retrying a failed renderer. */

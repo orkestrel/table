@@ -1,4 +1,4 @@
-import type { TableRow } from '@src/core'
+import type { GridRow } from '@src/core'
 import { requireValue } from '@orkestrel/test'
 import { render } from '@orkestrel/test/browser'
 
@@ -35,7 +35,7 @@ export function createNativeTableFixture(authored = false) {
  * @param element - The retained data row.
  * @param row - The value to present.
  */
-export function renderTableFixtureRow(element: HTMLTableRowElement, row: TableRow): void {
+export function renderTableFixtureRow(element: HTMLTableRowElement, row: GridRow): void {
 	if (element.cells.length === 0) {
 		for (const column of ['id', 'name', 'age'])
 			element.insertCell().setAttribute('data-table-column', column)
@@ -52,7 +52,7 @@ export function renderTableFixtureRow(element: HTMLTableRowElement, row: TableRo
  * @param element - The supplied detail row.
  * @param row - The associated value.
  */
-export function renderTableFixtureDetail(element: HTMLTableRowElement, row: TableRow): void {
+export function renderTableFixtureDetail(element: HTMLTableRowElement, row: GridRow): void {
 	requireValue(element.cells[0]).textContent = `Details for ${row['name']}`
 }
 

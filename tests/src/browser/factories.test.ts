@@ -1,19 +1,19 @@
 import { expect, it } from 'vitest'
-import { createTable } from '@src/core'
+import { createGrid } from '@src/core'
 import { createTableBinding, readTable, TableBinding, TableBindingError } from '@src/browser'
 import { createNativeTableFixture } from '../../setupBrowser.js'
 
-it('constructs an interface over the supplied table and refuses competing row ownership', () => {
+it('constructs an interface over the supplied grid and refuses competing row ownership', () => {
 	const { root, element } = createNativeTableFixture(true)
 	const projection = readTable(element)
-	const table = createTable(projection.schema, { rows: projection.rows })
-	const binding = createTableBinding(element, table)
+	const grid = createGrid(projection.schema, { rows: projection.rows })
+	const binding = createTableBinding(element, grid)
 	try {
 		expect(binding).toBeInstanceOf(TableBinding)
 		expect(binding.element).toBe(element)
-		expect(binding.document).toBe(table)
+		expect(binding.document).toBe(grid)
 		expect(binding.destroyed).toBe(false)
-		expect(() => createTableBinding(element, table, { row: () => undefined })).toThrow(
+		expect(() => createTableBinding(element, grid, { row: () => undefined })).toThrow(
 			TableBindingError,
 		)
 	} finally {
@@ -21,5 +21,5 @@ it('constructs an interface over the supplied table and refuses competing row ow
 		root.remove()
 	}
 	expect(binding.destroyed).toBe(true)
-	expect(table.destroyed).toBe(false)
+	expect(grid.destroyed).toBe(false)
 })

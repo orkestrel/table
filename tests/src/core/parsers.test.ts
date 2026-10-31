@@ -1,24 +1,24 @@
 import {
 	STRING_LIMIT,
-	auditTable,
-	isTableRow,
-	isTableSchema,
+	auditGrid,
+	isGridRow,
+	isGridSchema,
 	parseRows,
-	parseTable,
+	parseGrid,
 	serializeRows,
-	serializeTable,
+	serializeGrid,
 } from '@src/core'
 import {
 	createNodeBudgetSchema,
 	createAccessorSchema,
-	createTableRows,
-	createTableSchema,
+	createGridRows,
+	createGridSchema,
 	createTextBudgetSchema,
 } from '../../setup.js'
 import { createHostileValues } from '@orkestrel/test'
 import { describe, expect, it } from 'vitest'
 
-describe('parseTable', () => {
+describe('parseGrid', () => {
 	it('returns an owned canonical schema only when structure and domain are sound', () => {
 		const meta = { renderer: { tone: 'quiet' } }
 		const choices = [{ label: 'Live', value: 'live' }]
@@ -34,7 +34,7 @@ describe('parseTable', () => {
 				},
 			],
 		}
-		const parsed = parseTable(input)
+		const parsed = parseGrid(input)
 
 		meta.renderer.tone = 'loud'
 		choices.push({ label: 'Draft', value: 'draft' })
@@ -51,20 +51,20 @@ describe('parseTable', () => {
 				},
 			],
 		})
-		expect(isTableSchema(parsed)).toBe(true)
-		expect(auditTable(parsed ?? { key: '', columns: [] })).toStrictEqual([])
+		expect(isGridSchema(parsed)).toBe(true)
+		expect(auditGrid(parsed ?? { key: '', columns: [] })).toStrictEqual([])
 		expect(Object.isFrozen(parsed)).toBe(true)
 	})
 
 	it('refuses structural and semantic schema faults', () => {
-		expect(parseTable({ columns: [{ cell: 'text', key: 'id' }] })).toBeUndefined()
-		expect(parseTable({ key: 'id', columns: 'not a list' })).toBeUndefined()
-		expect(parseTable({ key: 'missing', columns: [{ cell: 'text', key: 'id' }] })).toBeUndefined()
-		expect(parseTable({ key: 'id', columns: [{ cell: 'choice', key: 'id', choices: [] }] })).toBe(
+		expect(parseGrid({ columns: [{ cell: 'text', key: 'id' }] })).toBeUndefined()
+		expect(parseGrid({ key: 'id', columns: 'not a list' })).toBeUndefined()
+		expect(parseGrid({ key: 'missing', columns: [{ cell: 'text', key: 'id' }] })).toBeUndefined()
+		expect(parseGrid({ key: 'id', columns: [{ cell: 'choice', key: 'id', choices: [] }] })).toBe(
 			undefined,
 		)
 		expect(
-			parseTable({
+			parseGrid({
 				key: 'id',
 				columns: [
 					{ cell: 'text', key: 'id' },
@@ -78,24 +78,24 @@ describe('parseTable', () => {
 		const accessor = createAccessorSchema()
 
 		for (const [index, value] of createHostileValues().entries()) {
-			expect(() => parseTable(value), `hostile value ${index}`).not.toThrow()
-			expect(parseTable(value), `hostile value ${index}`).toBeUndefined()
+			expect(() => parseGrid(value), `hostile value ${index}`).not.toThrow()
+			expect(parseGrid(value), `hostile value ${index}`).toBeUndefined()
 		}
-		expect(() => parseTable(accessor)).not.toThrow()
-		expect(parseTable(accessor)).toBeUndefined()
+		expect(() => parseGrid(accessor)).not.toThrow()
+		expect(parseGrid(accessor)).toBeUndefined()
 	})
 
 	it('accepts exact retained budgets and refuses their one-step breaches', () => {
-		expect(parseTable(createTextBudgetSchema())).toBeDefined()
-		expect(parseTable(createTextBudgetSchema(1))).toBeUndefined()
-		expect(parseTable(createNodeBudgetSchema())).toBeDefined()
-		expect(parseTable(createNodeBudgetSchema(1))).toBeUndefined()
+		expect(parseGrid(createTextBudgetSchema())).toBeDefined()
+		expect(parseGrid(createTextBudgetSchema(1))).toBeUndefined()
+		expect(parseGrid(createNodeBudgetSchema())).toBeDefined()
+		expect(parseGrid(createNodeBudgetSchema(1))).toBeUndefined()
 	})
 })
 
 describe('parseRows', () => {
 	it('accepts typed cells and performs only number and flag lexical coercions', () => {
-		const schema = createTableSchema()
+		const schema = createGridSchema()
 		const parsed = parseRows(schema, [
 			{ id: '1', name: 'Ada', age: ' 36 ', active: 'true', status: 'live' },
 			{ id: '2', age: 45, active: false, status: 'draft' },
@@ -105,7 +105,7 @@ describe('parseRows', () => {
 			{ id: '1', name: 'Ada', age: 36, active: true, status: 'live' },
 			{ id: '2', age: 45, active: false, status: 'draft' },
 		])
-		expect(parsed?.every((row) => isTableRow(row) && Object.isFrozen(row))).toBe(true)
+		expect(parsed?.every((row) => isGridRow(row) && Object.isFrozen(row))).toBe(true)
 		expect(Object.isFrozen(parsed)).toBe(true)
 		expect(parseRows(schema, [{ id: 1 }])).toBeUndefined()
 		expect(parseRows(schema, [{ id: '1', name: 7 }])).toBeUndefined()
@@ -115,7 +115,7 @@ describe('parseRows', () => {
 	})
 
 	it('refuses the whole payload for missing, repeated, unknown, or symbol identity doors', () => {
-		const schema = createTableSchema()
+		const schema = createGridSchema()
 		const symbol = { id: '1' }
 		Object.defineProperty(symbol, Symbol('hidden'), { value: true, enumerable: true })
 
@@ -128,7 +128,7 @@ describe('parseRows', () => {
 	})
 
 	it('enforces the exact string boundary before parsing or matching', () => {
-		const schema = createTableSchema()
+		const schema = createGridSchema()
 		const exact = '1'.padStart(STRING_LIMIT, '0')
 		const oversized = '1'.padStart(STRING_LIMIT + 1, '0')
 
@@ -139,7 +139,7 @@ describe('parseRows', () => {
 	})
 
 	it('never throws for sparse arrays, hostile rows, or hostile row lists', () => {
-		const schema = createTableSchema()
+		const schema = createGridSchema()
 		const sparse = Array(1)
 		const hostileRow = new Proxy(
 			{ id: '1' },
@@ -164,21 +164,21 @@ describe('parseRows', () => {
 
 describe('wire round trips', () => {
 	it('reproduces canonical schema and row bytes exactly', () => {
-		const schema = createTableSchema()
-		const rows = createTableRows()
-		const schemaWire = JSON.stringify(serializeTable(schema))
+		const schema = createGridSchema()
+		const rows = createGridRows()
+		const schemaWire = JSON.stringify(serializeGrid(schema))
 		const rowWire = JSON.stringify(serializeRows(schema, rows))
-		const parsedSchema = parseTable(JSON.parse(schemaWire))
+		const parsedSchema = parseGrid(JSON.parse(schemaWire))
 		const parsedRows = parseRows(schema, JSON.parse(rowWire))
 
 		expect(parsedSchema).toBeDefined()
 		expect(parsedRows).toBeDefined()
-		expect(JSON.stringify(serializeTable(parsedSchema ?? schema))).toBe(schemaWire)
+		expect(JSON.stringify(serializeGrid(parsedSchema ?? schema))).toBe(schemaWire)
 		expect(JSON.stringify(serializeRows(schema, parsedRows ?? []))).toBe(rowWire)
 	})
 
 	it('owns prototype-looking row and metadata keys without polluting prototypes', () => {
-		const schema = parseTable(
+		const schema = parseGrid(
 			JSON.parse(
 				'{"key":"id","columns":[{"cell":"text","key":"id","meta":{"__proto__":{"safe":true}}},{"cell":"text","key":"__proto__"}]}',
 			),

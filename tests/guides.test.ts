@@ -10,9 +10,9 @@ import type {
 	ChoiceColumn,
 	FlagColumn,
 	NumberColumn,
-	TableKey,
-	TableOrder,
-	TableSchema,
+	GridKey,
+	GridOrder,
+	GridSchema,
 	TextColumn,
 } from '@src/core'
 
@@ -71,35 +71,35 @@ await new GuideCommand({
 	const { requireValue } = await import('@orkestrel/test')
 	const {
 		admitsFilter,
-		auditTable,
+		auditGrid,
 		cloneRow,
-		cloneSchema,
+		cloneGridSchema,
 		compareCells,
 		computeKeys,
-		createTable,
+		createGrid,
 		extractColumn,
-		extractKey,
-		filterRows,
+		extractGridKey,
+		filterGridRows,
 		isColumnCell,
 		isColumnChoice,
-		isStructuralTableSchema,
-		isTableCell,
-		isTableColumn,
-		isTableRow,
-		isTableSchema,
+		isStructuralGridSchema,
+		isGridCell,
+		isGridColumn,
+		isGridRow,
+		isGridSchema,
 		matchesCell,
 		matchesFilter,
 		matchesTerms,
 		mergeTerms,
 		parseRows,
-		parseTable,
+		parseGrid,
 		removeTerms,
 		serializeRows,
-		serializeTable,
-		sortRows,
-		Table,
+		serializeGrid,
+		sortGridRows,
+		Grid,
 	} = await import('@src/core')
-	const { compareTextNaturally, matchTextLoosely, readTableError } = await import('./setup.js')
+	const { compareTextNaturally, matchTextLoosely, readGridError } = await import('./setup.js')
 	const { describe, expect, it } = await import('vitest')
 	const own = requireValue(
 		entries.find((row) => row.entry.spec === GUIDE_SPEC),
@@ -109,7 +109,7 @@ await new GuideCommand({
 	if (!isRecord(manifest)) throw new Error('Invalid package manifest: package.json')
 	const sources = createSourceManager({ files, modules: MODULES })
 	it('executes the whole-row replacement guide without losing selection', () => {
-		const table = createTable(
+		const grid = createGrid(
 			{
 				key: 'id',
 				columns: [
@@ -119,10 +119,10 @@ await new GuideCommand({
 			},
 			{ rows: [{ id: 'ash', name: 'Ash' }] },
 		)
-		table.selection.select('ash')
-		expect(table.rows.replace({ id: 'ash' })).toBe(true)
-		expect(table.rows.row('ash')).toEqual({ id: 'ash' })
-		expect(table.selection.keys.has('ash')).toBe(true)
+		grid.selection.select('ash')
+		expect(grid.rows.replace({ id: 'ash' })).toBe(true)
+		expect(grid.rows.row('ash')).toEqual({ id: 'ash' })
+		expect(grid.selection.keys.has('ash')).toBe(true)
 	})
 	it('manifest lists at least one guide', () => {
 		expect(report.input).toEqual([])
@@ -279,7 +279,7 @@ await new GuideCommand({
 	// Each following test transcribes one runnable fence and asserts every value its comments claim.
 	describe('table.md fences', () => {
 		it('opens the Surface example', () => {
-			const table = createTable(
+			const grid = createGrid(
 				{
 					label: 'People',
 					key: 'id',
@@ -299,12 +299,12 @@ await new GuideCommand({
 				},
 			)
 
-			table.filter.set({ column: 'name', operator: 'contains', text: 'a' })
-			table.sort.set({ column: 'age', direction: 'descending' })
+			grid.filter.set({ column: 'name', operator: 'contains', text: 'a' })
+			grid.sort.set({ column: 'age', direction: 'descending' })
 
-			expect(table.count).toBe(3)
-			expect(table.pagination.count).toBe(2)
-			expect(table.view.map((row) => row.name)).toStrictEqual(['Grace', 'Alan'])
+			expect(grid.count).toBe(3)
+			expect(grid.pagination.count).toBe(2)
+			expect(grid.view.map((row) => row.name)).toStrictEqual(['Grace', 'Alan'])
 		})
 
 		it('declares a text column', () => {
@@ -369,7 +369,7 @@ await new GuideCommand({
 		})
 
 		it('reads a column and gates its cells', () => {
-			const schema: TableSchema = {
+			const schema: GridSchema = {
 				key: 'id',
 				columns: [
 					{ cell: 'text', key: 'id' },
@@ -395,7 +395,7 @@ await new GuideCommand({
 		})
 
 		it('overrides one column matcher', () => {
-			const table = createTable(
+			const grid = createGrid(
 				{
 					key: 'id',
 					columns: [
@@ -410,27 +410,27 @@ await new GuideCommand({
 				},
 			)
 
-			table.filter.set({ column: 'name', operator: 'contains', text: 'ADA' })
-			expect(table.count).toBe(1)
+			grid.filter.set({ column: 'name', operator: 'contains', text: 'ADA' })
+			expect(grid.count).toBe(1)
 		})
 
 		it('refuses duplicate and absent identities atomically', () => {
-			const table = createTable({
+			const grid = createGrid({
 				key: 'id',
 				columns: [
 					{ cell: 'text', key: 'id' },
 					{ cell: 'text', key: 'name' },
 				],
 			})
-			table.rows.add({ id: '7', name: 'Ada' })
+			grid.rows.add({ id: '7', name: 'Ada' })
 
-			expect(readTableError(() => table.rows.add({ id: '7', name: 'Grace' }))).toBe('KEY')
-			expect(readTableError(() => table.rows.add({ name: 'Alan' }))).toBe('KEY')
-			expect(table.rows.rows().length).toBe(1)
+			expect(readGridError(() => grid.rows.add({ id: '7', name: 'Grace' }))).toBe('KEY')
+			expect(readGridError(() => grid.rows.add({ name: 'Alan' }))).toBe('KEY')
+			expect(grid.rows.rows().length).toBe(1)
 		})
 
 		it('merges an update without moving identity', () => {
-			const table = createTable(
+			const grid = createGrid(
 				{
 					key: 'id',
 					columns: [
@@ -442,21 +442,21 @@ await new GuideCommand({
 				{ rows: [{ id: '1', name: 'Ada', age: 36 }] },
 			)
 
-			expect(table.rows.update({ id: '1', age: 37 })).toBe(true)
-			expect(table.rows.row('1')).toStrictEqual({ id: '1', name: 'Ada', age: 37 })
-			expect(table.rows.update({ id: '9', name: 'Nobody' })).toBe(false)
-			expect(table.rows.rows().length).toBe(1)
+			expect(grid.rows.update({ id: '1', age: 37 })).toBe(true)
+			expect(grid.rows.row('1')).toStrictEqual({ id: '1', name: 'Ada', age: 37 })
+			expect(grid.rows.update({ id: '9', name: 'Nobody' })).toBe(false)
+			expect(grid.rows.rows().length).toBe(1)
 		})
 
 		it('extracts only usable identities', () => {
-			const schema: TableSchema = { key: 'id', columns: [{ cell: 'text', key: 'id' }] }
-			expect(extractKey(schema, { id: '7' })).toBe('7')
-			expect(extractKey(schema, { id: '' })).toBeUndefined()
-			expect(extractKey(schema, { name: 'Ada' })).toBeUndefined()
+			const schema: GridSchema = { key: 'id', columns: [{ cell: 'text', key: 'id' }] }
+			expect(extractGridKey(schema, { id: '7' })).toBe('7')
+			expect(extractGridKey(schema, { id: '' })).toBeUndefined()
+			expect(extractGridKey(schema, { name: 'Ada' })).toBeUndefined()
 		})
 
 		it('sorts by ordered terms', () => {
-			const table = createTable(
+			const grid = createGrid(
 				{
 					key: 'id',
 					columns: [
@@ -474,19 +474,19 @@ await new GuideCommand({
 				},
 			)
 
-			table.sort.set([
+			grid.sort.set([
 				{ column: 'team', direction: 'ascending' },
 				{ column: 'age', direction: 'descending' },
 			])
-			expect(table.view.map((row) => row.id)).toStrictEqual(['1', '3', '2'])
-			expect(table.sort.order('age')).toStrictEqual({
+			expect(grid.view.map((row) => row.id)).toStrictEqual(['1', '3', '2'])
+			expect(grid.sort.order('age')).toStrictEqual({
 				column: 'age',
 				direction: 'descending',
 			})
 		})
 
 		it('merges, compares, and removes lens terms', () => {
-			const current: readonly TableOrder[] = [
+			const current: readonly GridOrder[] = [
 				{ column: 'team', direction: 'ascending' },
 				{ column: 'age', direction: 'descending' },
 			]
@@ -500,7 +500,7 @@ await new GuideCommand({
 		})
 
 		it('sorts rows without moving the input', () => {
-			const schema: TableSchema = {
+			const schema: GridSchema = {
 				key: 'id',
 				columns: [
 					{ cell: 'text', key: 'id' },
@@ -510,14 +510,16 @@ await new GuideCommand({
 			const rows = [{ id: '1', age: 40 }, { id: '2' }, { id: '3', age: 30 }]
 
 			expect(
-				sortRows(schema, rows, [{ column: 'age', direction: 'ascending' }]).map((row) => row.id),
+				sortGridRows(schema, rows, [{ column: 'age', direction: 'ascending' }]).map(
+					(row) => row.id,
+				),
 			).toStrictEqual(['2', '3', '1'])
-			expect(sortRows(schema, rows, []).map((row) => row.id)).toStrictEqual(['1', '2', '3'])
+			expect(sortGridRows(schema, rows, []).map((row) => row.id)).toStrictEqual(['1', '2', '3'])
 			expect(rows.map((row) => row.id)).toStrictEqual(['1', '2', '3'])
 		})
 
 		it('filters with and-only composition', () => {
-			const table = createTable(
+			const grid = createGrid(
 				{
 					key: 'id',
 					columns: [
@@ -534,19 +536,19 @@ await new GuideCommand({
 				},
 			)
 
-			table.filter.set([
+			grid.filter.set([
 				{ column: 'name', operator: 'contains', text: 'a' },
 				{ column: 'age', operator: 'between', minimum: 40, maximum: 50 },
 			])
-			expect(table.count).toBe(1)
-			expect(table.view.map((row) => row.name)).toStrictEqual(['Grace'])
+			expect(grid.count).toBe(1)
+			expect(grid.view.map((row) => row.name)).toStrictEqual(['Grace'])
 			expect(
-				readTableError(() => table.filter.set({ column: 'age', operator: 'contains', text: '4' })),
+				readGridError(() => grid.filter.set({ column: 'age', operator: 'contains', text: '4' })),
 			).toBe('CELL')
 		})
 
 		it('filters rows case-sensitively in input order', () => {
-			const schema: TableSchema = {
+			const schema: GridSchema = {
 				key: 'id',
 				columns: [
 					{ cell: 'text', key: 'id' },
@@ -558,78 +560,82 @@ await new GuideCommand({
 				{ id: '2', name: 'Grace' },
 				{ id: '3', name: 'Bob' },
 			]
-			const lower = filterRows(schema, rows, [{ column: 'name', operator: 'contains', text: 'a' }])
-			const upper = filterRows(schema, rows, [{ column: 'name', operator: 'contains', text: 'A' }])
+			const lower = filterGridRows(schema, rows, [
+				{ column: 'name', operator: 'contains', text: 'a' },
+			])
+			const upper = filterGridRows(schema, rows, [
+				{ column: 'name', operator: 'contains', text: 'A' },
+			])
 
 			expect(lower.map((row) => row.name)).toStrictEqual(['Ada', 'Grace'])
 			expect(upper.map((row) => row.name)).toStrictEqual(['Ada'])
-			expect(filterRows(schema, rows, []).length).toBe(3)
+			expect(filterGridRows(schema, rows, []).length).toBe(3)
 		})
 
 		it('clamps and removes pagination', () => {
-			const table = createTable(
+			const grid = createGrid(
 				{ key: 'id', columns: [{ cell: 'text', key: 'id' }] },
 				{ rows: [{ id: '1' }, { id: '2' }, { id: '3' }, { id: '4' }, { id: '5' }], limit: 2 },
 			)
 
-			expect(table.pagination.count).toBe(3)
-			table.pagination.move(9)
-			expect(table.pagination.page).toBe(3)
-			expect(table.pagination.offset).toBe(4)
-			expect(table.view.map((row) => row.id)).toStrictEqual(['5'])
-			table.pagination.resize()
-			expect(table.pagination.limit).toBeUndefined()
-			expect(table.view.length).toBe(5)
+			expect(grid.pagination.count).toBe(3)
+			grid.pagination.move(9)
+			expect(grid.pagination.page).toBe(3)
+			expect(grid.pagination.offset).toBe(4)
+			expect(grid.view.map((row) => row.id)).toStrictEqual(['5'])
+			grid.pagination.resize()
+			expect(grid.pagination.limit).toBeUndefined()
+			expect(grid.view.length).toBe(5)
 		})
 
 		it('selects visible keys and prunes removed rows', () => {
-			const table = createTable(
+			const grid = createGrid(
 				{ key: 'id', columns: [{ cell: 'text', key: 'id' }] },
 				{ rows: [{ id: '1' }, { id: '2' }, { id: '3' }] },
 			)
 
-			table.selection.select(table.view.map((row) => String(row.id)))
-			expect(table.selection.keys.size).toBe(3)
-			table.selection.toggle('2')
-			expect(table.selection.keys.has('2')).toBe(false)
-			table.rows.remove('1')
-			expect(table.selection.keys.has('1')).toBe(false)
+			grid.selection.select(grid.view.map((row) => String(row.id)))
+			expect(grid.selection.keys.size).toBe(3)
+			grid.selection.toggle('2')
+			expect(grid.selection.keys.has('2')).toBe(false)
+			grid.rows.remove('1')
+			expect(grid.selection.keys.has('1')).toBe(false)
 		})
 
 		it('expands every row and refuses an invalid batch atomically', () => {
-			const table = createTable(
+			const grid = createGrid(
 				{ key: 'id', columns: [{ cell: 'text', key: 'id' }] },
 				{ rows: [{ id: '1' }, { id: '2' }, { id: '3' }] },
 			)
 
-			table.expansion.expand()
-			expect(table.expansion.keys.size).toBe(3)
-			table.expansion.clear('2')
-			expect(table.expansion.expand(['2', '9'])).toBe(false)
-			expect(table.expansion.keys.has('2')).toBe(false)
-			table.expansion.toggle('2')
-			expect(table.expansion.keys.size).toBe(3)
+			grid.expansion.expand()
+			expect(grid.expansion.keys.size).toBe(3)
+			grid.expansion.clear('2')
+			expect(grid.expansion.expand(['2', '9'])).toBe(false)
+			expect(grid.expansion.keys.has('2')).toBe(false)
+			grid.expansion.toggle('2')
+			expect(grid.expansion.keys.size).toBe(3)
 		})
 
 		it('clears for reuse and destroys idempotently', () => {
-			const table = createTable(
+			const grid = createGrid(
 				{ key: 'id', columns: [{ cell: 'text', key: 'id' }] },
 				{ rows: [{ id: '1' }, { id: '2' }] },
 			)
 
-			table.clear()
-			expect(table.count).toBe(0)
-			table.rows.add({ id: '3' })
-			table.destroy()
-			table.destroy()
-			expect(table.destroyed).toBe(true)
-			expect(table.count).toBe(1)
-			expect(readTableError(() => table.rows.add({ id: '4' }))).toBe('DESTROYED')
+			grid.clear()
+			expect(grid.count).toBe(0)
+			grid.rows.add({ id: '3' })
+			grid.destroy()
+			grid.destroy()
+			expect(grid.destroyed).toBe(true)
+			expect(grid.count).toBe(1)
+			expect(readGridError(() => grid.rows.add({ id: '4' }))).toBe('DESTROYED')
 		})
 
 		it('announces only committed moves', () => {
 			const seen: string[] = []
-			const table = createTable(
+			const grid = createGrid(
 				{
 					key: 'id',
 					columns: [
@@ -645,18 +651,18 @@ await new GuideCommand({
 					},
 				},
 			)
-			table.emitter.on('clear', () => seen.push('clear'))
+			grid.emitter.on('clear', () => seen.push('clear'))
 
-			table.rows.add({ id: '2', age: 45 })
-			table.sort.set({ column: 'age', direction: 'ascending' })
-			table.sort.set({ column: 'age', direction: 'ascending' })
-			table.clear()
+			grid.rows.add({ id: '2', age: 45 })
+			grid.sort.set({ column: 'age', direction: 'ascending' })
+			grid.sort.set({ column: 'age', direction: 'ascending' })
+			grid.clear()
 
 			expect(seen).toStrictEqual(['write 2', 'sort 1', 'clear'])
 		})
 
 		it('round-trips a schema through JSON exactly', () => {
-			const schema: TableSchema = {
+			const schema: GridSchema = {
 				name: 'people',
 				label: 'People',
 				key: 'id',
@@ -665,16 +671,16 @@ await new GuideCommand({
 					{ cell: 'number', key: 'age', label: 'Age', meta: { align: 'right' } },
 				],
 			}
-			const wire = JSON.stringify(serializeTable(schema))
-			const received = parseTable(JSON.parse(wire))
+			const wire = JSON.stringify(serializeGrid(schema))
+			const received = parseGrid(JSON.parse(wire))
 
-			expect(JSON.stringify(serializeTable(received ?? schema))).toBe(wire)
-			expect(parseTable({ key: 'id', columns: 'not a list' })).toBeUndefined()
-			expect(parseTable({ columns: [{ cell: 'text', key: 'id' }] })).toBeUndefined()
+			expect(JSON.stringify(serializeGrid(received ?? schema))).toBe(wire)
+			expect(parseGrid({ key: 'id', columns: 'not a list' })).toBeUndefined()
+			expect(parseGrid({ columns: [{ cell: 'text', key: 'id' }] })).toBeUndefined()
 		})
 
 		it('coerces and serializes rows at the wire boundary', () => {
-			const schema: TableSchema = {
+			const schema: GridSchema = {
 				key: 'id',
 				columns: [
 					{ cell: 'text', key: 'id' },
@@ -695,15 +701,15 @@ await new GuideCommand({
 		it('answers every guard example', () => {
 			expect(isColumnCell('choice')).toBe(true)
 			expect(isColumnCell('date')).toBe(false)
-			expect(isTableCell(36)).toBe(true)
-			expect(isTableCell(null)).toBe(false)
-			expect(isTableRow({ id: '1', age: 36 })).toBe(true)
-			expect(isTableRow({ id: ['1'] })).toBe(false)
+			expect(isGridCell(36)).toBe(true)
+			expect(isGridCell(null)).toBe(false)
+			expect(isGridRow({ id: '1', age: 36 })).toBe(true)
+			expect(isGridRow({ id: ['1'] })).toBe(false)
 			expect(isColumnChoice({ value: 'a', label: 'A' })).toBe(true)
 			expect(isColumnChoice({ value: 'a', label: 'A', colour: 'red' })).toBe(false)
-			expect(isTableColumn({ cell: 'choice', key: 'status', choices: [] })).toBe(true)
-			expect(isTableSchema({ key: 'id', columns: [{ cell: 'text', key: 'id' }] })).toBe(true)
-			expect(isTableSchema({ columns: [] })).toBe(false)
+			expect(isGridColumn({ cell: 'choice', key: 'status', choices: [] })).toBe(true)
+			expect(isGridSchema({ key: 'id', columns: [{ cell: 'text', key: 'id' }] })).toBe(true)
+			expect(isGridSchema({ columns: [] })).toBe(false)
 		})
 
 		it('owns every clone the guide shows', () => {
@@ -713,19 +719,19 @@ await new GuideCommand({
 			expect(owned === row).toBe(false)
 			expect(Object.isFrozen(owned)).toBe(true)
 			expect(
-				Object.isFrozen(cloneSchema({ key: 'id', columns: [{ cell: 'text', key: 'id' }] })),
+				Object.isFrozen(cloneGridSchema({ key: 'id', columns: [{ cell: 'text', key: 'id' }] })),
 			).toBe(true)
 		})
 
 		it('reports the audit diagnostics the guide quotes', () => {
-			expect(auditTable({ key: 'ref', columns: [{ cell: 'text', key: 'id' }] })).toStrictEqual([
+			expect(auditGrid({ key: 'ref', columns: [{ cell: 'text', key: 'id' }] })).toStrictEqual([
 				'schema key "ref" names no declared column',
 			])
-			expect(auditTable({ key: 'age', columns: [{ cell: 'number', key: 'age' }] })).toStrictEqual([
+			expect(auditGrid({ key: 'age', columns: [{ cell: 'number', key: 'age' }] })).toStrictEqual([
 				'schema key "age" names a number column, which holds no identity',
 			])
 			expect(
-				auditTable({
+				auditGrid({
 					key: 'id',
 					columns: [
 						{ cell: 'text', key: 'id' },
@@ -733,16 +739,14 @@ await new GuideCommand({
 					],
 				}),
 			).toStrictEqual(['column "id" is declared more than once'])
-			expect(auditTable({ key: 'id', columns: [{ cell: 'text', key: 'id' }] })).toStrictEqual([])
+			expect(auditGrid({ key: 'id', columns: [{ cell: 'text', key: 'id' }] })).toStrictEqual([])
 		})
 
 		it('codes each refusal named by the errors table', () => {
 			expect(
-				readTableError(() =>
-					createTable({ key: 'missing', columns: [{ cell: 'text', key: 'id' }] }),
-				),
+				readGridError(() => createGrid({ key: 'missing', columns: [{ cell: 'text', key: 'id' }] })),
 			).toBe('SCHEMA')
-			const table = createTable({
+			const grid = createGrid({
 				key: 'id',
 				columns: [
 					{ cell: 'text', key: 'id' },
@@ -750,19 +754,19 @@ await new GuideCommand({
 				],
 			})
 
-			expect(readTableError(() => table.sort.set({ column: 'nope', direction: 'ascending' }))).toBe(
+			expect(readGridError(() => grid.sort.set({ column: 'nope', direction: 'ascending' }))).toBe(
 				'COLUMN',
 			)
-			expect(readTableError(() => table.rows.add({ id: '1', age: 'twelve' }))).toBe('CELL')
-			expect(table.rows.rows().length).toBe(0)
+			expect(readGridError(() => grid.rows.add({ id: '1', age: 'twelve' }))).toBe('CELL')
+			expect(grid.rows.rows().length).toBe(0)
 		})
 
 		it('constructs the class like the factory', () => {
-			const table = new Table(
+			const grid = new Grid(
 				{ key: 'id', columns: [{ cell: 'text', key: 'id' }] },
 				{ rows: [{ id: '1' }] },
 			)
-			expect(table.count).toBe(1)
+			expect(grid.count).toBe(1)
 		})
 
 		it('admits a filter only when the operator and operand fit the column', () => {
@@ -777,8 +781,8 @@ await new GuideCommand({
 		})
 
 		it('computes one atomic membership change over a key set', () => {
-			const known: readonly TableKey[] = ['1', '2', '3']
-			const picked: ReadonlySet<TableKey> = new Set(['1'])
+			const known: readonly GridKey[] = ['1', '2', '3']
+			const picked: ReadonlySet<GridKey> = new Set(['1'])
 
 			expect(computeKeys(known, picked, '2', () => true)?.size).toBe(2)
 			expect(computeKeys(known, picked, '9', () => true)).toBeUndefined()
@@ -789,17 +793,17 @@ await new GuideCommand({
 		it('draws the shape and audit boundary between the schema guards', () => {
 			const unsound = { key: 'missing', columns: [{ cell: 'text', key: 'id' }] }
 
-			expect(isStructuralTableSchema(unsound)).toBe(true)
-			expect(isTableSchema(unsound)).toBe(false)
-			expect(parseTable(unsound)).toBeUndefined()
-			expect(isStructuralTableSchema({ columns: [] })).toBe(false)
+			expect(isStructuralGridSchema(unsound)).toBe(true)
+			expect(isGridSchema(unsound)).toBe(false)
+			expect(parseGrid(unsound)).toBeUndefined()
+			expect(isStructuralGridSchema({ columns: [] })).toBe(false)
 		})
 	})
 
 	describe('README.md Usage fence', () => {
 		it('executes the value claims in its comments', () => {
 			const picked: number[] = []
-			const table = createTable(
+			const grid = createGrid(
 				{
 					label: 'People',
 					key: 'id',
@@ -829,12 +833,12 @@ await new GuideCommand({
 				},
 			)
 
-			table.filter.set({ column: 'status', operator: 'equals', value: 'live' })
-			table.sort.set({ column: 'age', direction: 'descending' })
-			expect(table.count).toBe(2)
-			expect(table.view.map((row) => row.name)).toStrictEqual(['Alan', 'Ada'])
-			table.selection.toggle('1')
-			expect(table.selection.keys.has('1')).toBe(true)
+			grid.filter.set({ column: 'status', operator: 'equals', value: 'live' })
+			grid.sort.set({ column: 'age', direction: 'descending' })
+			expect(grid.count).toBe(2)
+			expect(grid.view.map((row) => row.name)).toStrictEqual(['Alan', 'Ada'])
+			grid.selection.toggle('1')
+			expect(grid.selection.keys.has('1')).toBe(true)
 			expect(picked).toStrictEqual([1])
 		})
 	})

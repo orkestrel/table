@@ -1,11 +1,11 @@
 # @orkestrel/table
 
-> The environment-agnostic tabular document: a `TableSchema` declaring the columns, a `Table`
+> The environment-agnostic tabular document: a `GridSchema` declaring the columns, a `Grid`
 > holding the rows given against it, and one lens of sort, filter, and page deciding which of them
 > the view shows.
 
-Open a table with the `createTable` function, seed or add its rows through `table.rows`, and read
-`table.view` for the rows to draw. Every row carries its own identity in a column the schema names,
+Open a grid with the `createGrid` function, seed or add its rows through `grid.rows`, and read
+`grid.view` for the rows to draw. Every row carries its own identity in a column the schema names,
 so a pick survives a re-sort, and budgets bound what one schema may retain, so a document that
 arrives from a wire costs a known maximum before anything decides to trust it. Built on
 `@orkestrel/contract` and `@orkestrel/emitter`, and part of the `@orkestrel` line.
@@ -24,9 +24,9 @@ npm install @orkestrel/table
 ## Usage
 
 ```ts
-import { createTable } from '@orkestrel/table'
+import { createGrid } from '@orkestrel/table'
 
-const table = createTable(
+const grid = createGrid(
 	{
 		label: 'People',
 		key: 'id',
@@ -56,14 +56,14 @@ const table = createTable(
 	},
 )
 
-table.filter.set({ column: 'status', operator: 'equals', value: 'live' })
-table.sort.set({ column: 'age', direction: 'descending' })
+grid.filter.set({ column: 'status', operator: 'equals', value: 'live' })
+grid.sort.set({ column: 'age', direction: 'descending' })
 
-table.count // 2 — the rows the filter admits
-table.view.map((row) => row.name) // ['Alan', 'Ada']
+grid.count // 2 — the rows the filter admits
+grid.view.map((row) => row.name) // ['Alan', 'Ada']
 
-table.selection.toggle('1')
-table.selection.keys.has('1') // true — a key, so it survives the next sort
+grid.selection.toggle('1')
+grid.selection.keys.has('1') // true — a key, so it survives the next sort
 ```
 
 ## Guide

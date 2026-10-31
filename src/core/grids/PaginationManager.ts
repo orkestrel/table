@@ -1,10 +1,10 @@
 import { isFiniteNumber } from '@orkestrel/contract'
 import type { Emitter } from '@orkestrel/emitter'
-import type { PaginationManagerInterface, TableEventMap } from '../types.js'
+import type { PaginationManagerInterface, GridEventMap } from '../types.js'
 
-/** Manages the page arithmetic over one table's filtered rows. */
+/** Manages the page arithmetic over one grid's filtered rows. */
 export class PaginationManager implements PaginationManagerInterface {
-	readonly #emitter: Emitter<TableEventMap>
+	readonly #emitter: Emitter<GridEventMap>
 	readonly #gate: () => void
 	readonly #rows: () => number
 	readonly #readPage: () => number
@@ -13,10 +13,10 @@ export class PaginationManager implements PaginationManagerInterface {
 	readonly #writeLimit: (limit: number | undefined) => void
 
 	/**
-	 * Creates a pagination manager over one table's private stores.
+	 * Creates a pagination manager over one grid's private stores.
 	 *
-	 * @param emitter - The table's event emitter.
-	 * @param gate - The table lifecycle gate.
+	 * @param emitter - The grid's event emitter.
+	 * @param gate - The grid lifecycle gate.
 	 * @param rows - A read of the filtered row count.
 	 * @param readPage - A read of the current page.
 	 * @param writePage - The page commit boundary.
@@ -24,7 +24,7 @@ export class PaginationManager implements PaginationManagerInterface {
 	 * @param writeLimit - The page-size commit boundary.
 	 */
 	constructor(
-		emitter: Emitter<TableEventMap>,
+		emitter: Emitter<GridEventMap>,
 		gate: () => void,
 		rows: () => number,
 		readPage: () => number,

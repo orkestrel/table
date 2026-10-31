@@ -11,10 +11,10 @@ import type { EmitterErrorHandler, EmitterHooks, EmitterInterface } from '@orkes
  *
  * @example
  * ```ts
- * const key: TableKey = '7'
+ * const key: GridKey = '7'
  * ```
  */
-export type TableKey = string
+export type GridKey = string
 
 /**
  * Represents every value a cell can hold — a `string`, a `number`, or a `boolean`.
@@ -24,28 +24,28 @@ export type TableKey = string
  * and `flag` holds a `boolean`. A cell nobody has filled has no key in its row, so absence is
  * `undefined` and never `null` or an empty string.
  */
-export type TableCell = string | number | boolean
+export type GridCell = string | number | boolean
 
 /**
  * Represents one row, keyed by column. A column nobody has filled has no key here.
  *
  * @remarks
- * A row carries no key the schema does not declare, and the table clones and freezes it at
+ * A row carries no key the schema does not declare, and the grid clones and freezes it at
  * admission, so nothing a caller holds afterwards can move a stored row.
  *
  * @example
  * ```ts
- * const row: TableRow = { id: '7', name: 'Ada', age: 36, active: true }
+ * const row: GridRow = { id: '7', name: 'Ada', age: 36, active: true }
  * ```
  */
-export type TableRow = Readonly<Record<string, TableCell>>
+export type GridRow = Readonly<Record<string, GridCell>>
 
 /**
  * Names what a column's cells hold — the discriminant that fixes the column's options, its
  * comparison, and the filters that apply to it.
  *
  * @remarks
- * Every {@link TableColumn} variant is discriminated by it, so narrowing on the member reaches
+ * Every {@link GridColumn} variant is discriminated by it, so narrowing on the member reaches
  * that variant's own options.
  *
  * A date, a time, and a timestamp are `text` holding a canonically spelled ISO string. Lexical
@@ -82,12 +82,12 @@ export interface ColumnChoice {
  * heading a reader sees and `help` explains the column.
  *
  * `hidden` declares the column out of the presentation. It is still sorted, still filtered, and
- * still serialized, because hiding is what a host draws rather than what the table holds.
+ * still serialized, because hiding is what a host draws rather than what the grid holds.
  *
  * There is no `sortable` and no `filterable`. Every declared column sorts and filters; whether a
  * heading offers either is the host's decision.
  *
- * `meta` is a bounded JSON carrier for whatever the schema declines to model. The table never
+ * `meta` is a bounded JSON carrier for whatever the schema declines to model. The grid never
  * reads it, no comparison sees it, and it round-trips verbatim. This package defines no key in
  * it, so every key belongs to the host: an alignment, a format, a pixel width.
  */
@@ -137,15 +137,15 @@ export interface ChoiceColumn extends ColumnBase {
  *
  * @example
  * ```ts
- * function choices(column: TableColumn): readonly ColumnChoice[] {
+ * function choices(column: GridColumn): readonly ColumnChoice[] {
  * 	return column.cell === 'choice' ? column.choices : []
  * }
  * ```
  */
-export type TableColumn = TextColumn | NumberColumn | FlagColumn | ChoiceColumn
+export type GridColumn = TextColumn | NumberColumn | FlagColumn | ChoiceColumn
 
 /**
- * Holds everything a table declares about itself — how the table is described, which column
+ * Holds everything a grid declares about itself — how the grid is described, which column
  * carries row identity, and the columns it declares, in the order it declares them.
  *
  * @remarks
@@ -154,15 +154,15 @@ export type TableColumn = TextColumn | NumberColumn | FlagColumn | ChoiceColumn
  *
  * `columns` is the schema's column list, and the order it declares is the order a host presents.
  * `key` names the column whose cells carry row identity; it is required, it must name a declared
- * column, and the table refuses a row whose cell there is missing, empty, or not a string. There
+ * column, and the grid refuses a row whose cell there is missing, empty, or not a string. There
  * is no default column, no positional fallback, and no key generation: an index is a position,
  * and a position is not an identity.
  *
- * `name`, `label`, and `help` describe the table itself.
+ * `name`, `label`, and `help` describe the grid itself.
  *
  * @example
  * ```ts
- * const schema: TableSchema = {
+ * const schema: GridSchema = {
  * 	label: 'People',
  * 	key: 'id',
  * 	columns: [
@@ -173,12 +173,12 @@ export type TableColumn = TextColumn | NumberColumn | FlagColumn | ChoiceColumn
  * }
  * ```
  */
-export interface TableSchema {
+export interface GridSchema {
 	readonly name?: string
 	readonly label?: string
 	readonly help?: string
 	readonly key: string
-	readonly columns: readonly TableColumn[]
+	readonly columns: readonly GridColumn[]
 }
 
 /**
@@ -186,11 +186,11 @@ export interface TableSchema {
  * one, which is why the two share a list engine.
  *
  * @remarks
- * A table holds at most one sort term and at most one filter per column, so `column` is what
+ * A grid holds at most one sort term and at most one filter per column, so `column` is what
  * places an entry in either list. {@link mergeTerms}, {@link removeTerms}, and
  * {@link matchesTerms} work over this shape alone, so each list keeps its own operands.
  */
-export interface TableTerm {
+export interface GridTerm {
 	readonly column: string
 }
 
@@ -198,9 +198,9 @@ export interface TableTerm {
  * Names which way a column sorts. A column nobody has sorted carries no term at all.
  *
  * @remarks
- * No member of this union stands for unsorted; that state is the missing {@link TableOrder}.
+ * No member of this union stands for unsorted; that state is the missing {@link GridOrder}.
  */
-export type TableDirection = 'ascending' | 'descending'
+export type GridDirection = 'ascending' | 'descending'
 
 /**
  * Represents one column's place in the sort — the `column` and its `direction`. The list is read
@@ -208,16 +208,16 @@ export type TableDirection = 'ascending' | 'descending'
  *
  * @remarks
  * The first term decides, and each later term breaks the tie the terms before it left. Rows no
- * term separates keep the order the table holds them in.
+ * term separates keep the order the grid holds them in.
  *
  * @example
  * ```ts
- * const order: TableOrder = { column: 'age', direction: 'descending' }
+ * const order: GridOrder = { column: 'age', direction: 'descending' }
  * ```
  */
-export interface TableOrder {
+export interface GridOrder {
 	readonly column: string
-	readonly direction: TableDirection
+	readonly direction: GridDirection
 }
 
 /**
@@ -229,7 +229,7 @@ export interface TableOrder {
  * one value, which is what a `flag` or a `choice` asks for.
  *
  * A column needing anything else takes a {@link CellMatcher} through
- * {@link TableOptions.matchers}, so the operator set stays small and the schema stays data.
+ * {@link GridOptions.matchers}, so the operator set stays small and the schema stays data.
  */
 export type FilterOperator = 'contains' | 'between' | 'equals'
 
@@ -259,25 +259,25 @@ export interface BetweenFilter {
 export interface EqualsFilter {
 	readonly column: string
 	readonly operator: 'equals'
-	readonly value: TableCell
+	readonly value: GridCell
 }
 
 /**
- * Represents any filter a table can hold — the union discriminated on `operator`.
+ * Represents any filter a grid can hold — the union discriminated on `operator`.
  *
  * @remarks
  * Each operator carries only the operands it uses, so a `between` missing a bound cannot be
  * written down.
  *
- * A table holds at most one filter per column and keeps every row all of them accept. There is no
+ * A grid holds at most one filter per column and keeps every row all of them accept. There is no
  * either-or composition in this version.
  *
  * @example
  * ```ts
- * const filter: TableFilter = { column: 'age', operator: 'between', minimum: 30, maximum: 40 }
+ * const filter: GridFilter = { column: 'age', operator: 'between', minimum: 30, maximum: 40 }
  * ```
  */
-export type TableFilter = ContainsFilter | BetweenFilter | EqualsFilter
+export type GridFilter = ContainsFilter | BetweenFilter | EqualsFilter
 
 /**
  * Compares two cells of one column, replacing what its `cell` fixes. Always describes ascending
@@ -286,7 +286,7 @@ export type TableFilter = ContainsFilter | BetweenFilter | EqualsFilter
  * @remarks
  * The replacement covers that column alone, and it receives `undefined` for a row carrying no
  * cell there. Sorting reads the result the way `Array.prototype.sort` does and applies
- * {@link TableDirection} to it.
+ * {@link GridDirection} to it.
  *
  * @param left - The first row's cell, or `undefined` when it carries none.
  * @param right - The second row's cell, or `undefined` when it carries none.
@@ -297,18 +297,18 @@ export type TableFilter = ContainsFilter | BetweenFilter | EqualsFilter
  * const natural: CellComparator = (left, right) => String(left).localeCompare(String(right))
  * ```
  */
-export type CellComparator = (left: TableCell | undefined, right: TableCell | undefined) => number
+export type CellComparator = (left: GridCell | undefined, right: GridCell | undefined) => number
 
 /**
  * Tests one column's cell against a filter, replacing what its `cell` fixes. Receives every
- * filter the table holds against that column.
+ * filter the grid holds against that column.
  *
  * @remarks
  * The replacement covers that column alone, and it receives `undefined` for a row carrying no
  * cell there.
  *
  * @param cell - The row's cell, or `undefined` when it carries none.
- * @param filter - The filter the table is applying.
+ * @param filter - The filter the grid is applying.
  * @returns True if the filter accepts the cell; false otherwise.
  * @example
  * ```ts
@@ -316,140 +316,140 @@ export type CellComparator = (left: TableCell | undefined, right: TableCell | un
  * 	filter.operator === 'contains' && String(cell).toLowerCase().includes(filter.text.toLowerCase())
  * ```
  */
-export type CellMatcher = (cell: TableCell | undefined, filter: TableFilter) => boolean
+export type CellMatcher = (cell: GridCell | undefined, filter: GridFilter) => boolean
 
 /**
- * Names the reason a {@link TableError} carries — the machine-readable code a `catch` branches on.
+ * Names the reason a {@link GridError} carries — the machine-readable code a `catch` branches on.
  *
  * @remarks
  * `SCHEMA` rejects a malformed schema, including a `key` naming no declared column. `COLUMN`
  * names a column the schema does not declare. `KEY` reports a row identity that is missing,
  * unusable, or already taken. `CELL` reports a value the column's cell cannot hold. `DESTROYED`
- * refuses a write to a table that has been torn down.
+ * refuses a write to a grid that has been torn down.
  */
-export type TableErrorCode = 'SCHEMA' | 'COLUMN' | 'KEY' | 'CELL' | 'DESTROYED'
+export type GridErrorCode = 'SCHEMA' | 'COLUMN' | 'KEY' | 'CELL' | 'DESTROYED'
 
 /**
- * Lists everything a table announces, mapping each event to the payload its listeners receive.
+ * Lists everything a grid announces, mapping each event to the payload its listeners receive.
  *
  * @remarks
  * Every event fires after the state it reports is committed, and only when something actually
  * moved: a write that changes nothing announces nothing.
  *
- * `write` and `remove` carry one key and fire once per row, in the order the table wrote or
+ * `write` and `remove` carry one key and fire once per row, in the order the grid wrote or
  * removed them. A listener that wants the row reads it back.
  *
  * `sort` and `filter` carry the whole axis as it stands, and `select` and `expand` carry the
  * whole key set. Each payload is owned by the listener, so nothing it holds moves underneath it.
  *
- * `paginate` carries the page the table shows, and fires whenever the paged window moves,
+ * `paginate` carries the page the grid shows, and fires whenever the paged window moves,
  * including a clamp and a change of page size.
  *
  * `clear` is a signal, and it is the whole announcement of that reset: a clear emits no `remove`,
  * no `select`, and no `paginate` beside it.
  */
-export type TableEventMap = {
-	readonly write: readonly [key: TableKey]
-	readonly remove: readonly [key: TableKey]
-	readonly sort: readonly [orders: readonly TableOrder[]]
-	readonly filter: readonly [filters: readonly TableFilter[]]
-	readonly select: readonly [keys: ReadonlySet<TableKey>]
-	readonly expand: readonly [keys: ReadonlySet<TableKey>]
+export type GridEventMap = {
+	readonly write: readonly [key: GridKey]
+	readonly remove: readonly [key: GridKey]
+	readonly sort: readonly [orders: readonly GridOrder[]]
+	readonly filter: readonly [filters: readonly GridFilter[]]
+	readonly select: readonly [keys: ReadonlySet<GridKey>]
+	readonly expand: readonly [keys: ReadonlySet<GridKey>]
 	readonly paginate: readonly [page: number]
 	readonly clear: readonly []
 }
 
 /**
- * Describes how to open a table — the listeners wired at construction and where a throw from one
+ * Describes how to open a grid — the listeners wired at construction and where a throw from one
  * goes, the rows seeded into it, the per-column comparison and test replacements, and the page
  * size.
  *
  * @remarks
  * `on` wires listeners at construction and `error` receives any throw from one of them.
  *
- * `rows` seeds the rows. Seeding announces nothing, so a table opens quietly and every later
+ * `rows` seeds the rows. Seeding announces nothing, so a grid opens quietly and every later
  * write is heard.
  *
  * `comparators` and `matchers` are keyed by column key. Each entry replaces, for that column
  * alone, the comparison or the test the column's {@link ColumnCell} fixes. They are the reason no
- * function belongs in the schema: behavior is supplied where the table is opened, and the schema
+ * function belongs in the schema: behavior is supplied where the grid is opened, and the schema
  * stays data that crosses a wire whole.
  *
- * `limit` is how many rows a page holds. Leave it out and the table is not paged.
+ * `limit` is how many rows a page holds. Leave it out and the grid is not paged.
  *
  * @example
  * ```ts
- * const options: TableOptions = {
+ * const options: GridOptions = {
  * 	rows: [{ id: '7', name: 'Ada', age: 36 }],
  * 	limit: 25,
  * 	on: { select: (keys) => highlight(keys) },
  * }
  * ```
  */
-export interface TableOptions {
-	readonly on?: EmitterHooks<TableEventMap>
+export interface GridOptions {
+	readonly on?: EmitterHooks<GridEventMap>
 	readonly error?: EmitterErrorHandler
-	readonly rows?: readonly TableRow[]
+	readonly rows?: readonly GridRow[]
 	readonly comparators?: Readonly<Record<string, CellComparator>>
 	readonly matchers?: Readonly<Record<string, CellMatcher>>
 	readonly limit?: number
 }
 
 /**
- * Manages the rows a table holds, in the order it holds them.
+ * Manages the rows a grid holds, in the order it holds them.
  *
  * @remarks
- * This order is the table's own, and it is what the view shows when no sort term separates two
+ * This order is the grid's own, and it is what the view shows when no sort term separates two
  * rows. Sorting reads it and never rewrites it.
  *
  * @example
  * ```ts
- * table.rows.add({ id: '7', name: 'Ada', age: 36 })
- * table.rows.update({ id: '7', age: 37 })
+ * grid.rows.add({ id: '7', name: 'Ada', age: 36 })
+ * grid.rows.update({ id: '7', age: 37 })
  * ```
  */
 export interface RowManagerInterface {
 	/**
-	 * Finds one row by key; `undefined` when the table holds no such key.
+	 * Finds one row by key; `undefined` when the grid holds no such key.
 	 *
 	 * @param key - The row's key.
-	 * @returns The row, or `undefined` when the table holds no such key.
+	 * @returns The row, or `undefined` when the grid holds no such key.
 	 */
-	row(key: TableKey): TableRow | undefined
+	row(key: GridKey): GridRow | undefined
 	/**
-	 * Reads every row the table holds, in its own order — unfiltered, unsorted, and unpaged.
+	 * Reads every row the grid holds, in its own order — unfiltered, unsorted, and unpaged.
 	 *
-	 * @returns The rows, in the order the table holds them.
+	 * @returns The rows, in the order the grid holds them.
 	 */
-	rows(): readonly TableRow[]
+	rows(): readonly GridRow[]
 	/**
 	 * Takes in one row or several, appending them in the order given. Every row is checked before
 	 * any is admitted.
 	 *
 	 * @param rows - The rows to admit.
-	 * @throws A {@link TableError} coded `KEY` when a row's key is missing, unusable, already
+	 * @throws A {@link GridError} coded `KEY` when a row's key is missing, unusable, already
 	 *   taken, or repeated inside the batch, and `CELL` when a cell is one its column cannot hold.
 	 *   Every row is checked before any is admitted, so one refusal admits none of them.
 	 */
-	add(rows: readonly TableRow[]): void
+	add(rows: readonly GridRow[]): void
 	/**
 	 * Takes in one row, appending it.
 	 *
 	 * @param row - The row to admit.
-	 * @throws A {@link TableError} coded `KEY` when the row's key is missing, unusable, or already
+	 * @throws A {@link GridError} coded `KEY` when the row's key is missing, unusable, or already
 	 *   taken, and `CELL` when a cell is one its column cannot hold.
 	 */
-	add(row: TableRow): void
+	add(row: GridRow): void
 	/**
 	 * Writes over one row or several, each found by the key it carries. The cells given replace;
 	 * the cells left out stay.
 	 *
 	 * @param rows - The rows to write, each carrying the key of the row it writes over.
-	 * @returns True if every key named a row the table holds; false otherwise.
-	 * @throws A {@link TableError} coded `CELL` when a cell is one its column cannot hold. Every
+	 * @returns True if every key named a row the grid holds; false otherwise.
+	 * @throws A {@link GridError} coded `CELL` when a cell is one its column cannot hold. Every
 	 *   row is checked before any is written, so one refusal writes none of them.
 	 */
-	update(rows: readonly TableRow[]): boolean
+	update(rows: readonly GridRow[]): boolean
 	/**
 	 * Writes over one row, found by the key it carries.
 	 *
@@ -458,33 +458,33 @@ export interface RowManagerInterface {
 	 * therefore cannot move, because a different key names a different row.
 	 *
 	 * @param row - The cells to write, carrying the key of the row they belong to.
-	 * @returns True if the key named a row the table holds; false otherwise.
-	 * @throws A {@link TableError} coded `CELL` when a cell is one its column cannot hold.
+	 * @returns True if the key named a row the grid holds; false otherwise.
+	 * @throws A {@link GridError} coded `CELL` when a cell is one its column cannot hold.
 	 */
-	update(row: TableRow): boolean
+	update(row: GridRow): boolean
 	/**
 	 * Replaces complete rows under existing keys, removing omitted cells without moving identities.
 	 * @param rows - Whole rows to replace; every key must already exist.
 	 * @returns Whether every key exists. A missing key leaves the batch unchanged.
-	 * @throws A table error when any row is invalid, before any row is written.
+	 * @throws A grid error when any row is invalid, before any row is written.
 	 */
-	replace(rows: readonly TableRow[]): boolean
+	replace(rows: readonly GridRow[]): boolean
 	/**
 	 * Replaces one complete row while retaining its position, selection, and expansion.
 	 * @param row - The whole replacement, including its existing identity.
 	 * @returns Whether the key exists.
 	 */
-	replace(row: TableRow): boolean
+	replace(row: GridRow): boolean
 	/**
-	 * Moves one row to another place in the table's own order, counted from zero and clamped to the
+	 * Moves one row to another place in the grid's own order, counted from zero and clamped to the
 	 * rows that exist.
 	 *
 	 * @param key - The row's key.
 	 * @param index - Where to put it, counted from zero and clamped to the rows that exist. `NaN`
 	 *   puts the row first.
-	 * @returns True if the key named a row the table holds; false otherwise.
+	 * @returns True if the key named a row the grid holds; false otherwise.
 	 */
-	move(key: TableKey, index: number): boolean
+	move(key: GridKey, index: number): boolean
 	/**
 	 * Takes out every row, one row, or several. Selection and expansion drop the keys of the rows
 	 * that went.
@@ -494,31 +494,31 @@ export interface RowManagerInterface {
 	 * Takes out one row.
 	 *
 	 * @param key - The row's key.
-	 * @returns True if the key named a row the table holds; false otherwise.
+	 * @returns True if the key named a row the grid holds; false otherwise.
 	 */
-	remove(key: TableKey): boolean
+	remove(key: GridKey): boolean
 	/**
 	 * Takes out several rows.
 	 *
 	 * @param keys - The rows' keys.
-	 * @returns True if every key named a row the table holds; false otherwise. Every key is
+	 * @returns True if every key named a row the grid holds; false otherwise. Every key is
 	 *   checked before any row goes, so one unknown key leaves the whole call undone.
 	 */
-	remove(keys: readonly TableKey[]): boolean
+	remove(keys: readonly GridKey[]): boolean
 }
 
 /**
- * Manages the order a table reads its rows in.
+ * Manages the order a grid reads its rows in.
  *
  * @remarks
- * The table holds one term per column and applies them in the order they were set. Which
+ * The grid holds one term per column and applies them in the order they were set. Which
  * direction a heading offers next is the host's decision, so there is no cycling verb here: read
  * the column's term, decide, then set or remove it.
  *
  * @example
  * ```ts
- * table.sort.set({ column: 'age', direction: 'descending' })
- * table.sort.orders() // [{ column: 'age', direction: 'descending' }]
+ * grid.sort.set({ column: 'age', direction: 'descending' })
+ * grid.sort.orders() // [{ column: 'age', direction: 'descending' }]
  * ```
  */
 export interface SortManagerInterface {
@@ -528,31 +528,31 @@ export interface SortManagerInterface {
 	 * @param column - The column's key.
 	 * @returns The term, or `undefined` when nothing sorts that column.
 	 */
-	order(column: string): TableOrder | undefined
+	order(column: string): GridOrder | undefined
 	/**
-	 * Reads every term the table sorts by, first to last, in the order they decide.
+	 * Reads every term the grid sorts by, first to last, in the order they decide.
 	 *
-	 * @returns The terms the table sorts by.
+	 * @returns The terms the grid sorts by.
 	 */
-	orders(): readonly TableOrder[]
+	orders(): readonly GridOrder[]
 	/**
 	 * Sorts by one column or several. A term for a column already sorted replaces its direction in
 	 * place; every other term joins the end. An undeclared column raises `COLUMN`.
 	 *
 	 * @param orders - The terms to set. A term for a column already sorted replaces that column's
 	 *   direction in place; every other term joins the end of the list.
-	 * @throws A {@link TableError} coded `COLUMN` when a term names a column the schema does not
+	 * @throws A {@link GridError} coded `COLUMN` when a term names a column the schema does not
 	 *   declare. Every term is checked before any is set.
 	 */
-	set(orders: readonly TableOrder[]): void
+	set(orders: readonly GridOrder[]): void
 	/**
 	 * Sorts by one column.
 	 *
 	 * @param order - The term to set.
-	 * @throws A {@link TableError} coded `COLUMN` when the term names a column the schema does not
+	 * @throws A {@link GridError} coded `COLUMN` when the term names a column the schema does not
 	 *   declare.
 	 */
-	set(order: TableOrder): void
+	set(order: GridOrder): void
 	/**
 	 * Stops sorting by everything, by one column, or by several. An undeclared column returns
 	 * `false` and stops nothing.
@@ -576,15 +576,15 @@ export interface SortManagerInterface {
 }
 
 /**
- * Manages which rows a table keeps.
+ * Manages which rows a grid keeps.
  *
  * @remarks
- * The table holds at most one filter per column and keeps the rows every filter accepts.
+ * The grid holds at most one filter per column and keeps the rows every filter accepts.
  *
  * @example
  * ```ts
- * table.filter.set({ column: 'name', operator: 'contains', text: 'ad' })
- * table.count // how many rows are left
+ * grid.filter.set({ column: 'name', operator: 'contains', text: 'ad' })
+ * grid.count // how many rows are left
  * ```
  */
 export interface FilterManagerInterface {
@@ -594,13 +594,13 @@ export interface FilterManagerInterface {
 	 * @param column - The column's key.
 	 * @returns The filter, or `undefined` when nothing filters that column.
 	 */
-	filter(column: string): TableFilter | undefined
+	filter(column: string): GridFilter | undefined
 	/**
-	 * Reads every filter the table keeps rows by, in the order they were set.
+	 * Reads every filter the grid keeps rows by, in the order they were set.
 	 *
-	 * @returns The filters the table keeps rows by.
+	 * @returns The filters the grid keeps rows by.
 	 */
-	filters(): readonly TableFilter[]
+	filters(): readonly GridFilter[]
 	/**
 	 * Filters one column or several. A filter for a column already filtered replaces it; every
 	 * other one joins the end. An undeclared column raises `COLUMN`, and a filter the column does
@@ -608,19 +608,19 @@ export interface FilterManagerInterface {
 	 *
 	 * @param filters - The filters to set. A filter for a column already filtered replaces that
 	 *   column's filter; every other one joins the end of the list.
-	 * @throws A {@link TableError} coded `COLUMN` when a filter names a column the schema does not
+	 * @throws A {@link GridError} coded `COLUMN` when a filter names a column the schema does not
 	 *   declare, and `CELL` when an operand is one the column cannot hold. Every filter is checked
 	 *   before any is set.
 	 */
-	set(filters: readonly TableFilter[]): void
+	set(filters: readonly GridFilter[]): void
 	/**
 	 * Filters one column.
 	 *
 	 * @param filter - The filter to set.
-	 * @throws A {@link TableError} coded `COLUMN` when the filter names a column the schema does
+	 * @throws A {@link GridError} coded `COLUMN` when the filter names a column the schema does
 	 *   not declare, and `CELL` when an operand is one the column cannot hold.
 	 */
-	set(filter: TableFilter): void
+	set(filter: GridFilter): void
 	/**
 	 * Stops filtering everything, one column, or several. An undeclared column returns `false` and
 	 * stops nothing.
@@ -648,19 +648,19 @@ export interface FilterManagerInterface {
  *
  * @remarks
  * Selection holds keys, never rows or positions, so a pick survives a sort, a filter, and a page
- * turn. A row that leaves the table takes its key out of the selection with it.
+ * turn. A row that leaves the grid takes its key out of the selection with it.
  *
  * @example
  * ```ts
- * table.selection.toggle('7')
- * table.selection.keys.has('7') // true
+ * grid.selection.toggle('7')
+ * grid.selection.keys.has('7') // true
  * ```
  */
 export interface SelectionManagerInterface {
 	/** Holds the keys of the rows picked. */
-	readonly keys: ReadonlySet<TableKey>
+	readonly keys: ReadonlySet<GridKey>
 	/**
-	 * Picks every row the table holds, one row, or several. Every row, not every visible one.
+	 * Picks every row the grid holds, one row, or several. Every row, not every visible one.
 	 *
 	 * @remarks
 	 * A host picking one page hands that page's keys over instead.
@@ -670,17 +670,17 @@ export interface SelectionManagerInterface {
 	 * Picks one row.
 	 *
 	 * @param key - The row's key.
-	 * @returns True if the key named a row the table holds; false otherwise.
+	 * @returns True if the key named a row the grid holds; false otherwise.
 	 */
-	select(key: TableKey): boolean
+	select(key: GridKey): boolean
 	/**
 	 * Picks several rows.
 	 *
 	 * @param keys - The rows' keys.
-	 * @returns True if every key named a row the table holds; false otherwise. Every key is
+	 * @returns True if every key named a row the grid holds; false otherwise. Every key is
 	 *   checked before any row is picked.
 	 */
-	select(keys: readonly TableKey[]): boolean
+	select(keys: readonly GridKey[]): boolean
 	/**
 	 * Drops every pick, one pick, or several. A known key that was not picked still answers `true`.
 	 */
@@ -689,34 +689,34 @@ export interface SelectionManagerInterface {
 	 * Drops one pick.
 	 *
 	 * @param key - The row's key.
-	 * @returns True if the key named a row the table holds, whether or not it was
+	 * @returns True if the key named a row the grid holds, whether or not it was
 	 *   picked; false otherwise.
 	 */
-	clear(key: TableKey): boolean
+	clear(key: GridKey): boolean
 	/**
 	 * Drops several picks.
 	 *
 	 * @param keys - The rows' keys.
-	 * @returns True if every key named a row the table holds; false otherwise. Every key is
+	 * @returns True if every key named a row the grid holds; false otherwise. Every key is
 	 *   checked before any pick is dropped.
 	 */
-	clear(keys: readonly TableKey[]): boolean
+	clear(keys: readonly GridKey[]): boolean
 	/**
 	 * Picks one row, or drops it when it is already picked; over a list, turns each row around on
 	 * its own.
 	 *
 	 * @param key - The row's key.
-	 * @returns True if the key named a row the table holds; false otherwise.
+	 * @returns True if the key named a row the grid holds; false otherwise.
 	 */
-	toggle(key: TableKey): boolean
+	toggle(key: GridKey): boolean
 	/**
 	 * Turns several rows around, each on its own.
 	 *
 	 * @param keys - The rows' keys.
-	 * @returns True if every key named a row the table holds; false otherwise. Every key is
+	 * @returns True if every key named a row the grid holds; false otherwise. Every key is
 	 *   checked before any row turns.
 	 */
-	toggle(keys: readonly TableKey[]): boolean
+	toggle(keys: readonly GridKey[]): boolean
 }
 
 /**
@@ -728,30 +728,30 @@ export interface SelectionManagerInterface {
  *
  * @example
  * ```ts
- * table.expansion.toggle('7')
- * table.expansion.keys.has('7') // true
+ * grid.expansion.toggle('7')
+ * grid.expansion.keys.has('7') // true
  * ```
  */
 export interface ExpansionManagerInterface {
 	/** Holds the keys of the rows opened. */
-	readonly keys: ReadonlySet<TableKey>
-	/** Opens every row the table holds, one row, or several. */
+	readonly keys: ReadonlySet<GridKey>
+	/** Opens every row the grid holds, one row, or several. */
 	expand(): void
 	/**
 	 * Opens one row.
 	 *
 	 * @param key - The row's key.
-	 * @returns True if the key named a row the table holds; false otherwise.
+	 * @returns True if the key named a row the grid holds; false otherwise.
 	 */
-	expand(key: TableKey): boolean
+	expand(key: GridKey): boolean
 	/**
 	 * Opens several rows.
 	 *
 	 * @param keys - The rows' keys.
-	 * @returns True if every key named a row the table holds; false otherwise. Every key is
+	 * @returns True if every key named a row the grid holds; false otherwise. Every key is
 	 *   checked before any row opens.
 	 */
-	expand(keys: readonly TableKey[]): boolean
+	expand(keys: readonly GridKey[]): boolean
 	/**
 	 * Closes every row, one row, or several. A known key that was not open still answers `true`.
 	 */
@@ -760,34 +760,34 @@ export interface ExpansionManagerInterface {
 	 * Closes one row.
 	 *
 	 * @param key - The row's key.
-	 * @returns True if the key named a row the table holds, whether or not it was
+	 * @returns True if the key named a row the grid holds, whether or not it was
 	 *   open; false otherwise.
 	 */
-	clear(key: TableKey): boolean
+	clear(key: GridKey): boolean
 	/**
 	 * Closes several rows.
 	 *
 	 * @param keys - The rows' keys.
-	 * @returns True if every key named a row the table holds; false otherwise. Every key is
+	 * @returns True if every key named a row the grid holds; false otherwise. Every key is
 	 *   checked before any row closes.
 	 */
-	clear(keys: readonly TableKey[]): boolean
+	clear(keys: readonly GridKey[]): boolean
 	/**
 	 * Opens one row, or closes it when it is already open; over a list, turns each row around on
 	 * its own.
 	 *
 	 * @param key - The row's key.
-	 * @returns True if the key named a row the table holds; false otherwise.
+	 * @returns True if the key named a row the grid holds; false otherwise.
 	 */
-	toggle(key: TableKey): boolean
+	toggle(key: GridKey): boolean
 	/**
 	 * Turns several rows around, each on its own.
 	 *
 	 * @param keys - The rows' keys.
-	 * @returns True if every key named a row the table holds; false otherwise. Every key is
+	 * @returns True if every key named a row the grid holds; false otherwise. Every key is
 	 *   checked before any row turns.
 	 */
-	toggle(keys: readonly TableKey[]): boolean
+	toggle(keys: readonly GridKey[]): boolean
 }
 
 /**
@@ -795,26 +795,26 @@ export interface ExpansionManagerInterface {
  *
  * @remarks
  * `page` is the state, counted from one. `offset` and `count` are worked out from it and from the
- * rows the filter admits, so nothing here can drift out of step with what the table holds. A page
+ * rows the filter admits, so nothing here can drift out of step with what the grid holds. A page
  * beyond the last one clamps to the last one.
  *
  * `offset` counts the rows skipped, from zero, which is what a database query asks for.
  *
  * @example
  * ```ts
- * table.pagination.resize(10)
- * table.pagination.move(3)
- * table.pagination.offset // 20
+ * grid.pagination.resize(10)
+ * grid.pagination.move(3)
+ * grid.pagination.offset // 20
  * ```
  */
 export interface PaginationManagerInterface {
-	/** Holds the page the view shows, counted from one, and `1` when the table is not paged. */
+	/** Holds the page the view shows, counted from one, and `1` when the grid is not paged. */
 	readonly page: number
-	/** Holds the number of rows one page shows, or `undefined` when the table is not paged. */
+	/** Holds the number of rows one page shows, or `undefined` when the grid is not paged. */
 	readonly limit: number | undefined
 	/** Holds the number of rows the view skips before the page it shows, counted from zero. */
 	readonly offset: number
-	/** Counts the pages the rows admitted by the filter fill, and `1` when the table is not paged. */
+	/** Counts the pages the rows admitted by the filter fill, and `1` when the grid is not paged. */
 	readonly count: number
 	/**
 	 * Shows another page, counted from one and clamped to the pages that exist.
@@ -837,11 +837,11 @@ export interface PaginationManagerInterface {
 }
 
 /**
- * Represents a table: what it declares, the rows it holds, and the lens it reads them through.
+ * Represents a grid: what it declares, the rows it holds, and the lens it reads them through.
  *
  * @remarks
- * The table owns values, not pixels. It renders nothing, reads no document, and names no host
- * type, so one table serves a browser, a terminal, a report, and an export equally.
+ * The grid owns values, not pixels. It renders nothing, reads no document, and names no host
+ * type, so one grid serves a browser, a terminal, a report, and an export equally.
  *
  * One manager holds each axis that moves: `rows`, `sort`, `filter`, `selection`, `expansion`, and
  * `pagination`. Nothing else is stored. `view` and `count` are worked out when they are read, so no
@@ -851,21 +851,21 @@ export interface PaginationManagerInterface {
  *
  * @example
  * ```ts
- * table.filter.set({ column: 'name', operator: 'contains', text: 'ad' })
- * table.sort.set({ column: 'age', direction: 'descending' })
- * table.view // the rows to draw now: filtered, sorted, paged
+ * grid.filter.set({ column: 'name', operator: 'contains', text: 'ad' })
+ * grid.sort.set({ column: 'age', direction: 'descending' })
+ * grid.view // the rows to draw now: filtered, sorted, paged
  * ```
  */
-export interface TableInterface {
-	/** Holds the table's event emitter. */
-	readonly emitter: EmitterInterface<TableEventMap>
-	/** Holds what this table declares. */
-	readonly schema: TableSchema
-	/** Manages the rows the table holds. */
+export interface GridInterface {
+	/** Holds the grid's event emitter. */
+	readonly emitter: EmitterInterface<GridEventMap>
+	/** Holds what this grid declares. */
+	readonly schema: GridSchema
+	/** Manages the rows the grid holds. */
 	readonly rows: RowManagerInterface
-	/** Manages the order the table reads them in. */
+	/** Manages the order the grid reads them in. */
 	readonly sort: SortManagerInterface
-	/** Manages which of them the table keeps. */
+	/** Manages which of them the grid keeps. */
 	readonly filter: FilterManagerInterface
 	/** Manages the ones somebody has picked. */
 	readonly selection: SelectionManagerInterface
@@ -879,27 +879,27 @@ export interface TableInterface {
 	 * @remarks
 	 * It is worked out on every read and never stored, so it is right the instant anything moves.
 	 */
-	readonly view: readonly TableRow[]
+	readonly view: readonly GridRow[]
 	/** Counts the rows the filter admits, before the page narrows them. */
 	readonly count: number
-	/** Reports whether the table has been torn down. */
+	/** Reports whether the grid has been torn down. */
 	readonly destroyed: boolean
 	/**
-	 * Puts the table back the way it opened, holding nothing. Rows, sort, filter, selection,
+	 * Puts the grid back the way it opened, holding nothing. Rows, sort, filter, selection,
 	 * expansion, and the page all reset.
 	 *
 	 * @remarks
-	 * The table emits `clear` and nothing else, so a reset of ten thousand rows is one
+	 * The grid emits `clear` and nothing else, so a reset of ten thousand rows is one
 	 * announcement.
 	 */
 	clear(): void
 	/**
-	 * Tears the table down. Idempotent; afterwards every write raises `DESTROYED` and every getter
+	 * Tears the grid down. Idempotent; afterwards every write raises `DESTROYED` and every getter
 	 * still answers.
 	 *
 	 * @remarks
-	 * The write throws a {@link TableError} carrying that code, and what a getter answers is what
-	 * the table last held, so a host can read its way out of teardown without catching anything.
+	 * The write throws a {@link GridError} carrying that code, and what a getter answers is what
+	 * the grid last held, so a host can read its way out of teardown without catching anything.
 	 */
 	destroy(): void
 }

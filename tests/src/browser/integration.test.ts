@@ -1,7 +1,7 @@
 import { expect, it } from 'vitest'
 import { userEvent } from 'vitest/browser'
 import { requireValue, waitForCondition } from '@orkestrel/test'
-import { createTable } from '@src/core'
+import { createGrid } from '@src/core'
 import { createTableBinding, readTable } from '@src/browser'
 
 it('executes the scoped pager and expansion guide through native controls', async () => {
@@ -12,8 +12,8 @@ it('executes the scoped pager and expansion guide through native controls', asyn
 	const element = scope.querySelector('table')
 	if (element === null) throw new Error('Missing account table')
 	const projection = readTable(element)
-	const table = createTable(projection.schema, { rows: projection.rows, limit: 1 })
-	const binding = createTableBinding(element, table, {
+	const grid = createGrid(projection.schema, { rows: projection.rows, limit: 1 })
+	const binding = createTableBinding(element, grid, {
 		scope,
 		describe: {
 			range: ({ first, last, count }) => `${first}–${last} of ${count} accounts`,
@@ -39,7 +39,7 @@ it('executes the scoped pager and expansion guide through native controls', asyn
 			'guide detail',
 			() => element.tBodies[0]?.rows[1]?.textContent === 'Account cedar',
 		)
-		expect([...table.expansion.keys]).toEqual(['cedar'])
+		expect([...grid.expansion.keys]).toEqual(['cedar'])
 		const sort = requireValue(scope.querySelector<HTMLButtonElement>('[data-table-sort]'))
 		await userEvent.click(sort)
 		await waitForCondition(
@@ -48,7 +48,7 @@ it('executes the scoped pager and expansion guide through native controls', asyn
 		)
 	} finally {
 		binding.destroy()
-		table.destroy()
+		grid.destroy()
 		scope.remove()
 	}
 })
@@ -60,16 +60,16 @@ it('executes the native enhancement guide across core and browser', () => {
 		'<caption>People</caption><thead><tr><th data-table-column="id" data-table-cell="text">Reference</th><th data-table-column="name" data-table-cell="text"><button data-table-sort="name">Name</button></th></tr></thead><tbody><tr data-table-key="ash"><td data-table-column="name">Ash</td></tr><tr data-table-key="cedar"><td data-table-column="name">Cedar</td></tr></tbody>'
 	document.body.append(element)
 	const projection = readTable(element)
-	const table = createTable(projection.schema, { rows: projection.rows })
-	const binding = createTableBinding(element, table)
+	const grid = createGrid(projection.schema, { rows: projection.rows })
+	const binding = createTableBinding(element, grid)
 	try {
-		table.filter.set({ column: 'name', operator: 'contains', text: 'Ash' })
+		grid.filter.set({ column: 'name', operator: 'contains', text: 'Ash' })
 		binding.refresh()
 		expect(element.tBodies[0]?.rows).toHaveLength(1)
 		expect(element.tBodies[0]?.rows[0]?.getAttribute('data-table-key')).toBe('ash')
 		binding.destroy()
 		expect(element.tBodies[0]?.rows).toHaveLength(2)
-		expect(table.destroyed).toBe(false)
+		expect(grid.destroyed).toBe(false)
 	} finally {
 		binding.destroy()
 		element.remove()

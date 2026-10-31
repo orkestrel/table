@@ -1,4 +1,4 @@
-import type { TableInterface } from '@src/core'
+import type { GridInterface } from '@src/core'
 import type { TableBindingInterface, TableBindingOptions } from './types.js'
 import { TableBinding } from './TableBinding.js'
 
@@ -10,7 +10,7 @@ import { TableBinding } from './TableBinding.js'
  */
 export function createTableBinding(
 	element: HTMLTableElement,
-	document: TableInterface,
+	document: GridInterface,
 	options?: TableBindingOptions,
 ): TableBindingInterface {
 	return new TableBinding(element, document, options)

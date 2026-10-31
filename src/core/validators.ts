@@ -1,10 +1,10 @@
 import type {
 	ColumnCell,
 	ColumnChoice,
-	TableCell,
-	TableColumn,
-	TableRow,
-	TableSchema,
+	GridCell,
+	GridColumn,
+	GridRow,
+	GridSchema,
 } from './types.js'
 import {
 	arrayOf,
@@ -19,31 +19,31 @@ import {
 	unionOf,
 } from '@orkestrel/contract'
 import { COLUMN_CELLS } from './constants.js'
-import { auditTable } from './helpers.js'
+import { auditGrid } from './helpers.js'
 
 /**
- * Determines whether an unknown value has a table cell shape — a string, a finite number, or a
+ * Determines whether an unknown value has a grid cell shape — a string, a finite number, or a
  * boolean.
  *
  * @param input - The value to inspect.
  * @returns True if the value is a string, finite number, or boolean; false otherwise.
  */
-export function isTableCell(input: unknown): input is TableCell {
+export function isGridCell(input: unknown): input is GridCell {
 	return unionOf(isString, isFiniteNumber, isBoolean)(input)
 }
 
 /**
  * Determines whether an unknown value is a record whose every own key is a string and every value
- * a {@link TableCell}.
+ * a {@link GridCell}.
  *
  * @param input - The value to inspect.
- * @returns True if every own key is a string and every value is a table cell; false otherwise.
+ * @returns True if every own key is a string and every value is a grid cell; false otherwise.
  */
-export function isTableRow(input: unknown): input is TableRow {
+export function isGridRow(input: unknown): input is GridRow {
 	const outcome = attempt(() => {
 		if (!isRecord(input)) return false
 		return Reflect.ownKeys(input).every(
-			(key) => isString(key) && Object.hasOwn(input, key) && isTableCell(input[key]),
+			(key) => isString(key) && Object.hasOwn(input, key) && isGridCell(input[key]),
 		)
 	})
 
@@ -77,13 +77,13 @@ export function isColumnChoice(input: unknown): input is ColumnChoice {
 }
 
 /**
- * Determines whether an unknown value is one exact discriminated {@link TableColumn}, checked
+ * Determines whether an unknown value is one exact discriminated {@link GridColumn}, checked
  * against its cell's own options.
  *
  * @param input - The value to inspect.
- * @returns True if the value is a structurally valid table column; false otherwise.
+ * @returns True if the value is a structurally valid grid column; false otherwise.
  */
-export function isTableColumn(input: unknown): input is TableColumn {
+export function isGridColumn(input: unknown): input is GridColumn {
 	const outcome = attempt(() => {
 		if (!isRecord(input) || !Object.hasOwn(input, 'cell') || !Object.hasOwn(input, 'key')) {
 			return false
@@ -131,13 +131,13 @@ export function isTableColumn(input: unknown): input is TableColumn {
 }
 
 /**
- * Determines whether an unknown value has the exact shape of a {@link TableSchema} — the shape
+ * Determines whether an unknown value has the exact shape of a {@link GridSchema} — the shape
  * alone, with no domain check.
  *
  * @param input - The value to inspect.
- * @returns True if the value has the exact structure of a table schema; false otherwise.
+ * @returns True if the value has the exact structure of a grid schema; false otherwise.
  */
-export function isStructuralTableSchema(input: unknown): input is TableSchema {
+export function isStructuralGridSchema(input: unknown): input is GridSchema {
 	const outcome = attempt(() => {
 		if (!isRecord(input) || !Reflect.ownKeys(input).every((key) => isString(key))) return false
 		return recordOf(
@@ -146,7 +146,7 @@ export function isStructuralTableSchema(input: unknown): input is TableSchema {
 				label: isString,
 				help: isString,
 				key: isString,
-				columns: arrayOf(isTableColumn),
+				columns: arrayOf(isGridColumn),
 			},
 			['name', 'label', 'help'],
 		)(input)
@@ -156,14 +156,14 @@ export function isStructuralTableSchema(input: unknown): input is TableSchema {
 }
 
 /**
- * Determines whether an unknown value is a {@link TableSchema} a table can be opened against —
+ * Determines whether an unknown value is a {@link GridSchema} a grid can be opened against —
  * the exact shape, and an audit that finds nothing.
  *
  * @param input - The value to inspect.
  * @returns True if the value has valid structure, domain relationships, and
  *   budgets; false otherwise.
  */
-export function isTableSchema(input: unknown): input is TableSchema {
-	const outcome = attempt(() => isStructuralTableSchema(input) && auditTable(input).length === 0)
+export function isGridSchema(input: unknown): input is GridSchema {
+	const outcome = attempt(() => isStructuralGridSchema(input) && auditGrid(input).length === 0)
 	return outcome.success && outcome.value
 }

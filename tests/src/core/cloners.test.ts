@@ -1,10 +1,10 @@
-import type { TableSchema } from '@src/core'
+import type { GridSchema } from '@src/core'
 import { attempt } from '@orkestrel/contract'
-import { cloneRow, cloneSchema, isTableError } from '@src/core'
-import { createAccessorSchema, createTableSchema } from '../../setup.js'
+import { cloneRow, cloneGridSchema, isGridError } from '@src/core'
+import { createAccessorSchema, createGridSchema } from '../../setup.js'
 import { describe, expect, it } from 'vitest'
 
-describe('table cloners', () => {
+describe('grid cloners', () => {
 	it('owns and freezes a row without changing its scalar cells', () => {
 		const row = { id: '1', name: 'Ada', age: 36 }
 		const clone = cloneRow(row)
@@ -17,9 +17,9 @@ describe('table cloners', () => {
 	})
 
 	it('owns and freezes every nested column, choice, list, and metadata record', () => {
-		const schema = createTableSchema()
+		const schema = createGridSchema()
 		const meta = schema.columns[2]?.meta
-		const clone = cloneSchema(schema)
+		const clone = cloneGridSchema(schema)
 
 		expect(clone).toEqual(schema)
 		expect(clone).not.toBe(schema)
@@ -42,14 +42,14 @@ describe('table cloners', () => {
 	it('keeps caller mutations out of nested choice and metadata snapshots', () => {
 		const meta = { renderer: { align: 'end' } }
 		const choices = [{ value: 'live', label: 'Live' }]
-		const schema: TableSchema = {
+		const schema: GridSchema = {
 			key: 'id',
 			columns: [
 				{ cell: 'text', key: 'id', meta },
 				{ cell: 'choice', key: 'status', choices },
 			],
 		}
-		const clone = cloneSchema(schema)
+		const clone = cloneGridSchema(schema)
 
 		meta.renderer.align = 'start'
 		choices[0] = { value: 'draft', label: 'Draft' }
@@ -60,13 +60,13 @@ describe('table cloners', () => {
 		])
 	})
 
-	it('translates metadata ownership refusal into a schema-coded TableError', () => {
-		const schema: TableSchema = createAccessorSchema()
-		const outcome = attempt(() => cloneSchema(schema))
+	it('translates metadata ownership refusal into a schema-coded GridError', () => {
+		const schema: GridSchema = createAccessorSchema()
+		const outcome = attempt(() => cloneGridSchema(schema))
 		const error = outcome.success ? undefined : outcome.error
 
-		expect(isTableError(error)).toBe(true)
-		expect(isTableError(error) ? error.code : undefined).toBe('SCHEMA')
-		expect(isTableError(error) ? error.context?.column : undefined).toBe('id')
+		expect(isGridError(error)).toBe(true)
+		expect(isGridError(error) ? error.code : undefined).toBe('SCHEMA')
+		expect(isGridError(error) ? error.context?.column : undefined).toBe('id')
 	})
 })

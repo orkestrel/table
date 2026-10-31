@@ -1,6 +1,6 @@
-import type { TableRow, TableSchema } from './types.js'
+import type { GridRow, GridSchema } from './types.js'
 import { attempt, cloneJSONRecord, isContractError } from '@orkestrel/contract'
-import { TableError } from './errors.js'
+import { GridError } from './errors.js'
 
 /**
  * Clones one row into an owned frozen snapshot.
@@ -8,7 +8,7 @@ import { TableError } from './errors.js'
  * @param row - The row to own.
  * @returns A frozen copy of the row's cells.
  */
-export function cloneRow(row: TableRow): TableRow {
+export function cloneRow(row: GridRow): GridRow {
 	return Object.freeze({ ...row })
 }
 
@@ -19,7 +19,7 @@ export function cloneRow(row: TableRow): TableRow {
  * @param schema - The schema to own.
  * @returns A frozen schema with every nested column, choice, list, and metadata record owned.
  */
-export function cloneSchema(schema: TableSchema): TableSchema {
+export function cloneGridSchema(schema: GridSchema): GridSchema {
 	return Object.freeze({
 		...schema,
 		columns: Object.freeze(
@@ -28,7 +28,7 @@ export function cloneSchema(schema: TableSchema): TableSchema {
 					column.meta === undefined ? undefined : attempt(() => cloneJSONRecord(column.meta))
 				if (owned !== undefined && !owned.success) {
 					if (!isContractError(owned.error)) throw owned.error
-					throw new TableError(
+					throw new GridError(
 						'SCHEMA',
 						`column "${column.key}" has metadata that cannot be owned`,
 						{ column: column.key },

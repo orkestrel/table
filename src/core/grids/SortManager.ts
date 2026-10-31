@@ -1,32 +1,32 @@
 import type { Emitter } from '@orkestrel/emitter'
-import type { SortManagerInterface, TableEventMap, TableOrder, TableSchema } from '../types.js'
+import type { SortManagerInterface, GridEventMap, GridOrder, GridSchema } from '../types.js'
 import { isArray } from '@orkestrel/contract'
-import { TableError } from '../errors.js'
+import { GridError } from '../errors.js'
 import { extractColumn, matchesTerms, mergeTerms, removeTerms } from '../helpers.js'
 
-/** Manages the ordered sort terms of one table. */
+/** Manages the ordered sort terms of one grid. */
 export class SortManager implements SortManagerInterface {
-	readonly #schema: TableSchema
-	readonly #emitter: Emitter<TableEventMap>
+	readonly #schema: GridSchema
+	readonly #emitter: Emitter<GridEventMap>
 	readonly #gate: () => void
-	readonly #read: () => readonly TableOrder[]
-	readonly #write: (orders: readonly TableOrder[]) => void
+	readonly #read: () => readonly GridOrder[]
+	readonly #write: (orders: readonly GridOrder[]) => void
 
 	/**
-	 * Creates a sort manager over one table's private term store.
+	 * Creates a sort manager over one grid's private term store.
 	 *
-	 * @param schema - The table schema.
-	 * @param emitter - The table's event emitter.
-	 * @param gate - The table lifecycle gate.
+	 * @param schema - The grid schema.
+	 * @param emitter - The grid's event emitter.
+	 * @param gate - The grid lifecycle gate.
 	 * @param read - A read of the current terms.
 	 * @param write - The term commit boundary.
 	 */
 	constructor(
-		schema: TableSchema,
-		emitter: Emitter<TableEventMap>,
+		schema: GridSchema,
+		emitter: Emitter<GridEventMap>,
 		gate: () => void,
-		read: () => readonly TableOrder[],
-		write: (orders: readonly TableOrder[]) => void,
+		read: () => readonly GridOrder[],
+		write: (orders: readonly GridOrder[]) => void,
 	) {
 		this.#schema = schema
 		this.#emitter = emitter
@@ -36,22 +36,22 @@ export class SortManager implements SortManagerInterface {
 	}
 
 	/** Finds one column's sort term. */
-	order(column: string): TableOrder | undefined {
+	order(column: string): GridOrder | undefined {
 		const order = this.#read().find((candidate) => candidate.column === column)
 		return order === undefined ? undefined : Object.freeze({ ...order })
 	}
 
 	/** Reads every sort term as an owned frozen snapshot. */
-	orders(): readonly TableOrder[] {
+	orders(): readonly GridOrder[] {
 		return Object.freeze(this.#read().map((order) => Object.freeze({ ...order })))
 	}
 
 	/** Sorts by several columns. */
-	set(orders: readonly TableOrder[]): void
+	set(orders: readonly GridOrder[]): void
 	/** Sorts by one column. */
-	set(order: TableOrder): void
+	set(order: GridOrder): void
 	/** Sorts by one column or several. */
-	set(input: TableOrder | readonly TableOrder[]): void {
+	set(input: GridOrder | readonly GridOrder[]): void {
 		this.#gate()
 		const requested = isArray(input) ? input : [input]
 		for (const order of requested) this.#require(order.column)
@@ -95,7 +95,7 @@ export class SortManager implements SortManagerInterface {
 
 	#require(column: string): void {
 		if (extractColumn(this.#schema, column) === undefined) {
-			throw new TableError('COLUMN', `The schema declares no column named "${column}"`, { column })
+			throw new GridError('COLUMN', `The schema declares no column named "${column}"`, { column })
 		}
 	}
 }

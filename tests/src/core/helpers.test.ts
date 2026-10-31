@@ -1,4 +1,4 @@
-import type { TableFilter, TableOrder, TableRow, TableSchema } from '@src/core'
+import type { GridFilter, GridOrder, GridRow, GridSchema } from '@src/core'
 import {
 	CHOICE_LIMIT,
 	COLUMN_LIMIT,
@@ -7,21 +7,21 @@ import {
 	STRING_LIMIT,
 	TEXT_LIMIT,
 	admitsFilter,
-	auditTable,
+	auditGrid,
 	compareCells,
 	computeKeys,
 	extractColumn,
-	extractKey,
-	filterRows,
+	extractGridKey,
+	filterGridRows,
 	matchesCell,
 	matchesFilter,
 	matchesTerms,
-	matchesTableRow,
+	matchesGridRow,
 	mergeTerms,
 	removeTerms,
 	serializeRows,
-	serializeTable,
-	sortRows,
+	serializeGrid,
+	sortGridRows,
 } from '@src/core'
 import {
 	matchDirection,
@@ -29,23 +29,23 @@ import {
 	createChoiceBudgetSchema,
 	createColumnBudgetSchema,
 	createNodeBudgetSchema,
-	createTableRows,
-	createTableSchema,
+	createGridRows,
+	createGridSchema,
 	createTextBudgetSchema,
 } from '../../setup.js'
 import { describe, expect, it } from 'vitest'
 import { isUndefined as absentMatcher } from '@orkestrel/contract'
 
 it('compares complete row values without relying on snapshot identity or property order', () => {
-	expect(matchesTableRow({ id: 'ash', name: 'Ash' }, { name: 'Ash', id: 'ash' })).toBe(true)
-	expect(matchesTableRow({ id: 'ash', name: 'Ash' }, { id: 'ash' })).toBe(false)
-	expect(matchesTableRow({ id: 'ash' }, { id: 'elm' })).toBe(false)
-	expect(matchesTableRow(undefined, { id: 'ash' })).toBe(false)
-	expect(matchesTableRow({ id: 'ash', active: false }, { id: 'ash', active: true })).toBe(false)
+	expect(matchesGridRow({ id: 'ash', name: 'Ash' }, { name: 'Ash', id: 'ash' })).toBe(true)
+	expect(matchesGridRow({ id: 'ash', name: 'Ash' }, { id: 'ash' })).toBe(false)
+	expect(matchesGridRow({ id: 'ash' }, { id: 'elm' })).toBe(false)
+	expect(matchesGridRow(undefined, { id: 'ash' })).toBe(false)
+	expect(matchesGridRow({ id: 'ash', active: false }, { id: 'ash', active: true })).toBe(false)
 })
-describe('table helper leaves', () => {
+describe('grid helper leaves', () => {
 	it('extracts declared columns and only usable row identities', () => {
-		const schema = createTableSchema()
+		const schema = createGridSchema()
 
 		expect(extractColumn(schema, 'age')).toEqual({
 			cell: 'number',
@@ -54,14 +54,14 @@ describe('table helper leaves', () => {
 			meta: { align: 'end' },
 		})
 		expect(extractColumn(schema, 'missing')).toBeUndefined()
-		expect(extractKey(schema, { id: '7' })).toBe('7')
-		expect(extractKey(schema, { id: '' })).toBeUndefined()
-		expect(extractKey(schema, { id: 7 })).toBeUndefined()
-		expect(extractKey(schema, { name: 'Ada' })).toBeUndefined()
+		expect(extractGridKey(schema, { id: '7' })).toBe('7')
+		expect(extractGridKey(schema, { id: '' })).toBeUndefined()
+		expect(extractGridKey(schema, { id: 7 })).toBeUndefined()
+		expect(extractGridKey(schema, { name: 'Ada' })).toBeUndefined()
 	})
 
 	it('matches each cell variant and enforces the string boundary before choice lookup', () => {
-		const schema = createTableSchema()
+		const schema = createGridSchema()
 		const text = extractColumn(schema, 'name')
 		const number = extractColumn(schema, 'age')
 		const flag = extractColumn(schema, 'active')
@@ -82,7 +82,7 @@ describe('table helper leaves', () => {
 	})
 
 	it('compares absence and every present cell variant in ascending order', () => {
-		const schema = createTableSchema()
+		const schema = createGridSchema()
 		const text = extractColumn(schema, 'name')
 		const number = extractColumn(schema, 'age')
 		const flag = extractColumn(schema, 'active')
@@ -101,7 +101,7 @@ describe('table helper leaves', () => {
 	})
 
 	it('applies the complete operator by cell-variant matrix', () => {
-		const schema = createTableSchema()
+		const schema = createGridSchema()
 		const text = extractColumn(schema, 'name')
 		const number = extractColumn(schema, 'age')
 		const flag = extractColumn(schema, 'active')
@@ -173,13 +173,13 @@ describe('table helper leaves', () => {
 	})
 
 	it('filters with and-only composition and replaces one declared column matcher', () => {
-		const schema = createTableSchema()
-		const rows = createTableRows()
-		const filtered = filterRows(schema, rows, [
+		const schema = createGridSchema()
+		const rows = createGridRows()
+		const filtered = filterGridRows(schema, rows, [
 			{ column: 'name', operator: 'contains', text: 'a' },
 			{ column: 'age', operator: 'between', minimum: 40, maximum: 50 },
 		])
-		const absent = filterRows(schema, rows, [{ column: 'age', operator: 'equals', value: 0 }], {
+		const absent = filterGridRows(schema, rows, [{ column: 'age', operator: 'equals', value: 0 }], {
 			age: absentMatcher,
 		})
 
@@ -203,7 +203,7 @@ describe('table helper leaves', () => {
 	})
 
 	it('merges lens terms by column, keeping first-appearance order and owning each entry', () => {
-		const current: readonly TableOrder[] = [
+		const current: readonly GridOrder[] = [
 			{ column: 'name', direction: 'ascending' },
 			{ column: 'age', direction: 'ascending' },
 		]
@@ -227,7 +227,7 @@ describe('table helper leaves', () => {
 	})
 
 	it('removes lens terms by column and leaves the rest in order', () => {
-		const current: readonly TableFilter[] = [
+		const current: readonly GridFilter[] = [
 			{ column: 'name', operator: 'contains', text: 'a' },
 			{ column: 'age', operator: 'between', minimum: 1, maximum: 2 },
 			{ column: 'active', operator: 'equals', value: true },
@@ -241,7 +241,7 @@ describe('table helper leaves', () => {
 	})
 
 	it('matches two lens lists on length, column order, and the supplied operand test', () => {
-		const left: readonly TableOrder[] = [
+		const left: readonly GridOrder[] = [
 			{ column: 'name', direction: 'ascending' },
 			{ column: 'age', direction: 'descending' },
 		]
@@ -271,14 +271,14 @@ describe('table helper leaves', () => {
 	})
 
 	it('sorts by ordered terms stably with absence and direction applied last', () => {
-		const schema = createTableSchema()
-		const rows: readonly TableRow[] = [
+		const schema = createGridSchema()
+		const rows: readonly GridRow[] = [
 			{ id: '1', status: 'live', age: 40 },
 			{ id: '2', status: 'draft', age: 30 },
 			{ id: '3', status: 'live', age: 40 },
 			{ id: '4', status: 'live' },
 		]
-		const sorted = sortRows(schema, rows, [
+		const sorted = sortGridRows(schema, rows, [
 			{ column: 'status', direction: 'ascending' },
 			{ column: 'age', direction: 'descending' },
 		])
@@ -289,13 +289,13 @@ describe('table helper leaves', () => {
 	})
 
 	it('replaces only the named comparator and preserves stable ties', () => {
-		const schema = createTableSchema()
-		const rows: readonly TableRow[] = [
+		const schema = createGridSchema()
+		const rows: readonly GridRow[] = [
 			{ id: '1', name: 'A2' },
 			{ id: '2', name: 'A10' },
 			{ id: '3', name: 'A2' },
 		]
-		const sorted = sortRows(schema, rows, [{ column: 'name', direction: 'ascending' }], {
+		const sorted = sortGridRows(schema, rows, [{ column: 'name', direction: 'ascending' }], {
 			name: reverseComparator,
 		})
 
@@ -303,7 +303,7 @@ describe('table helper leaves', () => {
 	})
 
 	it('reports every domain fault with stable lowercase diagnostics', () => {
-		const faults: ReadonlyArray<[TableSchema, string]> = [
+		const faults: ReadonlyArray<[GridSchema, string]> = [
 			[
 				{ key: 'missing', columns: [{ cell: 'text', key: 'id' }] },
 				'schema key "missing" names no declared column',
@@ -352,30 +352,30 @@ describe('table helper leaves', () => {
 			],
 		]
 
-		for (const [schema, fault] of faults) expect(auditTable(schema)).toContain(fault)
+		for (const [schema, fault] of faults) expect(auditGrid(schema)).toContain(fault)
 	})
 
 	it('accepts exact cardinality and name budgets then reports one-step breaches', () => {
-		expect(auditTable(createColumnBudgetSchema(COLUMN_LIMIT))).not.toContain(
+		expect(auditGrid(createColumnBudgetSchema(COLUMN_LIMIT))).not.toContain(
 			`schema declares more than ${COLUMN_LIMIT} columns`,
 		)
-		expect(auditTable(createColumnBudgetSchema(COLUMN_LIMIT + 1))).toContain(
+		expect(auditGrid(createColumnBudgetSchema(COLUMN_LIMIT + 1))).toContain(
 			`schema declares more than ${COLUMN_LIMIT} columns`,
 		)
-		expect(auditTable(createChoiceBudgetSchema(CHOICE_LIMIT))).not.toContain(
+		expect(auditGrid(createChoiceBudgetSchema(CHOICE_LIMIT))).not.toContain(
 			`column "status" offers more than ${CHOICE_LIMIT} choices`,
 		)
-		expect(auditTable(createChoiceBudgetSchema(CHOICE_LIMIT + 1))).toContain(
+		expect(auditGrid(createChoiceBudgetSchema(CHOICE_LIMIT + 1))).toContain(
 			`column "status" offers more than ${CHOICE_LIMIT} choices`,
 		)
 		expect(
-			auditTable({
+			auditGrid({
 				key: 'i'.repeat(NAME_LIMIT),
 				columns: [{ cell: 'text', key: 'i'.repeat(NAME_LIMIT) }],
 			}),
 		).not.toContain(`schema contains a name longer than ${NAME_LIMIT}`)
 		expect(
-			auditTable({
+			auditGrid({
 				key: 'i'.repeat(NAME_LIMIT + 1),
 				columns: [{ cell: 'text', key: 'i'.repeat(NAME_LIMIT + 1) }],
 			}),
@@ -386,33 +386,33 @@ describe('table helper leaves', () => {
 		const exactString = {
 			key: 'id',
 			columns: [{ cell: 'text', key: 'id', label: 'x'.repeat(STRING_LIMIT) }],
-		} satisfies TableSchema
+		} satisfies GridSchema
 		const longString = {
 			key: 'id',
 			columns: [{ cell: 'text', key: 'id', label: 'x'.repeat(STRING_LIMIT + 1) }],
-		} satisfies TableSchema
+		} satisfies GridSchema
 
-		expect(auditTable(exactString)).not.toContain(
+		expect(auditGrid(exactString)).not.toContain(
 			`schema contains a string longer than ${STRING_LIMIT}`,
 		)
-		expect(auditTable(longString)).toContain(`schema contains a string longer than ${STRING_LIMIT}`)
-		expect(auditTable(createTextBudgetSchema())).not.toContain(
+		expect(auditGrid(longString)).toContain(`schema contains a string longer than ${STRING_LIMIT}`)
+		expect(auditGrid(createTextBudgetSchema())).not.toContain(
 			`schema retains more than ${TEXT_LIMIT} string code units`,
 		)
-		expect(auditTable(createTextBudgetSchema(1))).toContain(
+		expect(auditGrid(createTextBudgetSchema(1))).toContain(
 			`schema retains more than ${TEXT_LIMIT} string code units`,
 		)
-		expect(auditTable(createNodeBudgetSchema())).not.toContain(
+		expect(auditGrid(createNodeBudgetSchema())).not.toContain(
 			`schema retains more than ${NODE_LIMIT} nodes`,
 		)
-		expect(auditTable(createNodeBudgetSchema(1))).toContain(
+		expect(auditGrid(createNodeBudgetSchema(1))).toContain(
 			`schema retains more than ${NODE_LIMIT} nodes`,
 		)
 	})
 
 	it('serializes schema declarations and row cells in fixed order without absent values', () => {
-		const schema = createTableSchema()
-		const serialized = serializeTable(schema)
+		const schema = createGridSchema()
+		const serialized = serializeGrid(schema)
 		const rows = serializeRows(schema, [{ age: 36, id: '1', unknown: 'drop' }])
 		const columns = serialized.columns
 		const first = Array.isArray(columns) ? columns[0] : undefined

@@ -1,7 +1,7 @@
-import type { TableProjection } from './types.js'
-import type { TableRow, TableSchema } from '@src/core'
+import type { GridProjection } from './types.js'
+import type { GridRow, GridSchema } from '@src/core'
 import { parseJSON } from '@orkestrel/contract'
-import { parseRows, parseTable } from '@src/core'
+import { parseRows, parseGrid } from '@src/core'
 import { TableBindingError } from './errors.js'
 
 /** Reads declared header metadata and explicit row keys into a validated core projection.
@@ -10,16 +10,16 @@ import { TableBindingError } from './errors.js'
  * @throws A binding error when metadata, identities, or cells are malformed.
  * @example
  * ```ts
- * import { createTable } from '@orkestrel/table'
+ * import { createGrid } from '@orkestrel/table'
  * import { readTable } from '@orkestrel/table/browser'
  * const element = document.createElement('table')
  * element.setAttribute('data-table-key', 'id')
  * element.innerHTML = '<thead><tr><th data-table-column="id" data-table-cell="text">Reference</th></tr></thead><tbody></tbody>'
  * const projection = readTable(element)
- * const table = createTable(projection.schema, { rows: projection.rows })
+ * const grid = createGrid(projection.schema, { rows: projection.rows })
  * ```
  */
-export function readTable(element: HTMLTableElement): TableProjection {
+export function readTable(element: HTMLTableElement): GridProjection {
 	const schema = readTableSchema(element)
 	return { schema, rows: readTableRows(schema, Array.from(element.tBodies[0]?.rows ?? [])) }
 }
@@ -28,7 +28,7 @@ export function readTable(element: HTMLTableElement): TableProjection {
  * @param element - The table declaring its identity column and cell kinds.
  * @returns The core schema described by the native headers.
  */
-export function readTableSchema(element: HTMLTableElement): TableSchema {
+export function readTableSchema(element: HTMLTableElement): GridSchema {
 	const columns = Array.from(element.tHead?.querySelectorAll('th[data-table-column]') ?? [])
 		.filter((header) => header.closest('table') === element)
 		.map((header) => ({
@@ -39,7 +39,7 @@ export function readTableSchema(element: HTMLTableElement): TableSchema {
 				? { choices: parseJSON(header.getAttribute('data-table-choices') ?? '') }
 				: {}),
 		}))
-	const schema = parseTable({ key: element.getAttribute('data-table-key'), columns })
+	const schema = parseGrid({ key: element.getAttribute('data-table-key'), columns })
 	if (schema === undefined || element.tBodies.length !== 1)
 		throw new TableBindingError(
 			'STRUCTURE',
@@ -55,9 +55,9 @@ export function readTableSchema(element: HTMLTableElement): TableSchema {
  * @throws A binding error for duplicate keys, undeclared cells, or malformed values.
  */
 export function readTableRows(
-	schema: TableSchema,
+	schema: GridSchema,
 	elements: readonly HTMLTableRowElement[],
-): readonly TableRow[] {
+): readonly GridRow[] {
 	const candidates = elements.map((element) => {
 		const cells: Record<string, unknown> = { [schema.key]: element.getAttribute('data-table-key') }
 		const seen = new Set<string>()

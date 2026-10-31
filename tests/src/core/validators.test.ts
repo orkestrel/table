@@ -1,61 +1,61 @@
-import type { TableSchema } from '@src/core'
+import type { GridSchema } from '@src/core'
 import {
 	CHOICE_LIMIT,
 	COLUMN_LIMIT,
-	auditTable,
+	auditGrid,
 	isColumnCell,
 	isColumnChoice,
-	isTableCell,
-	isTableColumn,
-	isTableRow,
-	isTableSchema,
-	isStructuralTableSchema,
+	isGridCell,
+	isGridColumn,
+	isGridRow,
+	isGridSchema,
+	isStructuralGridSchema,
 	parseRows,
-	parseTable,
+	parseGrid,
 } from '@src/core'
 import {
 	createChoiceBudgetSchema,
 	createColumnBudgetSchema,
 	createDeepMetadata,
-	createTableRows,
-	createTableSchema,
+	createGridRows,
+	createGridSchema,
 } from '../../setup.js'
 import { createHostileValues } from '@orkestrel/test'
 import { attempt } from '@orkestrel/contract'
 import { describe, expect, it } from 'vitest'
 
-describe('table structural guards', () => {
+describe('grid structural guards', () => {
 	it('narrows every valid public structural value', () => {
-		const schema = createTableSchema()
+		const schema = createGridSchema()
 
-		expect(isTableCell('Ada')).toBe(true)
-		expect(isTableCell(36)).toBe(true)
-		expect(isTableCell(false)).toBe(true)
-		expect(isTableCell(Number.NaN)).toBe(false)
+		expect(isGridCell('Ada')).toBe(true)
+		expect(isGridCell(36)).toBe(true)
+		expect(isGridCell(false)).toBe(true)
+		expect(isGridCell(Number.NaN)).toBe(false)
 		expect(isColumnCell('choice')).toBe(true)
 		expect(isColumnCell('date')).toBe(false)
 		expect(isColumnChoice({ value: 'live', label: 'Live', help: 'Published' })).toBe(true)
-		expect(schema.columns.every((column) => isTableColumn(column))).toBe(true)
-		expect(createTableRows().every((row) => isTableRow(row))).toBe(true)
-		expect(isTableSchema(schema)).toBe(true)
+		expect(schema.columns.every((column) => isGridColumn(column))).toBe(true)
+		expect(createGridRows().every((row) => isGridRow(row))).toBe(true)
+		expect(isGridSchema(schema)).toBe(true)
 	})
 
 	it('rejects unknown members at every fixed record level', () => {
 		expect(isColumnChoice({ value: 'live', label: 'Live', color: 'green' })).toBe(false)
 		expect(isColumnChoice({ value: 'live', label: 'Live', help: undefined })).toBe(false)
-		expect(isTableColumn({ cell: 'text', key: 'name', label: undefined })).toBe(false)
-		expect(isTableColumn({ cell: 'text', key: 'name', hidden: undefined })).toBe(false)
-		expect(isTableColumn({ cell: 'text', key: 'name', meta: undefined })).toBe(false)
-		expect(isTableColumn({ cell: 'text', key: 'name', choices: [] })).toBe(false)
-		expect(isTableColumn({ cell: 'choice', key: 'status' })).toBe(false)
+		expect(isGridColumn({ cell: 'text', key: 'name', label: undefined })).toBe(false)
+		expect(isGridColumn({ cell: 'text', key: 'name', hidden: undefined })).toBe(false)
+		expect(isGridColumn({ cell: 'text', key: 'name', meta: undefined })).toBe(false)
+		expect(isGridColumn({ cell: 'text', key: 'name', choices: [] })).toBe(false)
+		expect(isGridColumn({ cell: 'choice', key: 'status' })).toBe(false)
 		expect(
-			isTableColumn({
+			isGridColumn({
 				cell: 'choice',
 				key: 'status',
 				choices: [{ value: 'live', label: 'Live', meta: {} }],
 			}),
 		).toBe(false)
-		expect(isTableSchema({ key: 'id', columns: [], extra: true })).toBe(false)
+		expect(isGridSchema({ key: 'id', columns: [], extra: true })).toBe(false)
 	})
 
 	it('accepts null-prototype records and rejects symbol keys', () => {
@@ -64,8 +64,8 @@ describe('table structural guards', () => {
 		const symbolRow = { id: '1' }
 		Object.defineProperty(symbolRow, Symbol('hidden'), { value: true, enumerable: true })
 
-		expect(isTableRow(row)).toBe(true)
-		expect(isTableRow(symbolRow)).toBe(false)
+		expect(isGridRow(row)).toBe(true)
+		expect(isGridRow(symbolRow)).toBe(false)
 	})
 
 	it('accepts only semantically sound schemas that their parser accepts', () => {
@@ -75,14 +75,14 @@ describe('table structural guards', () => {
 			columns: [{ cell: 'text', key: 'id', meta: { list: inexact } }],
 		}
 
-		expect(isTableColumn({ cell: 'choice', key: 'status', choices: [] })).toBe(true)
-		expect(isTableColumn(unownable.columns[0])).toBe(false)
+		expect(isGridColumn({ cell: 'choice', key: 'status', choices: [] })).toBe(true)
+		expect(isGridColumn(unownable.columns[0])).toBe(false)
+		expect(isStructuralGridSchema({ key: 'missing', columns: [{ cell: 'text', key: 'id' }] })).toBe(
+			true,
+		)
+		expect(isGridSchema({ key: 'missing', columns: [{ cell: 'text', key: 'id' }] })).toBe(false)
 		expect(
-			isStructuralTableSchema({ key: 'missing', columns: [{ cell: 'text', key: 'id' }] }),
-		).toBe(true)
-		expect(isTableSchema({ key: 'missing', columns: [{ cell: 'text', key: 'id' }] })).toBe(false)
-		expect(
-			isTableSchema({
+			isGridSchema({
 				key: 'id',
 				columns: [
 					{ cell: 'text', key: 'id' },
@@ -91,7 +91,7 @@ describe('table structural guards', () => {
 			}),
 		).toBe(false)
 		expect(
-			isTableSchema({
+			isGridSchema({
 				key: 'id',
 				columns: [
 					{ cell: 'text', key: 'id' },
@@ -99,14 +99,14 @@ describe('table structural guards', () => {
 				],
 			}),
 		).toBe(false)
-		expect(isTableSchema(unownable)).toBe(false)
-		expect(isTableSchema({ columns: [{ cell: 'text', key: 'id' }] })).toBe(false)
+		expect(isGridSchema(unownable)).toBe(false)
+		expect(isGridSchema({ columns: [{ cell: 'text', key: 'id' }] })).toBe(false)
 	})
 
 	it('keeps schema guard, parser, and audit evaluation in exact agreement', () => {
 		const inexact = Object.assign([1, 2], { extra: 'x' })
-		const schemas: readonly TableSchema[] = [
-			createTableSchema(),
+		const schemas: readonly GridSchema[] = [
+			createGridSchema(),
 			{ key: 'missing', columns: [{ cell: 'text', key: 'id' }] },
 			{
 				key: 'id',
@@ -131,14 +131,14 @@ describe('table structural guards', () => {
 		]
 
 		for (const schema of schemas) {
-			const valid = auditTable(schema).length === 0
-			expect(isTableSchema(schema)).toBe(valid)
-			expect(parseTable(schema) !== undefined).toBe(valid)
+			const valid = auditGrid(schema).length === 0
+			expect(isGridSchema(schema)).toBe(valid)
+			expect(parseGrid(schema) !== undefined).toBe(valid)
 		}
 	})
 
 	it('refuses every hostile corpus member through each strict guard without throwing', () => {
-		const strictGuards = [isTableCell, isColumnCell, isColumnChoice, isTableColumn, isTableSchema]
+		const strictGuards = [isGridCell, isColumnCell, isColumnChoice, isGridColumn, isGridSchema]
 
 		for (const [index, value] of createHostileValues().entries()) {
 			for (const guard of strictGuards) {
@@ -154,14 +154,14 @@ describe('table structural guards', () => {
 
 	it('answers every hostile corpus member by the row guard contract without throwing', () => {
 		// The get-throwing proxy over an empty target and the null-prototype empty record are
-		// accepted because isTableRow checks own string keys only, and both expose zero own keys.
+		// accepted because isGridRow checks own string keys only, and both expose zero own keys.
 		// Every other member is refused. Name the accepted positions rather than tabulating an
 		// answer per position, so a corpus that grows by a refused member leaves this proof intact
 		// and a corpus that grows by an accepted one breaks it.
 		const accepting = new Set([2, 5])
 
 		for (const [index, value] of createHostileValues().entries()) {
-			const rowAccepted = attempt(() => isTableRow(value))
+			const rowAccepted = attempt(() => isGridRow(value))
 			expect(rowAccepted.success, `row guard against hostile value ${index}`).toBe(true)
 			expect(
 				rowAccepted.success ? rowAccepted.value : undefined,
@@ -177,20 +177,20 @@ describe('table structural guards', () => {
 
 		for (const meta of [cycle, deep]) {
 			const column = { cell: 'text', key: 'id', meta }
-			expect(() => isTableColumn(column)).not.toThrow()
-			expect(isTableColumn(column)).toBe(false)
-			expect(() => isTableSchema({ key: 'id', columns: [column] })).not.toThrow()
-			expect(isTableSchema({ key: 'id', columns: [column] })).toBe(false)
+			expect(() => isGridColumn(column)).not.toThrow()
+			expect(isGridColumn(column)).toBe(false)
+			expect(() => isGridSchema({ key: 'id', columns: [column] })).not.toThrow()
+			expect(isGridSchema({ key: 'id', columns: [column] })).toBe(false)
 		}
 	})
 
 	it('keeps parser outputs inside their guards and accepts sound guarded inputs', () => {
-		const schema = createTableSchema()
-		const parsedSchema = parseTable(schema)
-		const parsedRows = parseRows(schema, createTableRows())
+		const schema = createGridSchema()
+		const parsedSchema = parseGrid(schema)
+		const parsedRows = parseRows(schema, createGridRows())
 
-		expect(isTableSchema(parsedSchema)).toBe(true)
-		expect(parsedRows?.every((row) => isTableRow(row))).toBe(true)
+		expect(isGridSchema(parsedSchema)).toBe(true)
+		expect(parsedRows?.every((row) => isGridRow(row))).toBe(true)
 		expect(parsedSchema).toBeDefined()
 		expect(parsedRows).toBeDefined()
 	})

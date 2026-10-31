@@ -1,36 +1,37 @@
 import type { JSONRecord } from '@orkestrel/contract'
-import type { TableErrorCode } from './types.js'
+import type { GridErrorCode } from './types.js'
 import { holds, INTRINSICS, isRecord, GUARD_DEPTH_LIMIT } from '@orkestrel/contract'
 
 /**
- * Represents an error raised by the table domain — a machine-readable `code` and optional
+ * Represents an error raised by the grid domain — a machine-readable `code` and optional
  * structured `context`.
  */
-export class TableError extends Error {
+export class GridError extends Error {
 	/** Holds the machine-readable reason for this failure. */
-	readonly code: TableErrorCode
+	readonly code: GridErrorCode
 
 	/** Holds structured values that locate or explain this failure. */
 	readonly context?: JSONRecord
 
 	/**
-	 * Creates a table error.
+	 * Creates a grid error.
 	 *
 	 * @param code - The machine-readable reason.
 	 * @param message - The human-readable failure text.
 	 * @param context - Optional structured failure details.
 	 */
-	constructor(code: TableErrorCode, message: string, context?: JSONRecord) {
+	constructor(code: GridErrorCode, message: string, context?: JSONRecord) {
 		super(message)
+		// The published key, so a copy from before the Grid rename still recognizes this error.
 		INTRINSICS.define(this, Symbol.for('@orkestrel/table.TableError'), { value: this })
-		this.name = 'TableError'
+		this.name = 'GridError'
 		this.code = code
 		if (context !== undefined) this.context = context
 	}
 }
 
 /**
- * Determines whether a caught value is a table error, so a `catch` branches on `code` without an
+ * Determines whether a caught value is a grid error, so a `catch` branches on `code` without an
  * assertion.
  *
  * @remarks
@@ -38,9 +39,9 @@ export class TableError extends Error {
  * Validates the declared code and optional JSON context.
  *
  * @param input - The value to inspect.
- * @returns True if the value is a {@link TableError} instance; false otherwise.
+ * @returns True if the value is a {@link GridError} instance; false otherwise.
  */
-export function isTableError(input: unknown): input is TableError {
+export function isGridError(input: unknown): input is GridError {
 	return holds(() => {
 		if (!(input instanceof Error) || INTRINSICS.prototype(input) === Error.prototype) return false
 		const brand = INTRINSICS.describe(input, Symbol.for('@orkestrel/table.TableError'))

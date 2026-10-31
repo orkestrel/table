@@ -8,43 +8,43 @@ import type {
 	RowManagerInterface,
 	SelectionManagerInterface,
 	SortManagerInterface,
-	TableEventMap,
-	TableFilter,
-	TableInterface,
-	TableKey,
-	TableOptions,
-	TableOrder,
-	TableRow,
-	TableSchema,
+	GridEventMap,
+	GridFilter,
+	GridInterface,
+	GridKey,
+	GridOptions,
+	GridOrder,
+	GridRow,
+	GridSchema,
 } from './types.js'
 import { attempt } from '@orkestrel/contract'
 import { Emitter } from '@orkestrel/emitter'
-import { cloneRow, cloneSchema } from './cloners.js'
-import { isTableError, TableError } from './errors.js'
-import { auditTable, extractKey, filterRows, sortRows } from './helpers.js'
-import { ExpansionManager } from './tables/ExpansionManager.js'
-import { FilterManager } from './tables/FilterManager.js'
-import { PaginationManager } from './tables/PaginationManager.js'
-import { RowManager } from './tables/RowManager.js'
-import { SelectionManager } from './tables/SelectionManager.js'
-import { SortManager } from './tables/SortManager.js'
-import { isStructuralTableSchema } from './validators.js'
+import { cloneRow, cloneGridSchema } from './cloners.js'
+import { isGridError, GridError } from './errors.js'
+import { auditGrid, extractGridKey, filterGridRows, sortGridRows } from './helpers.js'
+import { ExpansionManager } from './grids/ExpansionManager.js'
+import { FilterManager } from './grids/FilterManager.js'
+import { PaginationManager } from './grids/PaginationManager.js'
+import { RowManager } from './grids/RowManager.js'
+import { SelectionManager } from './grids/SelectionManager.js'
+import { SortManager } from './grids/SortManager.js'
+import { isStructuralGridSchema } from './validators.js'
 
 /**
  * Holds a schema, its rows, and the lens through which they are read, implementing
- * {@link TableInterface} exactly.
+ * {@link GridInterface} exactly.
  */
-export class Table implements TableInterface {
-	readonly #emitter: Emitter<TableEventMap>
-	readonly #schema: TableSchema
+export class Grid implements GridInterface {
+	readonly #emitter: Emitter<GridEventMap>
+	readonly #schema: GridSchema
 	readonly #comparators: Readonly<Record<string, CellComparator>> | undefined
 	readonly #matchers: Readonly<Record<string, CellMatcher>> | undefined
 	readonly #initialLimit: number | undefined
-	#rowStore: readonly TableRow[] = Object.freeze([])
-	#orderStore: readonly TableOrder[] = Object.freeze([])
-	#filterStore: readonly TableFilter[] = Object.freeze([])
-	#selected: ReadonlySet<TableKey> = new Set()
-	#expanded: ReadonlySet<TableKey> = new Set()
+	#rowStore: readonly GridRow[] = Object.freeze([])
+	#orderStore: readonly GridOrder[] = Object.freeze([])
+	#filterStore: readonly GridFilter[] = Object.freeze([])
+	#selected: ReadonlySet<GridKey> = new Set()
+	#expanded: ReadonlySet<GridKey> = new Set()
 	#page = 1
 	#limit: number | undefined
 	#destroyed = false
@@ -56,26 +56,28 @@ export class Table implements TableInterface {
 	readonly #pagination: PaginationManager
 
 	/**
-	 * Opens a table against a schema.
+	 * Opens a grid against a schema.
 	 *
-	 * @param schema - The table declaration to own.
+	 * @param schema - The grid declaration to own.
 	 * @param options - Initial rows, lens overrides, pagination, and emitter wiring.
-	 * @throws A {@link TableError} coded `SCHEMA` when the schema is unusable, `KEY` when a seeded
+	 * @throws A {@link GridError} coded `SCHEMA` when the schema is unusable, `KEY` when a seeded
 	 *   identity is unusable or repeated, and `CELL` when a seeded cell is invalid.
 	 */
-	constructor(schema: TableSchema, options?: TableOptions) {
-		const unusable = 'The schema is not a table schema'
-		const owned = isStructuralTableSchema(schema) ? attempt(() => cloneSchema(schema)) : undefined
-		if (owned !== undefined && !owned.success && isTableError(owned.error)) throw owned.error
+	constructor(schema: GridSchema, options?: GridOptions) {
+		const unusable = 'The schema is not a grid schema'
+		const owned = isStructuralGridSchema(schema)
+			? attempt(() => cloneGridSchema(schema))
+			: undefined
+		if (owned !== undefined && !owned.success && isGridError(owned.error)) throw owned.error
 		if (owned === undefined || !owned.success) {
-			throw new TableError('SCHEMA', `The table schema is unusable: ${unusable}`, {
+			throw new GridError('SCHEMA', `The grid schema is unusable: ${unusable}`, {
 				problems: [unusable],
 			})
 		}
 
-		const problems = isStructuralTableSchema(owned.value) ? auditTable(owned.value) : [unusable]
+		const problems = isStructuralGridSchema(owned.value) ? auditGrid(owned.value) : [unusable]
 		if (problems.length > 0) {
-			throw new TableError('SCHEMA', `The table schema is unusable: ${problems.join('; ')}`, {
+			throw new GridError('SCHEMA', `The grid schema is unusable: ${problems.join('; ')}`, {
 				problems: [...problems],
 			})
 		}
@@ -86,7 +88,7 @@ export class Table implements TableInterface {
 		this.#matchers =
 			options?.matchers === undefined ? undefined : Object.freeze({ ...options.matchers })
 		this.#limit = options?.limit
-		this.#emitter = new Emitter<TableEventMap>({
+		this.#emitter = new Emitter<GridEventMap>({
 			...(options?.on === undefined ? {} : { on: options.on }),
 			...(options?.error === undefined ? {} : { error: options.error }),
 		})
@@ -155,17 +157,17 @@ export class Table implements TableInterface {
 		)
 	}
 
-	/** Holds the table's event emitter. */
-	get emitter(): EmitterInterface<TableEventMap> {
+	/** Holds the grid's event emitter. */
+	get emitter(): EmitterInterface<GridEventMap> {
 		return this.#emitter
 	}
 
 	/** Holds the owned frozen schema. */
-	get schema(): TableSchema {
+	get schema(): GridSchema {
 		return this.#schema
 	}
 
-	/** Manages the rows the table holds. */
+	/** Manages the rows the grid holds. */
 	get rows(): RowManagerInterface {
 		return this.#rows
 	}
@@ -196,8 +198,13 @@ export class Table implements TableInterface {
 	}
 
 	/** Returns the filtered, sorted, and paged rows as owned frozen snapshots. */
-	get view(): readonly TableRow[] {
-		const ordered = sortRows(this.#schema, this.#filtered(), this.#orderStore, this.#comparators)
+	get view(): readonly GridRow[] {
+		const ordered = sortGridRows(
+			this.#schema,
+			this.#filtered(),
+			this.#orderStore,
+			this.#comparators,
+		)
 		const limit = this.#limit
 		const page =
 			limit === undefined
@@ -211,7 +218,7 @@ export class Table implements TableInterface {
 		return this.#filtered().length
 	}
 
-	/** Reports whether the table has been torn down. */
+	/** Reports whether the grid has been torn down. */
 	get destroyed(): boolean {
 		return this.#destroyed
 	}
@@ -239,25 +246,25 @@ export class Table implements TableInterface {
 		this.#emitter.emit('clear')
 	}
 
-	/** Tears the table down while leaving every getter readable. */
+	/** Tears the grid down while leaving every getter readable. */
 	destroy(): void {
 		if (this.#destroyed) return
 		this.#destroyed = true
 		this.#emitter.destroy()
 	}
 
-	#filtered(): readonly TableRow[] {
-		return filterRows(this.#schema, this.#rowStore, this.#filterStore, this.#matchers)
+	#filtered(): readonly GridRow[] {
+		return filterGridRows(this.#schema, this.#rowStore, this.#filterStore, this.#matchers)
 	}
 
-	#keys(): readonly TableKey[] {
+	#keys(): readonly GridKey[] {
 		return this.#rowStore.flatMap((row) => {
-			const key = extractKey(this.#schema, row)
+			const key = extractGridKey(this.#schema, row)
 			return key === undefined ? [] : [key]
 		})
 	}
 
-	#settle(removed: readonly TableKey[], announce: () => void): void {
+	#settle(removed: readonly GridKey[], announce: () => void): void {
 		const keys = new Set(removed)
 		const selected = new Set([...this.#selected].filter((key) => !keys.has(key)))
 		const expanded = new Set([...this.#expanded].filter((key) => !keys.has(key)))
@@ -283,7 +290,7 @@ export class Table implements TableInterface {
 
 	#gate(): void {
 		if (this.#destroyed) {
-			throw new TableError('DESTROYED', 'The table was destroyed and cannot change')
+			throw new GridError('DESTROYED', 'The grid was destroyed and cannot change')
 		}
 	}
 }

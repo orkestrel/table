@@ -1,4 +1,4 @@
-import type { TableCell, TableRow, TableSchema } from './types.js'
+import type { GridCell, GridRow, GridSchema } from './types.js'
 import {
 	attempt,
 	isArray,
@@ -9,36 +9,36 @@ import {
 } from '@orkestrel/contract'
 import { cloneRow } from './cloners.js'
 import { STRING_LIMIT } from './constants.js'
-import { extractColumn, extractKey, matchesCell, serializeTable } from './helpers.js'
-import { isTableSchema } from './validators.js'
+import { extractColumn, extractGridKey, matchesCell, serializeGrid } from './helpers.js'
+import { isGridSchema } from './validators.js'
 
 /**
- * Parses unknown wire data into an owned, structurally valid, semantically sound table schema.
+ * Parses unknown wire data into an owned, structurally valid, semantically sound grid schema.
  *
  * @param input - The unknown schema value to parse.
- * @returns An owned table schema, or `undefined` on refusal.
+ * @returns An owned grid schema, or `undefined` on refusal.
  */
-export function parseTable(input: unknown): TableSchema | undefined {
+export function parseGrid(input: unknown): GridSchema | undefined {
 	const outcome = attempt(() => {
-		if (!isTableSchema(input)) return undefined
-		const projected = serializeTable(input)
-		return isTableSchema(projected) ? projected : undefined
+		if (!isGridSchema(input)) return undefined
+		const projected = serializeGrid(input)
+		return isGridSchema(projected) ? projected : undefined
 	})
 
 	return outcome.success ? outcome.value : undefined
 }
 
 /**
- * Parses unknown wire data into owned rows against one table schema, coercing a numeric string
+ * Parses unknown wire data into owned rows against one grid schema, coercing a numeric string
  * and `'true'` / `'false'`.
  *
  * @param schema - The schema that declares the accepted keys and cell shapes.
  * @param input - The unknown row-list value to parse.
  * @returns Frozen owned rows, or `undefined` when any row is refused.
  */
-export function parseRows(schema: TableSchema, input: unknown): readonly TableRow[] | undefined {
+export function parseRows(schema: GridSchema, input: unknown): readonly GridRow[] | undefined {
 	const outcome = attempt(() => {
-		if (!isTableSchema(schema) || !isArray(input)) {
+		if (!isGridSchema(schema) || !isArray(input)) {
 			return undefined
 		}
 
@@ -46,11 +46,11 @@ export function parseRows(schema: TableSchema, input: unknown): readonly TableRo
 		if (!read.success || !read.value.dense) return undefined
 
 		const keys = new Set<string>()
-		const rows: TableRow[] = []
+		const rows: GridRow[] = []
 
 		for (const candidate of read.value.entries) {
 			if (!isRecord(candidate)) return undefined
-			const row: Record<string, TableCell> = {}
+			const row: Record<string, GridCell> = {}
 
 			for (const key of Reflect.ownKeys(candidate)) {
 				if (!isString(key) || !Object.hasOwn(candidate, key)) return undefined
@@ -78,7 +78,7 @@ export function parseRows(schema: TableSchema, input: unknown): readonly TableRo
 			}
 
 			const owned = cloneRow(row)
-			const key = extractKey(schema, owned)
+			const key = extractGridKey(schema, owned)
 			if (key === undefined || keys.has(key)) return undefined
 			keys.add(key)
 			rows.push(owned)

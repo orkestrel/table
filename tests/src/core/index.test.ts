@@ -1,11 +1,11 @@
 import type {
 	ChoiceColumn,
-	TableColumn,
-	TableFilter,
-	TableKey,
-	TableOrder,
-	TableRow,
-	TableSchema,
+	GridColumn,
+	GridFilter,
+	GridKey,
+	GridOrder,
+	GridRow,
+	GridSchema,
 } from '@src/core'
 import * as entry from '@src/core'
 import { describe, expect, it } from 'vitest'
@@ -21,7 +21,7 @@ const status: ChoiceColumn = {
 	],
 }
 
-const schema: TableSchema = {
+const schema: GridSchema = {
 	label: 'People',
 	key: 'id',
 	columns: [
@@ -33,7 +33,7 @@ const schema: TableSchema = {
 	],
 }
 
-const rows: readonly TableRow[] = [
+const rows: readonly GridRow[] = [
 	{ id: '7', name: 'Ada', age: 36, active: true, status: 'live' },
 	{ id: '8', name: 'Grace', status: 'draft' },
 ]
@@ -49,57 +49,57 @@ describe('src core entry', () => {
 				'NODE_LIMIT',
 				'STRING_LIMIT',
 				'TEXT_LIMIT',
-				'Table',
-				'TableError',
+				'Grid',
+				'GridError',
 				'admitsFilter',
-				'auditTable',
+				'auditGrid',
 				'cloneRow',
-				'cloneSchema',
+				'cloneGridSchema',
 				'compareCells',
 				'computeKeys',
-				'createTable',
+				'createGrid',
 				'extractColumn',
-				'extractKey',
-				'filterRows',
+				'extractGridKey',
+				'filterGridRows',
 				'isColumnCell',
 				'isColumnChoice',
-				'isTableCell',
-				'isTableColumn',
-				'isTableError',
-				'isTableRow',
-				'isStructuralTableSchema',
-				'isTableSchema',
+				'isGridCell',
+				'isGridColumn',
+				'isGridError',
+				'isGridRow',
+				'isStructuralGridSchema',
+				'isGridSchema',
 				'matchesCell',
 				'matchesFilter',
 				'matchesTerms',
-				'matchesTableRow',
+				'matchesGridRow',
 				'mergeTerms',
 				'parseRows',
-				'parseTable',
+				'parseGrid',
 				'removeTerms',
 				'serializeRows',
-				'serializeTable',
-				'sortRows',
+				'serializeGrid',
+				'sortGridRows',
 			].sort(),
 		)
 	})
 
 	it('declares row identity as a column the schema carries', () => {
-		const key: TableKey = '7'
+		const key: GridKey = '7'
 		expect(schema.columns.some((column) => column.key === schema.key)).toBe(true)
 		expect(rows.some((row) => row[schema.key] === key)).toBe(true)
 		expect(rows.at(1)?.age).toBeUndefined()
 	})
 
 	it('narrows a column on its cell', () => {
-		const column: TableColumn = status
+		const column: GridColumn = status
 		expect(
 			column.cell === 'choice' ? column.choices.map((choice) => choice.value) : [],
 		).toStrictEqual(['draft', 'live', 'archived'])
 	})
 
 	it('names a sort direction the fleet way', () => {
-		const orders: readonly TableOrder[] = [
+		const orders: readonly GridOrder[] = [
 			{ column: 'status', direction: 'ascending' },
 			{ column: 'age', direction: 'descending' },
 		]
@@ -107,7 +107,7 @@ describe('src core entry', () => {
 	})
 
 	it('carries one operand set per filter operator', () => {
-		const filters: readonly TableFilter[] = [
+		const filters: readonly GridFilter[] = [
 			{ column: 'name', operator: 'contains', text: 'ad' },
 			{ column: 'age', operator: 'between', minimum: 30, maximum: 40 },
 			{ column: 'active', operator: 'equals', value: true },

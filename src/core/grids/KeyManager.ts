@@ -1,33 +1,33 @@
 import type { Emitter } from '@orkestrel/emitter'
-import type { TableEventMap, TableKey } from '../types.js'
+import type { GridEventMap, GridKey } from '../types.js'
 import { computeKeys } from '../helpers.js'
 
-/** Manages the key set one table axis holds, and the event it announces when that set moves. */
+/** Manages the key set one grid axis holds, and the event it announces when that set moves. */
 export class KeyManager {
-	readonly #emitter: Emitter<TableEventMap>
+	readonly #emitter: Emitter<GridEventMap>
 	readonly #event: 'select' | 'expand'
 	readonly #gate: () => void
-	readonly #rows: () => readonly TableKey[]
-	readonly #read: () => ReadonlySet<TableKey>
-	readonly #write: (keys: ReadonlySet<TableKey>) => void
+	readonly #rows: () => readonly GridKey[]
+	readonly #read: () => ReadonlySet<GridKey>
+	readonly #write: (keys: ReadonlySet<GridKey>) => void
 
 	/**
-	 * Creates a key-set shell over one table's private store.
+	 * Creates a key-set shell over one grid's private store.
 	 *
-	 * @param emitter - The table's event emitter.
+	 * @param emitter - The grid's event emitter.
 	 * @param event - The event this axis announces when its key set moves.
-	 * @param gate - The table lifecycle gate.
+	 * @param gate - The grid lifecycle gate.
 	 * @param rows - A read of every row key.
 	 * @param read - A read of the held keys.
 	 * @param write - The held-key commit boundary.
 	 */
 	constructor(
-		emitter: Emitter<TableEventMap>,
+		emitter: Emitter<GridEventMap>,
 		event: 'select' | 'expand',
 		gate: () => void,
-		rows: () => readonly TableKey[],
-		read: () => ReadonlySet<TableKey>,
-		write: (keys: ReadonlySet<TableKey>) => void,
+		rows: () => readonly GridKey[],
+		read: () => ReadonlySet<GridKey>,
+		write: (keys: ReadonlySet<GridKey>) => void,
 	) {
 		this.#emitter = emitter
 		this.#event = event
@@ -38,7 +38,7 @@ export class KeyManager {
 	}
 
 	/** Returns the keys held. */
-	get keys(): ReadonlySet<TableKey> {
+	get keys(): ReadonlySet<GridKey> {
 		return new Set(this.#read())
 	}
 
@@ -48,10 +48,10 @@ export class KeyManager {
 	 * @param input - Every known key, one key, or a key list.
 	 * @param include - Decides the next membership from each key's membership at that step.
 	 * @returns `undefined` for the no-argument form, `false` when any requested key names no row
-	 *   the table holds, and `true` otherwise.
+	 *   the grid holds, and `true` otherwise.
 	 */
 	change(
-		input: TableKey | readonly TableKey[] | undefined,
+		input: GridKey | readonly GridKey[] | undefined,
 		include: (included: boolean) => boolean,
 	): void | boolean {
 		this.#gate()

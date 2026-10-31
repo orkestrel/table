@@ -1,29 +1,29 @@
 import type { JSONRecord, JSONValue } from '@orkestrel/contract'
 import type {
 	CellComparator,
-	TableOrder,
-	TableKey,
-	TableCell,
-	TableColumn,
-	TableErrorCode,
-	TableFilter,
-	TableInterface,
-	TableOptions,
-	TableRow,
-	TableSchema,
+	GridOrder,
+	GridKey,
+	GridCell,
+	GridColumn,
+	GridErrorCode,
+	GridFilter,
+	GridInterface,
+	GridOptions,
+	GridRow,
+	GridSchema,
 } from '@src/core'
-import { createTable, isTableError, STRING_LIMIT, TEXT_LIMIT } from '@src/core'
+import { createGrid, isGridError, STRING_LIMIT, TEXT_LIMIT } from '@src/core'
 
 /** Compares text with numeric segments in natural lexical order. */
 export function compareTextNaturally(
-	left: TableCell | undefined,
-	right: TableCell | undefined,
+	left: GridCell | undefined,
+	right: GridCell | undefined,
 ): number {
 	return String(left ?? '').localeCompare(String(right ?? ''), undefined, { numeric: true })
 }
 
 /** Matches a contains filter after folding text to lowercase. */
-export function matchTextLoosely(cell: TableCell | undefined, filter: TableFilter): boolean {
+export function matchTextLoosely(cell: GridCell | undefined, filter: GridFilter): boolean {
 	return (
 		filter.operator === 'contains' &&
 		String(cell ?? '')
@@ -34,8 +34,8 @@ export function matchTextLoosely(cell: TableCell | undefined, filter: TableFilte
 
 /** Compares text by its string length. */
 export function compareTextByLength(
-	left: TableCell | undefined,
-	right: TableCell | undefined,
+	left: GridCell | undefined,
+	right: GridCell | undefined,
 ): number {
 	return String(left ?? '').length - String(right ?? '').length
 }
@@ -46,12 +46,12 @@ export function compareTextByLength(
  * @returns Matching cells and filters spanning admitted and refused combinations.
  */
 export function createFilterAdmissibilityVectors(): ReadonlyArray<{
-	readonly column: TableColumn
-	readonly filter: TableFilter
-	readonly cell: TableCell | undefined
+	readonly column: GridColumn
+	readonly filter: GridFilter
+	readonly cell: GridCell | undefined
 	readonly admitted: boolean
 }> {
-	const columns = createTableSchema().columns
+	const columns = createGridSchema().columns
 	const text = columns.find((column) => column.key === 'name')
 	const number = columns.find((column) => column.key === 'age')
 	const flag = columns.find((column) => column.key === 'active')
@@ -119,11 +119,11 @@ export function createFilterAdmissibilityVectors(): ReadonlyArray<{
 }
 
 /** Builds a fresh schema spanning every column cell. */
-export function createTableSchema(): TableSchema {
+export function createGridSchema(): GridSchema {
 	return {
 		name: 'people',
 		label: 'People',
-		help: 'A complete table schema',
+		help: 'A complete grid schema',
 		key: 'id',
 		columns: [
 			{ cell: 'text', key: 'id', label: 'Reference' },
@@ -145,7 +145,7 @@ export function createTableSchema(): TableSchema {
 }
 
 /** Builds fresh rows spanning present and absent cells. */
-export function createTableRows(): readonly TableRow[] {
+export function createGridRows(): readonly GridRow[] {
 	return [
 		{ id: '1', name: 'Ada', age: 36, active: true, status: 'live' },
 		{ id: '2', name: 'Grace', age: 45, active: false, status: 'draft' },
@@ -154,54 +154,54 @@ export function createTableRows(): readonly TableRow[] {
 	]
 }
 
-/** Opens a table over the shared schema and row population. */
-export function createTableFixture(options?: TableOptions): TableInterface {
-	const rows = options?.rows ?? createTableRows()
-	return createTable(createTableSchema(), options === undefined ? { rows } : { ...options, rows })
+/** Opens a grid over the shared schema and row population. */
+export function createGridFixture(options?: GridOptions): GridInterface {
+	const rows = options?.rows ?? createGridRows()
+	return createGrid(createGridSchema(), options === undefined ? { rows } : { ...options, rows })
 }
 
-// Run `operation`, returning a thrown `TableError`'s `code` (or a named literal) — so an error
+// Run `operation`, returning a thrown `GridError`'s `code` (or a named literal) — so an error
 // code is asserted unconditionally, never inside a conditional `expect`. Mirrors the sqlite
 // package's `sqliteErrorCode` in `tests/setupServer.ts`.
-export function readTableError(
+export function readGridError(
 	operation: () => unknown,
-): TableErrorCode | 'NOT_TABLE_ERROR' | 'NO_THROW' {
+): GridErrorCode | 'NOT_GRID_ERROR' | 'NO_THROW' {
 	try {
 		operation()
 		return 'NO_THROW'
 	} catch (error) {
-		return isTableError(error) ? error.code : 'NOT_TABLE_ERROR'
+		return isGridError(error) ? error.code : 'NOT_GRID_ERROR'
 	}
 }
 
-/** Exercises every public table write after teardown. */
+/** Exercises every public grid write after teardown. */
 export function readDestroyedWrites(
-	table: TableInterface,
-): ReadonlyArray<TableErrorCode | 'NOT_TABLE_ERROR' | 'NO_THROW'> {
+	grid: GridInterface,
+): ReadonlyArray<GridErrorCode | 'NOT_GRID_ERROR' | 'NO_THROW'> {
 	return [
-		readTableError(() => table.rows.add({ id: 'late' })),
-		readTableError(() => table.rows.update({ id: '1', name: 'late' })),
-		readTableError(() => table.rows.move('1', 0)),
-		readTableError(() => table.rows.remove('1')),
-		readTableError(() => table.sort.set({ column: 'name', direction: 'ascending' })),
-		readTableError(() => table.sort.remove('name')),
-		readTableError(() => table.filter.set({ column: 'name', operator: 'contains', text: 'a' })),
-		readTableError(() => table.filter.remove('name')),
-		readTableError(() => table.selection.select('1')),
-		readTableError(() => table.selection.clear('1')),
-		readTableError(() => table.selection.toggle('1')),
-		readTableError(() => table.expansion.expand('1')),
-		readTableError(() => table.expansion.clear('1')),
-		readTableError(() => table.expansion.toggle('1')),
-		readTableError(() => table.pagination.move(1)),
-		readTableError(() => table.pagination.resize(2)),
-		readTableError(() => table.clear()),
+		readGridError(() => grid.rows.add({ id: 'late' })),
+		readGridError(() => grid.rows.update({ id: '1', name: 'late' })),
+		readGridError(() => grid.rows.move('1', 0)),
+		readGridError(() => grid.rows.remove('1')),
+		readGridError(() => grid.sort.set({ column: 'name', direction: 'ascending' })),
+		readGridError(() => grid.sort.remove('name')),
+		readGridError(() => grid.filter.set({ column: 'name', operator: 'contains', text: 'a' })),
+		readGridError(() => grid.filter.remove('name')),
+		readGridError(() => grid.selection.select('1')),
+		readGridError(() => grid.selection.clear('1')),
+		readGridError(() => grid.selection.toggle('1')),
+		readGridError(() => grid.expansion.expand('1')),
+		readGridError(() => grid.expansion.clear('1')),
+		readGridError(() => grid.expansion.toggle('1')),
+		readGridError(() => grid.pagination.move(1)),
+		readGridError(() => grid.pagination.resize(2)),
+		readGridError(() => grid.clear()),
 	]
 }
 
 /** Builds a schema with an exact column population. */
-export function createColumnBudgetSchema(count: number): TableSchema {
-	const columns = Array.from<unknown, TableColumn>({ length: count }, (_, index) => ({
+export function createColumnBudgetSchema(count: number): GridSchema {
+	const columns = Array.from<unknown, GridColumn>({ length: count }, (_, index) => ({
 		cell: 'text',
 		key: index === 0 ? 'id' : `column-${index}`,
 	}))
@@ -209,7 +209,7 @@ export function createColumnBudgetSchema(count: number): TableSchema {
 }
 
 /** Builds a schema with an exact choice population. */
-export function createChoiceBudgetSchema(count: number): TableSchema {
+export function createChoiceBudgetSchema(count: number): GridSchema {
 	return {
 		key: 'id',
 		columns: [
@@ -227,7 +227,7 @@ export function createChoiceBudgetSchema(count: number): TableSchema {
 }
 
 /** Builds a schema at the whole-text budget plus an optional delta. */
-export function createTextBudgetSchema(extra = 0): TableSchema {
+export function createTextBudgetSchema(extra = 0): GridSchema {
 	const meta: Record<string, JSONValue> = Object.fromEntries(
 		Array.from({ length: 16 }, (_, index) => [
 			`k${index}`,
@@ -245,7 +245,7 @@ export function createDeepMetadata(depth: number): JSONRecord {
 }
 
 /** Builds a schema whose metadata contains an accessor. */
-export function createAccessorSchema(): TableSchema {
+export function createAccessorSchema(): GridSchema {
 	return {
 		key: 'id',
 		columns: [
@@ -285,7 +285,7 @@ export class TestMetadata {
 }
 
 /** Builds a schema at the whole-node budget plus an optional delta. */
-export function createNodeBudgetSchema(extra = 0): TableSchema {
+export function createNodeBudgetSchema(extra = 0): GridSchema {
 	return {
 		key: 'id',
 		columns: [
@@ -298,8 +298,8 @@ export function createNodeBudgetSchema(extra = 0): TableSchema {
 	}
 }
 
-/** Compares the direction of table order declarations. */
-export function matchDirection(first: TableOrder, second: TableOrder): boolean {
+/** Compares the direction of grid order declarations. */
+export function matchDirection(first: GridOrder, second: GridOrder): boolean {
 	return first.direction === second.direction
 }
 
@@ -309,17 +309,17 @@ export const compareCellsReverse: CellComparator = (left, right) =>
 
 /** Holds the selected keys supplied to a key manager. */
 export class KeyStore {
-	#keys: ReadonlySet<TableKey>
+	#keys: ReadonlySet<GridKey>
 
-	constructor(keys: readonly TableKey[] = []) {
+	constructor(keys: readonly GridKey[] = []) {
 		this.#keys = new Set(keys)
 	}
 
-	get keys(): ReadonlySet<TableKey> {
+	get keys(): ReadonlySet<GridKey> {
 		return this.#keys
 	}
 
-	set keys(keys: ReadonlySet<TableKey>) {
+	set keys(keys: ReadonlySet<GridKey>) {
 		this.#keys = keys
 	}
 }

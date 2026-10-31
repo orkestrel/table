@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest'
-import { matchesTableRow } from '@src/core'
+import { matchesGridRow } from '@src/core'
 import { requireValue } from '@orkestrel/test'
 import { readTable, readTableRows, readTableSchema, TableBindingError } from '@src/browser'
 import { createNativeTableFixture } from '../../setupBrowser.js'
@@ -14,9 +14,9 @@ it('projects typed cells, explicit identities, optional absence, and native data
 		expect(projection.rows[0]).toEqual({ id: 'cedar', name: 'Cedar', age: 31 })
 		requireValue(row.cells[2]).remove()
 		expect(readTableRows(projection.schema, [row])).toEqual([{ id: 'cedar', name: 'Cedar' }])
-		expect(matchesTableRow(projection.rows[0], { age: 31, name: 'Cedar', id: 'cedar' })).toBe(true)
-		expect(matchesTableRow(projection.rows[0], { name: 'Cedar', id: 'cedar' })).toBe(false)
-		expect(matchesTableRow(undefined, { id: 'cedar' })).toBe(false)
+		expect(matchesGridRow(projection.rows[0], { age: 31, name: 'Cedar', id: 'cedar' })).toBe(true)
+		expect(matchesGridRow(projection.rows[0], { name: 'Cedar', id: 'cedar' })).toBe(false)
+		expect(matchesGridRow(undefined, { id: 'cedar' })).toBe(false)
 	} finally {
 		root.remove()
 	}

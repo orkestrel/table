@@ -2,14 +2,14 @@ import type { JSONPrimitive, JSONRecord, JSONValue } from '@orkestrel/contract'
 import type {
 	CellComparator,
 	CellMatcher,
-	TableCell,
-	TableColumn,
-	TableFilter,
-	TableKey,
-	TableOrder,
-	TableRow,
-	TableSchema,
-	TableTerm,
+	GridCell,
+	GridColumn,
+	GridFilter,
+	GridKey,
+	GridOrder,
+	GridRow,
+	GridSchema,
+	GridTerm,
 } from './types.js'
 import {
 	attempt,
@@ -30,7 +30,7 @@ import {
 	STRING_LIMIT,
 	TEXT_LIMIT,
 } from './constants.js'
-import { TableError } from './errors.js'
+import { GridError } from './errors.js'
 
 /**
  * Finds one column by key; `undefined` when the schema declares no such column.
@@ -39,7 +39,7 @@ import { TableError } from './errors.js'
  * @param key - The column key to find.
  * @returns The declared column, or `undefined` when no column has that key.
  */
-export function extractColumn(schema: TableSchema, key: string): TableColumn | undefined {
+export function extractColumn(schema: GridSchema, key: string): GridColumn | undefined {
 	return schema.columns.find((column) => column.key === key)
 }
 
@@ -51,7 +51,7 @@ export function extractColumn(schema: TableSchema, key: string): TableColumn | u
  * @param row - The row whose identity to read.
  * @returns The non-empty string identity, or `undefined` when it is unusable.
  */
-export function extractKey(schema: TableSchema, row: TableRow): TableKey | undefined {
+export function extractGridKey(schema: GridSchema, row: GridRow): GridKey | undefined {
 	if (!Object.hasOwn(row, schema.key)) return undefined
 	const key = row[schema.key]
 	return isString(key) && key.length > 0 ? key : undefined
@@ -69,11 +69,11 @@ export function extractKey(schema: TableSchema, row: TableRow): TableKey | undef
  *   set when membership changes.
  */
 export function computeKeys(
-	known: readonly TableKey[],
-	current: ReadonlySet<TableKey>,
-	input: TableKey | readonly TableKey[] | undefined,
+	known: readonly GridKey[],
+	current: ReadonlySet<GridKey>,
+	input: GridKey | readonly GridKey[] | undefined,
 	include: (included: boolean) => boolean,
-): ReadonlySet<TableKey> | undefined {
+): ReadonlySet<GridKey> | undefined {
 	const requested = input === undefined ? known : isArray(input) ? input : [input]
 	const population = new Set(known)
 	if (requested.some((key) => !population.has(key))) return undefined
@@ -97,7 +97,7 @@ export function computeKeys(
  * @returns A frozen list holding one owned entry per column, in the order the columns first
  *   appeared.
  */
-export function mergeTerms<Term extends TableTerm>(
+export function mergeTerms<Term extends GridTerm>(
 	current: readonly Term[],
 	requested: readonly Term[],
 ): readonly Term[] {
@@ -120,7 +120,7 @@ export function mergeTerms<Term extends TableTerm>(
  * @param columns - The column keys to drop.
  * @returns A frozen list holding the entries no named column matched, in their original order.
  */
-export function removeTerms<Term extends TableTerm>(
+export function removeTerms<Term extends GridTerm>(
 	current: readonly Term[],
 	columns: readonly string[],
 ): readonly Term[] {
@@ -138,7 +138,7 @@ export function removeTerms<Term extends TableTerm>(
  * @returns True if the lists are the same length and every position names the same column and
  *   carries the same operands; false otherwise.
  */
-export function matchesTerms<Term extends TableTerm>(
+export function matchesTerms<Term extends GridTerm>(
 	left: readonly Term[],
 	right: readonly Term[],
 	equal: (left: Term, right: Term) => boolean,
@@ -160,7 +160,7 @@ export function matchesTerms<Term extends TableTerm>(
  * @param value - The unknown value to inspect.
  * @returns True if the column can hold the value; false otherwise.
  */
-export function matchesCell(column: TableColumn, value: unknown): value is TableCell {
+export function matchesCell(column: GridColumn, value: unknown): value is GridCell {
 	if (isString(value) && value.length > STRING_LIMIT) return false
 
 	switch (column.cell) {
@@ -184,9 +184,9 @@ export function matchesCell(column: TableColumn, value: unknown): value is Table
  * @returns A negative number, positive number, or zero in sort-comparator form.
  */
 export function compareCells(
-	column: TableColumn,
-	left: TableCell | undefined,
-	right: TableCell | undefined,
+	column: GridColumn,
+	left: GridCell | undefined,
+	right: GridCell | undefined,
 ): number {
 	if (left === undefined) return right === undefined ? 0 : -1
 	if (right === undefined) return 1
@@ -218,7 +218,7 @@ export function compareCells(
  * @param filter - The filter to inspect.
  * @returns True if the filter belongs to the column and the column can apply it; false otherwise.
  */
-export function admitsFilter(column: TableColumn, filter: TableFilter): boolean {
+export function admitsFilter(column: GridColumn, filter: GridFilter): boolean {
 	if (filter.column !== column.key) return false
 
 	switch (filter.operator) {
@@ -246,9 +246,9 @@ export function admitsFilter(column: TableColumn, filter: TableFilter): boolean 
  * @returns True if the filter accepts the cell; false otherwise.
  */
 export function matchesFilter(
-	column: TableColumn,
-	cell: TableCell | undefined,
-	filter: TableFilter,
+	column: GridColumn,
+	cell: GridCell | undefined,
+	filter: GridFilter,
 ): boolean {
 	if (cell === undefined || !admitsFilter(column, filter) || !matchesCell(column, cell))
 		return false
@@ -276,12 +276,12 @@ export function matchesFilter(
  * @param matchers - Optional per-column replacements for the default matcher.
  * @returns A frozen copy of the accepted rows in their original order.
  */
-export function filterRows(
-	schema: TableSchema,
-	rows: readonly TableRow[],
-	filters: readonly TableFilter[],
+export function filterGridRows(
+	schema: GridSchema,
+	rows: readonly GridRow[],
+	filters: readonly GridFilter[],
 	matchers?: Readonly<Record<string, CellMatcher>>,
-): readonly TableRow[] {
+): readonly GridRow[] {
 	return Object.freeze(
 		rows.filter((row) =>
 			filters.every((filter) => {
@@ -308,12 +308,12 @@ export function filterRows(
  * @param comparators - Optional per-column replacements for the default comparator.
  * @returns A frozen sorted copy that leaves the input untouched.
  */
-export function sortRows(
-	schema: TableSchema,
-	rows: readonly TableRow[],
-	orders: readonly TableOrder[],
+export function sortGridRows(
+	schema: GridSchema,
+	rows: readonly GridRow[],
+	orders: readonly GridOrder[],
 	comparators?: Readonly<Record<string, CellComparator>>,
-): readonly TableRow[] {
+): readonly GridRow[] {
 	const indexed = rows.map((row, index) => ({ row, index }))
 
 	indexed.sort((left, right) => {
@@ -345,10 +345,10 @@ export function sortRows(
  * Audits a structurally valid schema for domain faults and budget breaches, returning human
  * diagnostics.
  *
- * @param schema - The table schema to audit.
+ * @param schema - The grid schema to audit.
  * @returns Frozen human-readable diagnostics, or an empty list when the schema is sound.
  */
-export function auditTable(schema: TableSchema): readonly string[] {
+export function auditGrid(schema: GridSchema): readonly string[] {
 	const faults: string[] = []
 	const columns: string[] = []
 	const longName = schema.name !== undefined && schema.name.length > NAME_LIMIT
@@ -481,9 +481,9 @@ export function auditTable(schema: TableSchema): readonly string[] {
  *
  * @param schema - The schema to project.
  * @returns A deeply owned JSON record with absent members omitted.
- * @throws A {@link TableError} coded `SCHEMA` when metadata cannot be owned.
+ * @throws A {@link GridError} coded `SCHEMA` when metadata cannot be owned.
  */
-export function serializeTable(schema: TableSchema): JSONRecord {
+export function serializeGrid(schema: GridSchema): JSONRecord {
 	const output: Record<string, JSONValue> = {}
 	if (schema.name !== undefined) output.name = schema.name
 	if (schema.label !== undefined) output.label = schema.label
@@ -512,7 +512,7 @@ export function serializeTable(schema: TableSchema): JSONRecord {
 		return cloneJSONRecord(output)
 	} catch (error) {
 		if (!isContractError(error)) throw error
-		throw new TableError('SCHEMA', 'schema contains metadata that cannot be owned')
+		throw new GridError('SCHEMA', 'schema contains metadata that cannot be owned')
 	}
 }
 
@@ -524,10 +524,7 @@ export function serializeTable(schema: TableSchema): JSONRecord {
  * @param rows - The rows to project.
  * @returns A frozen list of owned JSON records with absent cells omitted.
  */
-export function serializeRows(
-	schema: TableSchema,
-	rows: readonly TableRow[],
-): readonly JSONRecord[] {
+export function serializeRows(schema: GridSchema, rows: readonly GridRow[]): readonly JSONRecord[] {
 	const output: JSONRecord[] = []
 
 	for (const row of rows) {
@@ -554,7 +551,7 @@ export function serializeRows(
  * @param right - The next row.
  * @returns Whether both rows carry exactly the same cells.
  */
-export function matchesTableRow(left: TableRow | undefined, right: TableRow): boolean {
+export function matchesGridRow(left: GridRow | undefined, right: GridRow): boolean {
 	return (
 		left !== undefined &&
 		Object.keys(left).length === Object.keys(right).length &&
