@@ -272,8 +272,6 @@ This helper belongs to the core entry.
 
 The document itself — what a grid declares and what one row of it holds. All data, no behavior.
 
-A `Shape` cell holds an interface's data members as bare names in braces, `?` marking an optional member and `plus` introducing its call-signature members, and a type alias's own type literal with a union's arms escaped as `\|`. An extended interface's name comes before `plus`, with the members it adds after.
-
 | Name           | Kind      | Signature                                                  | Summary                                                                                                                                                                                     |
 | -------------- | --------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `GridKey`      | type      | `string`                                                   | Represents a row's identity — a `string`, carried in the cell the schema's `key` names.                                                                                                     |
@@ -293,8 +291,6 @@ A `Shape` cell holds an interface's data members as bare names in braces, `?` ma
 
 The axes a grid reads its rows through, and the slots that replace what a column's cell fixes.
 
-A `Shape` cell holds an interface's data members as bare names in braces, `?` marking an optional member and `plus` introducing its call-signature members, and a type alias's own type literal with a union's arms escaped as `\|`.
-
 | Name             | Kind      | Signature                                                               | Summary                                                                                                                                        |
 | ---------------- | --------- | ----------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
 | `GridTerm`       | interface | `{ column }`                                                            | Represents one entry of a lens list — the `column` it names. A sort term and a filter each hold one, which is why the two share a list engine. |
@@ -311,8 +307,6 @@ A `Shape` cell holds an interface's data members as bare names in braces, `?` ma
 ### The grid
 
 The entity, its managers, its factory, its contract, and the error it raises.
-
-A `Shape` cell holds an interface's data members as bare names in braces, `?` marking an optional member and `plus` introducing its call-signature members, and a type alias's own type literal with a union's arms escaped as `\|`. A function row's `Shape` cell holds its signature, and a guard row's the type it narrows to. A class row's `Shape` cell holds the interface it implements, or its constructor signature where it implements none.
 
 | Name                         | Kind      | Signature                                                                                                                                                                                                                                                                                                                                                                                             | Summary                                                                                                                                                                                          |
 | ---------------------------- | --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -331,7 +325,7 @@ A `Shape` cell holds an interface's data members as bare names in braces, `?` ma
 | `GridErrorCode`              | type      | `'SCHEMA' \| 'COLUMN' \| 'KEY' \| 'CELL' \| 'DESTROYED'`                                                                                                                                                                                                                                                                                                                                              | Names the reason a `GridError` carries — the machine-readable code a `catch` branches on.                                                                                                        |
 | `isGridError`                | function  | `(input: unknown) => input is GridError`                                                                                                                                                                                                                                                                                                                                                              | Determines whether a caught value is a grid error, so a `catch` branches on `code` without an assertion.                                                                                         |
 
-`GridInterface`'s readonly data members stay here, in its `Shape` cell, rather than in
+`GridInterface`'s readonly data members stay here, in its `Signature` cell, rather than in
 `## Methods`, and each manager's own readonly members sit in that manager's cell. Every
 call-signature member is documented under [Methods](#methods).
 
@@ -351,8 +345,6 @@ The cell registry and the column budget. The registry is frozen, so a shared lis
 rewritten under a consumer. The other schema budgets are `@orkestrel/contract` exports; § Budgets
 lists them.
 
-A `Shape` cell holds the constant's declared type.
-
 | Name           | Kind  | Signature               | Summary                                                                |
 | -------------- | ----- | ----------------------- | ---------------------------------------------------------------------- |
 | `COLUMN_CELLS` | const | `readonly ColumnCell[]` | Lists every column cell, in the order declared by the public contract. |
@@ -362,8 +354,6 @@ A `Shape` cell holds the constant's declared type.
 
 Total `is*` guards over unknown input. None throws, none coerces, and each returns `false` for
 anything off-shape — including an unexpected prototype, a symbol key, or a cyclic value.
-
-In a guard table a `Shape` cell holds the type the guard narrows to.
 
 | Name                     | Kind     | Signature                                   | Summary                                                                                                                                |
 | ------------------------ | -------- | ------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
@@ -1437,7 +1427,7 @@ auditGrid({ key: 'id', columns: [{ cell: 'text', key: 'id' }] }) // []
 
 The public methods of the behavioral interfaces, which their classes implement exactly and add
 nothing to. Every readonly data member stays in the `## Surface` rows stated earlier, in each
-interface's `Shape` cell, and is not repeated here.
+interface's `Signature` cell, and is not repeated here.
 
 Every other row in the Surface tables is a data shape, a union, a constant, a function, or an error
 class, so none of them carries a method table. `CellComparator` and `CellMatcher` are callable
