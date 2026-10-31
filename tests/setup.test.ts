@@ -1,5 +1,5 @@
 import type { FilterOperator, GridFilter, GridRow } from '@src/core'
-import { NODE_LIMIT, STRING_LIMIT, TEXT_LIMIT } from '@src/core'
+import { NODE_LIMIT, STRING_LIMIT, TEXT_LIMIT } from '@orkestrel/contract'
 import {
 	compareTextByLength,
 	compareTextNaturally,

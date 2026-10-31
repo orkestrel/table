@@ -1,5 +1,5 @@
+import { STRING_LIMIT } from '@orkestrel/contract'
 import {
-	STRING_LIMIT,
 	auditGrid,
 	isGridRow,
 	isGridSchema,

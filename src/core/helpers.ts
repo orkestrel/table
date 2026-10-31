@@ -12,6 +12,11 @@ import type {
 	GridTerm,
 } from './types.js'
 import {
+	CHOICE_LIMIT,
+	NAME_LIMIT,
+	NODE_LIMIT,
+	STRING_LIMIT,
+	TEXT_LIMIT,
 	attempt,
 	cloneJSONRecord,
 	isArray,
@@ -22,14 +27,7 @@ import {
 	isString,
 	readArrayEntries,
 } from '@orkestrel/contract'
-import {
-	CHOICE_LIMIT,
-	COLUMN_LIMIT,
-	NAME_LIMIT,
-	NODE_LIMIT,
-	STRING_LIMIT,
-	TEXT_LIMIT,
-} from './constants.js'
+import { COLUMN_LIMIT } from './constants.js'
 import { GridError } from './errors.js'
 
 /**

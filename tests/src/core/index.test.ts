@@ -42,13 +42,8 @@ describe('src core entry', () => {
 	it('exports every pure engine runtime name exactly', () => {
 		expect(Object.keys(entry).sort()).toStrictEqual(
 			[
-				'CHOICE_LIMIT',
 				'COLUMN_CELLS',
 				'COLUMN_LIMIT',
-				'NAME_LIMIT',
-				'NODE_LIMIT',
-				'STRING_LIMIT',
-				'TEXT_LIMIT',
 				'Grid',
 				'GridError',
 				'admitsFilter',

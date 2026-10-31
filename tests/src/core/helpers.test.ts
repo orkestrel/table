@@ -1,11 +1,6 @@
 import type { GridFilter, GridOrder, GridRow, GridSchema } from '@src/core'
 import {
-	CHOICE_LIMIT,
 	COLUMN_LIMIT,
-	NAME_LIMIT,
-	NODE_LIMIT,
-	STRING_LIMIT,
-	TEXT_LIMIT,
 	admitsFilter,
 	auditGrid,
 	compareCells,
@@ -34,7 +29,14 @@ import {
 	createTextBudgetSchema,
 } from '../../setup.js'
 import { describe, expect, it } from 'vitest'
-import { isUndefined as absentMatcher } from '@orkestrel/contract'
+import {
+	CHOICE_LIMIT,
+	NAME_LIMIT,
+	NODE_LIMIT,
+	STRING_LIMIT,
+	TEXT_LIMIT,
+	isUndefined as absentMatcher,
+} from '@orkestrel/contract'
 
 it('compares complete row values without relying on snapshot identity or property order', () => {
 	expect(matchesGridRow({ id: 'ash', name: 'Ash' }, { name: 'Ash', id: 'ash' })).toBe(true)
@@ -115,6 +117,16 @@ describe('grid helper leaves', () => {
 		).toBe(true)
 		expect(admitsFilter(text, { column: 'name', operator: 'contains', text: 'ace' })).toBe(true)
 		expect(admitsFilter(number, { column: 'age', operator: 'contains', text: '4' })).toBe(false)
+		expect(
+			admitsFilter(text, { column: 'name', operator: 'contains', text: 'a'.repeat(STRING_LIMIT) }),
+		).toBe(true)
+		expect(
+			admitsFilter(text, {
+				column: 'name',
+				operator: 'contains',
+				text: 'a'.repeat(STRING_LIMIT + 1),
+			}),
+		).toBe(false)
 		expect(
 			admitsFilter(flag, {
 				column: 'active',

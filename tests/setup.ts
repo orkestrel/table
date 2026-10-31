@@ -12,7 +12,8 @@ import type {
 	GridRow,
 	GridSchema,
 } from '@src/core'
-import { createGrid, isGridError, STRING_LIMIT, TEXT_LIMIT } from '@src/core'
+import { STRING_LIMIT, TEXT_LIMIT } from '@orkestrel/contract'
+import { createGrid, isGridError } from '@src/core'
 
 /** Compares text with numeric segments in natural lexical order. */
 export function compareTextNaturally(

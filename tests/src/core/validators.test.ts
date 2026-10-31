@@ -1,6 +1,6 @@
 import type { GridSchema } from '@src/core'
 import {
-	CHOICE_LIMIT,
+	COLUMN_CELLS,
 	COLUMN_LIMIT,
 	auditGrid,
 	isColumnCell,
@@ -21,7 +21,7 @@ import {
 	createGridSchema,
 } from '../../setup.js'
 import { createHostileValues } from '@orkestrel/test'
-import { attempt } from '@orkestrel/contract'
+import { CHOICE_LIMIT, attempt } from '@orkestrel/contract'
 import { describe, expect, it } from 'vitest'
 
 describe('grid structural guards', () => {
@@ -38,6 +38,12 @@ describe('grid structural guards', () => {
 		expect(schema.columns.every((column) => isGridColumn(column))).toBe(true)
 		expect(createGridRows().every((row) => isGridRow(row))).toBe(true)
 		expect(isGridSchema(schema)).toBe(true)
+	})
+
+	it('admits every column cell of the frozen registry, in contract order', () => {
+		expect(COLUMN_CELLS).toStrictEqual(['text', 'number', 'flag', 'choice'])
+		expect(Object.isFrozen(COLUMN_CELLS)).toBe(true)
+		expect(COLUMN_CELLS.every((cell) => isColumnCell(cell))).toBe(true)
 	})
 
 	it('rejects unknown members at every fixed record level', () => {

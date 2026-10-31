@@ -347,20 +347,16 @@ its own managers against the manager interfaces and reads these classes as the w
 
 ### Constants
 
-The cell registry and the budgets. The registry is frozen, so a shared list cannot be rewritten
-under a consumer.
+The cell registry and the column budget. The registry is frozen, so a shared list cannot be
+rewritten under a consumer. The other schema budgets are `@orkestrel/contract` exports; § Budgets
+lists them.
 
 A `Shape` cell holds the constant's declared type.
 
-| Name           | Kind  | Signature               | Summary                                                                                       |
-| -------------- | ----- | ----------------------- | --------------------------------------------------------------------------------------------- |
-| `COLUMN_CELLS` | const | `readonly ColumnCell[]` | Lists every column cell, in the order declared by the public contract.                        |
-| `COLUMN_LIMIT` | const | `256`                   | Names the maximum number of columns one schema may declare: 256.                              |
-| `CHOICE_LIMIT` | const | `1024`                  | Names the maximum number of choices one `choice` column may offer: 1024.                      |
-| `NAME_LIMIT`   | const | `128`                   | Names the maximum length of a schema name or column key: 128 UTF-16 code units.               |
-| `STRING_LIMIT` | const | `65536`                 | Names the maximum length of any single retained string: 65536 UTF-16 code units.              |
-| `TEXT_LIMIT`   | const | `1048576`               | Names the maximum total length of every string one schema retains: 1048576 UTF-16 code units. |
-| `NODE_LIMIT`   | const | `16384`                 | Names the maximum total number of records, arrays, and leaves one schema retains: 16384.      |
+| Name           | Kind  | Signature               | Summary                                                                |
+| -------------- | ----- | ----------------------- | ---------------------------------------------------------------------- |
+| `COLUMN_CELLS` | const | `readonly ColumnCell[]` | Lists every column cell, in the order declared by the public contract. |
+| `COLUMN_LIMIT` | const | `256`                   | Names the maximum number of columns one schema may declare: 256.       |
 
 ### Guards
 
@@ -1353,8 +1349,10 @@ Object.isFrozen(cloneGridSchema({ key: 'id', columns: [{ cell: 'text', key: 'id'
 ### Budgets
 
 The budgets bound how much a schema can be, so a document that arrives from a wire cannot cost
-unbounded memory or unbounded scanning before anything decides to trust it. Every one is exported, so
-a host can check against the same number the package checks against.
+unbounded memory or unbounded scanning before anything decides to trust it. This package exports
+`COLUMN_LIMIT`, and `@orkestrel/contract` exports `CHOICE_LIMIT`, `NAME_LIMIT`, `STRING_LIMIT`,
+`TEXT_LIMIT`, and `NODE_LIMIT`, so a host can check against the same number the package checks
+against.
 
 | Constant       | Value   | Unit                    | Bounds                                    |
 | -------------- | ------- | ----------------------- | ----------------------------------------- |
@@ -1372,12 +1370,12 @@ total nodes — `meta` included, because it is retained like everything else —
 diagnostic per breach. `createGrid` raises `SCHEMA` carrying them and `parseGrid` refuses the
 schema, so no over-budget schema is ever held.
 
-**The value door refuses.** `matchesCell` checks `STRING_LIMIT` on any string before it consults the
-column, so an over-long cell is refused before anything else looks at it. `rows.add`, `rows.update`,
-and a seeded row raise `CELL`; `parseRows` returns `undefined`.
+**The value door refuses.** `matchesCell` checks `STRING_LIMIT`, from `@orkestrel/contract`, on any
+string before it consults the column, so an over-long cell is refused before anything else looks at
+it. `rows.add`, `rows.update`, and a seeded row raise `CELL`; `parseRows` returns `undefined`.
 
-`STRING_LIMIT` is the one that stands at each door, so no string this package retains is longer
-than 65536 code units whichever way it arrived.
+`STRING_LIMIT`, from `@orkestrel/contract`, is the one that stands at each door, so no string this
+package retains is longer than 65536 code units whichever way it arrived.
 
 The whole-schema ceilings are what make the arithmetic safe. Whatever the per-item limits admit,
 one audited schema retains at most 1048576 string code units and at most 16384 nodes, so the worst
@@ -1663,13 +1661,14 @@ These invariants hold across [`src/core`](../src/core) and this guide.
     no usable identity, when two rows share one, when a cell's column cannot hold it, or when a key
     names no declared column. It coerces a numeric string for a `number` column and `'true'` /
     `'false'` for a `flag` column, and nothing else.
-19. **Every retained size is budgeted.** `auditGrid` reports a breach of `COLUMN_LIMIT`,
-    `CHOICE_LIMIT`, `NAME_LIMIT`, `STRING_LIMIT`, `TEXT_LIMIT`, or `NODE_LIMIT`, so `createGrid`
-    raises `SCHEMA` and `parseGrid` refuses; `matchesCell` refuses a string breaching
-    `STRING_LIMIT` before it consults the column, so a write raises `CELL` and `parseRows` returns
-    `undefined`. `TEXT_LIMIT` and `NODE_LIMIT` are whole-schema ceilings, `meta` included, so the
-    per-item limits never multiply. Row count is deliberately unbudgeted, and so is the structural
-    read at the parse door, which is the transport's to bound.
+19. **Every retained size is budgeted.** `auditGrid` reports a breach of this package's
+    `COLUMN_LIMIT` or of the `@orkestrel/contract` budgets `CHOICE_LIMIT`, `NAME_LIMIT`,
+    `STRING_LIMIT`, `TEXT_LIMIT`, and `NODE_LIMIT`, so `createGrid` raises `SCHEMA` and
+    `parseGrid` refuses; `matchesCell` refuses a string breaching `STRING_LIMIT`, from
+    `@orkestrel/contract`, before it consults the column, so a write raises `CELL` and `parseRows`
+    returns `undefined`. `TEXT_LIMIT` and `NODE_LIMIT`, from `@orkestrel/contract`, are whole-schema
+    ceilings, `meta` included, so the per-item limits never multiply. Row count is deliberately
+    unbudgeted, and so is the structural read at the parse door, which is the transport's to bound.
 20. **`auditGrid` returns diagnostics, not a contract.** The list's emptiness is the promise. The
     wording of its strings is not. Never parse them.
 21. **Temporal values are ISO text compared lexically, under one spelling.** A date, a time, and a
@@ -1749,13 +1748,12 @@ this package answers today through a mechanism it already exposes.
   `compareCells`, `admitsFilter`, `matchesFilter`, `filterGridRows`, `sortGridRows`, `auditGrid`,
   `serializeGrid`, `serializeRows`, and the budgets.
 - [`tests/src/core/validators.test.ts`](../tests/src/core/validators.test.ts) — every guard against
-  valid, off-shape, and untrusted input, plus guard/parser soundness in both directions.
+  valid, off-shape, and untrusted input, the cell registry, plus guard/parser soundness in both
+  directions.
 - [`tests/src/core/parsers.test.ts`](../tests/src/core/parsers.test.ts) — `parseGrid`, `parseRows`,
   the coercions, identity at the parse door, and the canonical byte-stable round trip.
 - [`tests/src/core/cloners.test.ts`](../tests/src/core/cloners.test.ts) — every clone is owned,
   frozen, and deep enough that no caller reference survives.
-- [`tests/src/core/constants.test.ts`](../tests/src/core/constants.test.ts) — the cell registry and
-  each budget's value and unit.
 - [`tests/src/core/errors.test.ts`](../tests/src/core/errors.test.ts) — `GridError`'s `code` and
   `context`, and `isGridError` narrowing.
 - [`tests/src/core/factories.test.ts`](../tests/src/core/factories.test.ts) — `createGrid` returns

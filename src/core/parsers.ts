@@ -1,5 +1,6 @@
 import type { GridCell, GridRow, GridSchema } from './types.js'
 import {
+	STRING_LIMIT,
 	attempt,
 	isArray,
 	isRecord,
@@ -8,7 +9,6 @@ import {
 	readArrayEntries,
 } from '@orkestrel/contract'
 import { cloneRow } from './cloners.js'
-import { STRING_LIMIT } from './constants.js'
 import { extractColumn, extractGridKey, matchesCell, serializeGrid } from './helpers.js'
 import { isGridSchema } from './validators.js'
 
