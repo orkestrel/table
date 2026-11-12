@@ -824,6 +824,18 @@ export interface PaginationManagerInterface {
 	 */
 	move(page: number): void
 	/**
+	 * Finds the page that holds one row under the current filter and sort.
+	 *
+	 * @remarks
+	 * The answer is worked out when it is asked, from the rows the filter admits in the order the
+	 * sort gives them, so it never goes stale. It moves nothing: pass it to `move` to show the page.
+	 *
+	 * @param key - The row's key.
+	 * @returns The page, counted from one, that holds the row; `1` when the grid is not paged; and
+	 *   `undefined` when the filter hides the row or the grid holds no row with that key.
+	 */
+	locate(key: GridKey): number | undefined
+	/**
 	 * Sets how many rows a page holds, keeping the first row the view was showing. Leave the
 	 * argument out to stop paging.
 	 *

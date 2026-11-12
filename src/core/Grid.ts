@@ -115,6 +115,7 @@ export class Grid implements GridInterface {
 			this.#emitter,
 			() => this.#gate(),
 			() => this.count,
+			() => this.#orderedKeys(),
 			() => this.#page,
 			(page) => {
 				this.#page = page
@@ -199,12 +200,7 @@ export class Grid implements GridInterface {
 
 	/** Returns the filtered, sorted, and paged rows as owned frozen snapshots. */
 	get view(): readonly GridRow[] {
-		const ordered = sortGridRows(
-			this.#schema,
-			this.#filtered(),
-			this.#orderStore,
-			this.#comparators,
-		)
+		const ordered = this.#ordered()
 		const limit = this.#limit
 		const page =
 			limit === undefined
@@ -255,6 +251,17 @@ export class Grid implements GridInterface {
 
 	#filtered(): readonly GridRow[] {
 		return filterGridRows(this.#schema, this.#rowStore, this.#filterStore, this.#matchers)
+	}
+
+	#ordered(): readonly GridRow[] {
+		return sortGridRows(this.#schema, this.#filtered(), this.#orderStore, this.#comparators)
+	}
+
+	#orderedKeys(): readonly GridKey[] {
+		return this.#ordered().flatMap((row) => {
+			const key = extractGridKey(this.#schema, row)
+			return key === undefined ? [] : [key]
+		})
 	}
 
 	#keys(): readonly GridKey[] {

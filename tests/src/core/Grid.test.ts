@@ -63,7 +63,7 @@ describe('Grid construction and derived state', () => {
 			['clear', 'constructor', 'expand', 'keys', 'toggle'].sort(),
 		)
 		expect(Object.getOwnPropertyNames(PaginationManager.prototype).sort()).toStrictEqual(
-			['constructor', 'count', 'limit', 'move', 'offset', 'page', 'resize'].sort(),
+			['constructor', 'count', 'limit', 'locate', 'move', 'offset', 'page', 'resize'].sort(),
 		)
 	})
 

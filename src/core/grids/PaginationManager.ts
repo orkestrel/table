@@ -1,12 +1,13 @@
 import { isFiniteNumber } from '@orkestrel/contract'
 import type { Emitter } from '@orkestrel/emitter'
-import type { PaginationManagerInterface, GridEventMap } from '../types.js'
+import type { PaginationManagerInterface, GridEventMap, GridKey } from '../types.js'
 
 /** Manages the page arithmetic over one grid's filtered rows. */
 export class PaginationManager implements PaginationManagerInterface {
 	readonly #emitter: Emitter<GridEventMap>
 	readonly #gate: () => void
 	readonly #rows: () => number
+	readonly #keys: () => readonly GridKey[]
 	readonly #readPage: () => number
 	readonly #writePage: (page: number) => void
 	readonly #readLimit: () => number | undefined
@@ -18,6 +19,7 @@ export class PaginationManager implements PaginationManagerInterface {
 	 * @param emitter - The grid's event emitter.
 	 * @param gate - The grid lifecycle gate.
 	 * @param rows - A read of the filtered row count.
+	 * @param keys - A read of the filtered rows' keys, in the order the sort gives them.
 	 * @param readPage - A read of the current page.
 	 * @param writePage - The page commit boundary.
 	 * @param readLimit - A read of the current page size.
@@ -27,6 +29,7 @@ export class PaginationManager implements PaginationManagerInterface {
 		emitter: Emitter<GridEventMap>,
 		gate: () => void,
 		rows: () => number,
+		keys: () => readonly GridKey[],
 		readPage: () => number,
 		writePage: (page: number) => void,
 		readLimit: () => number | undefined,
@@ -35,6 +38,7 @@ export class PaginationManager implements PaginationManagerInterface {
 		this.#emitter = emitter
 		this.#gate = gate
 		this.#rows = rows
+		this.#keys = keys
 		this.#readPage = readPage
 		this.#writePage = writePage
 		this.#readLimit = readLimit
@@ -76,6 +80,14 @@ export class PaginationManager implements PaginationManagerInterface {
 		if (next === this.#readPage()) return
 		this.#writePage(next)
 		this.#emitter.emit('paginate', next)
+	}
+
+	/** Finds the page that holds one row under the current filter and sort. */
+	locate(key: GridKey): number | undefined {
+		const index = this.#keys().indexOf(key)
+		const limit = this.#readLimit()
+		if (index === -1) return undefined
+		return limit === undefined ? 1 : Math.floor(index / limit) + 1
 	}
 
 	/** Changes the page size while keeping the first row previously shown. */

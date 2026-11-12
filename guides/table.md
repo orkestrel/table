@@ -320,7 +320,7 @@ The entity, its managers, its factory, its contract, and the error it raises.
 | `FilterManagerInterface`     | interface | `{ filter(), filters(), set(), remove() }`                                                                                                                                                                                                                                                                                                                                                            | Manages which rows a grid keeps.                                                                                                                                                                 |
 | `SelectionManagerInterface`  | interface | `{ keys, select(), clear(), toggle() }`                                                                                                                                                                                                                                                                                                                                                               | Manages the rows somebody has picked.                                                                                                                                                            |
 | `ExpansionManagerInterface`  | interface | `{ keys, expand(), clear(), toggle() }`                                                                                                                                                                                                                                                                                                                                                               | Manages the rows somebody has opened up.                                                                                                                                                         |
-| `PaginationManagerInterface` | interface | `{ page, limit, offset, count, move(), resize() }`                                                                                                                                                                                                                                                                                                                                                    | Manages which stretch of the filtered rows the view shows.                                                                                                                                       |
+| `PaginationManagerInterface` | interface | `{ page, limit, offset, count, move(), locate(), resize() }`                                                                                                                                                                                                                                                                                                                                          | Manages which stretch of the filtered rows the view shows.                                                                                                                                       |
 | `GridError`                  | class     | `new (code: GridErrorCode, message: string, context?: JSONRecord) => GridError`                                                                                                                                                                                                                                                                                                                       | Represents an error raised by the grid domain — a machine-readable `code` and optional structured `context`.                                                                                     |
 | `GridErrorCode`              | type      | `'SCHEMA' \| 'COLUMN' \| 'KEY' \| 'CELL' \| 'DESTROYED'`                                                                                                                                                                                                                                                                                                                                              | Names the reason a `GridError` carries — the machine-readable code a `catch` branches on.                                                                                                        |
 | `isGridError`                | function  | `(input: unknown) => input is GridError`                                                                                                                                                                                                                                                                                                                                                              | Determines whether a caught value is a grid error, so a `catch` branches on `code` without an assertion.                                                                                         |
@@ -971,6 +971,10 @@ the filter admits, so nothing here can drift out of step with what the grid hold
   "page 1 of 1" over an empty list needs no separate case for it.
 - A page beyond the last one clamps to the last one. Narrowing the filter therefore moves the page
   on its own, and moving to page 9 of 3 shows page 3 rather than nothing.
+- `locate` names the page that holds one row under the current filter and sort, so a host turns to
+  a row with `move(locate(key))` and keeps no copy of the lens to work it out. An unpaged grid
+  answers `1`, and a key the filter hides or no row holds answers `undefined`, never a page the
+  row is not on. `locate` moves nothing.
 - `resize` keeps the first row the view was showing, so the page moves to wherever that row
   falls. Resizing is a change of magnification, not a jump to the top.
 
@@ -987,6 +991,13 @@ grid.pagination.move(9)
 grid.pagination.page // 3 — clamped to the last page
 grid.pagination.offset // 4
 grid.view.map((row) => row.id) // ['5']
+
+grid.pagination.locate('3') // 2 — rows 3 and 4 fill the second page
+grid.pagination.locate('9') // undefined — no row holds that key
+grid.filter.set({ column: 'id', operator: 'contains', text: '5' })
+grid.pagination.locate('3') // undefined — the filter hides the row
+grid.pagination.locate('5') // 1 — one admitted row fills one page
+grid.filter.remove()
 
 grid.pagination.resize()
 grid.pagination.limit // undefined — not paged
@@ -1503,10 +1514,11 @@ it either way.
 
 #### `PaginationManagerInterface`
 
-| Method   | Returns | Summary                                                                                                             |
-| -------- | ------- | ------------------------------------------------------------------------------------------------------------------- |
-| `move`   | `void`  | Shows another page, counted from one and clamped to the pages that exist.                                           |
-| `resize` | `void`  | Sets how many rows a page holds, keeping the first row the view was showing. Leave the argument out to stop paging. |
+| Method   | Returns                 | Summary                                                                                                             |
+| -------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `move`   | `void`                  | Shows another page, counted from one and clamped to the pages that exist.                                           |
+| `locate` | `number` or `undefined` | Finds the page that holds one row under the current filter and sort.                                                |
+| `resize` | `void`                  | Sets how many rows a page holds, keeping the first row the view was showing. Leave the argument out to stop paging. |
 
 ### Errors
 
@@ -1623,7 +1635,9 @@ These invariants hold across [`src/core`](../src/core) and this guide.
     `offset` is `(page - 1) * limit` and zero when unpaged; `count` is `max(1, ceil(rows / limit))`
     and `1` when unpaged — so a paged grid with no admitted rows holds one page, and that page's
     `view` is empty. A page beyond the last clamps to the last, including when a filter or a removal
-    shrinks the rows underneath it. `resize` keeps the first row the view was showing.
+    shrinks the rows underneath it. `locate` is derived the same way: the page of a key among the rows
+    the filter admits, in the order the sort gives them, `1` when unpaged, and `undefined` for a
+    key the filter hides or no row holds. `resize` keeps the first row the view was showing.
 14. **Every event fires after commit, and a no-op is silent.** No listener sees a state the grid has
     not finished writing, and a call that moves nothing announces nothing — the same sort term twice,
     a toggle back to where it was, a `move` to the index a row already occupies. When one call moves
