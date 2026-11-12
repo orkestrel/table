@@ -1352,8 +1352,8 @@ The project loads `tests/setup.ts` alone. The tests import
 `tests/setupStudy.ts`, a harness module the package owns, so scaffold plans no such file and no
 project loads it as a setup file. In publishing and `private: true` workspaces, run the project on
 demand with `npm run test:studies` alone; no gate or chain runs it.
-Its longer timeouts and disabled file parallelism match the
-live-service project. The root `studies/` directory holds the adapters and declarations the study
+Its longer timeouts match the live-service project, and its files run in parallel, because its
+proofs drive seeded, replayed, or scripted runs rather than a live service. The root `studies/` directory holds the adapters and declarations the study
 tests run, and it selects nothing. A chain that carries a study step fails the configuration proof
 until the workspace removes that step during scaffold adoption.
 
@@ -2209,7 +2209,7 @@ extras pass through unchanged except for the selected showcase pair. Extras foll
 `ORKESTREL_RANGE_PATTERN`; foreign peers follow `FLOOR_RANGE_PATTERN`.
 
 A browser application with `showcase: true`, including its Vue face, selects exact
-`vite-plugin-singlefile: 2.3.3`, Vite `^8.3.7` from scaffold's manifest, and the npm override
+`vite-plugin-singlefile: 2.3.3`, Vite `^8.3.8` from scaffold's manifest, and the npm override
 `"vite-plugin-singlefile@2.3.3": { "micromatch": "npm:picomatch@2.3.2" }`. This policy applies
 after extras. Online resolution excludes this pair from ordinary foreign-major updates; other
 dependencies retain their usual resolution. Repair preserves each package's runtime or development
@@ -2287,7 +2287,7 @@ The dependency tables select these floors:
 | `oxfmt`                      | `^0.78.0`  | Every workspace                                                |
 | `@microsoft/api-extractor`   | `^7.60.1`  | Declaration builds; uses its bundled TypeScript 6.0.3 engine   |
 | `playwright`                 | `^1.64.1`  | Browser tooling                                                |
-| Vite                         | `^8.3.7`   | Every workspace                                                |
+| Vite                         | `^8.3.8`   | Every workspace                                                |
 | `@types/node`                | `^24.19.2` | Every workspace; generated workspaces support Node `>=22.18.0` |
 
 Node 26 types admit APIs that the supported runtime lacks. Inside the declared major the verbs
